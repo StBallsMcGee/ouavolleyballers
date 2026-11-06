@@ -1,0 +1,18 @@
+# Private source captures — may contain emails, session tokens, league passwords
+*.har
+*.har.json
+/source-data/
+/snapshots/
+/data/raw/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies / builds
+node_modules/
+.next/
+dist/
+coverage/
+.DS_Store
