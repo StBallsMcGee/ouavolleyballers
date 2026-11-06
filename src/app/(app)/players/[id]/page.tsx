@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireLeague } from "@/lib/data/context";
-import { getOwnership, getRuleSets, getUniversities, ruleSetInForce } from "@/lib/data/queries";
+import { getOwnership, getRuleSets, getSeasonPlayerPoints, getUniversities, ruleSetInForce } from "@/lib/data/queries";
+import { buildBlurb, yearLabel } from "@/lib/players/blurb";
+import { PlayerPhoto } from "@/components/player-photo";
 import { scoreStatLine, STAT_SHORT, CORE_STAT_KEYS, type StatLine } from "@/lib/scoring/engine";
 import { formatDate } from "@/lib/time";
-import { Badge, Card, Empty, PageHeader, Points, PositionTag, TeamLink } from "@/components/ui";
+import { Badge, Card, Empty, Points, TeamLink } from "@/components/ui";
 
 export default async function PlayerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,12 +14,15 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   const { supabase: sb, league } = ctx;
   const { data: p } = await sb.from("players").select("*").eq("id", id).maybeSingle();
   if (!p) notFound();
-  const [unis, owner, { data: stats }, { data: leaguePts }, ruleSets] = await Promise.all([
+  const [unis, owner, { data: stats }, { data: leaguePts }, ruleSets, { data: profile }, seasonPts, { data: teammates }] = await Promise.all([
     getUniversities(sb),
     getOwnership(sb, league.id),
     sb.from("player_match_statistics").select("*, matches(id, match_date, season_label, home_university_id, away_university_id, status)").eq("player_id", id),
     sb.from("v_player_match_points").select("match_id, points, week").eq("player_id", id).eq("league_id", league.id),
     getRuleSets(sb, league.id),
+    sb.from("player_profiles").select("*").eq("player_id", id).maybeSingle(),
+    getSeasonPlayerPoints(sb, league.id),
+    p.university_id ? sb.from("players").select("id").eq("university_id", p.university_id).is("duplicate_of", null) : Promise.resolve({ data: [] as Array<{ id: string }> }),
   ]);
   const official = new Map((leaguePts ?? []).map((r) => [r.match_id, r]));
   const latestRules = ruleSetInForce(ruleSets, ctx.currentWeek ?? 1)?.rules.map((r) => ({ statKey: r.stat_key, label: r.label, points: r.points, active: r.active })) ?? [];
@@ -40,21 +45,69 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   const seasons = [...new Set(rows.map((r) => r.season))];
   const o = owner.get(id);
   const team = ctx.teams.find((t) => t.id === o);
+  const uniName = p.university_id ? unis.get(p.university_id)?.name ?? "?" : "?";
+  const current = rows.filter((r) => r.season === league.season_label);
+  const sum = (k: (typeof CORE_STAT_KEYS)[number], rs: Row[]) => rs.reduce((a, r) => a + (r.line[k] ?? 0), 0);
+  const ranked = (teammates ?? []).map((t) => ({ id: t.id, pts: seasonPts.get(t.id)?.points ?? 0 })).sort((a, b) => b.pts - a.pts);
+  const rankIdx = ranked.findIndex((t) => t.id === id);
+  const blurb = buildBlurb({
+    profile: profile ? { position: profile.position_label, academicYear: profile.academic_year, hometown: profile.hometown, previousTeam: profile.previous_team } : null,
+    ourPosition: p.position_label,
+    university: uniName,
+    season: current.length
+      ? {
+          matches: current.length,
+          sets: current.reduce((a, r) => a + (r.sets ?? 0), 0),
+          kills: sum("kills", current), digs: sum("digs", current), assists: sum("assists", current), aces: sum("service_aces", current),
+          soloBlocks: sum("solo_blocks", current), blockAssists: sum("block_assists", current),
+          fantasyPoints: current.reduce((a, r) => a + r.pts, 0),
+        }
+      : null,
+    teamRank: rankIdx >= 0 && (seasonPts.get(id)?.points ?? 0) > 0 ? { rank: rankIdx + 1, of: ranked.length } : null,
+  });
+  const facts = [
+    ["Position", profile?.position_label ?? p.position_label],
+    ["Height", profile?.height],
+    ["Year", yearLabel(profile?.academic_year ?? null) ?? profile?.academic_year],
+    ["Hometown", profile?.hometown],
+    ["Previously", profile?.previous_team],
+  ].filter(([, v]) => v) as Array<[string, string]>;
+
   return (
     <>
-      <PageHeader
-        title={p.display_name}
-        subtitle={<><PositionTag label={p.position_label} /> · {p.university_id ? unis.get(p.university_id)?.name : "–"}{p.jersey_number !== null ? ` · #${p.jersey_number}` : ""}{!p.active ? " · inactive" : ""}</>}
-        actions={team ? <span className="text-sm">On <TeamLink id={team.id} name={team.name} mine={team.id === ctx.myTeam?.id} /></span> : p.active && !p.duplicate_of ? <Link href={`/free-agents?q=${encodeURIComponent(p.last_name)}`} className="btn-primary">Free agent · Add</Link> : null}
-      />
-      {p.duplicate_of ? <p className="mb-4"><Badge tone="amber">Duplicate record</Badge> <Link href={`/players/${p.duplicate_of}`} className="link text-sm">Go to the main record</Link></p> : null}
+      <div className="border-b border-gray-200 bg-white px-4 pb-4 pt-4 sm:mt-4 sm:rounded-xl sm:border">
+        <div className="flex items-center gap-4">
+          <PlayerPhoto name={p.display_name} photo={profile?.photo_url} size={88} />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-extrabold leading-tight">{p.display_name}</h1>
+            <p className="text-sm text-gray-600">{uniName}{p.jersey_number !== null ? ` · #${p.jersey_number}` : ""} · {p.position_label ?? "–"}{!p.active ? " · inactive" : ""}</p>
+            <div className="mt-1.5 text-sm">
+              {team ? <span>On <TeamLink id={team.id} name={team.name} mine={team.id === ctx.myTeam?.id} /></span>
+                : p.active && !p.duplicate_of ? <Link href={`/free-agents?q=${encodeURIComponent(p.last_name)}`} className="btn-primary min-h-[32px] px-3 py-1 text-xs">Free agent · Add</Link> : null}
+            </div>
+          </div>
+        </div>
+        {p.duplicate_of ? <p className="mt-3"><Badge tone="amber">Duplicate record</Badge> <Link href={`/players/${p.duplicate_of}`} className="link text-sm">Go to the main record</Link></p> : null}
+        <p className="mt-4 text-[15px] leading-relaxed text-gray-800">{blurb}</p>
+        {facts.length ? (
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-3">
+            {facts.map(([k, v]) => <div key={k}><dt className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{k}</dt><dd className="font-semibold">{v}</dd></div>)}
+          </dl>
+        ) : null}
+        {profile ? (
+          <p className="mt-3 text-xs text-gray-500">
+            Photo and bio details: {profile.source_label}{profile.profile_url ? <> · <a href={profile.profile_url} target="_blank" rel="noopener noreferrer" className="link">Official profile ↗</a></> : null}
+          </p>
+        ) : null}
+      </div>
+      <div className="mt-3 space-y-3">
       {seasons.length === 0 ? <Empty>No match statistics recorded for this player.</Empty> : seasons.map((season) => {
         const rs = rows.filter((r) => r.season === season);
         const total = rs.reduce((a, r) => a + r.pts, 0);
         const sum = (k: (typeof CORE_STAT_KEYS)[number]) => rs.reduce((a, r) => a + (r.line[k] ?? 0), 0);
         return (
-          <Card key={season} title={`${season} · ${rs.length} matches`} action={<span className="text-sm">Fantasy points <Points value={Math.round(total * 10) / 10} /></span>} className="mb-4">
-            <div className="-mx-4 overflow-x-auto sm:mx-0">
+          <Card key={season} title={`${season} · ${rs.length} matches`} action={<span className="text-sm">Fantasy points <Points value={Math.round(total * 10) / 10} /></span>} flush>
+            <div className="overflow-x-auto">
               <table className="table">
                 <thead><tr><th>Date</th><th>Opponent</th><th className="text-right">Sets</th>{CORE_STAT_KEYS.map((k) => <th key={k} className="text-right">{STAT_SHORT[k]}</th>)}<th className="text-right">Pts</th></tr></thead>
                 <tbody>
@@ -74,7 +127,8 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
           </Card>
         );
       })}
-      <p className="text-xs text-gray-500">K kills · E attack errors · TA attack attempts · A assists · SA aces · SE service errors · D digs · BS solo blocks · BA block assists. * calculated with current league scoring for reference.</p>
+      </div>
+      <p className="px-4 py-4 text-xs text-gray-500 sm:px-0">K kills · E attack errors · TA attack attempts · A assists · SA aces · SE service errors · D digs · BS solo blocks · BA block assists. * calculated with current league scoring for reference.</p>
     </>
   );
 }

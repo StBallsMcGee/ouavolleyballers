@@ -35,7 +35,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
             items={rows.slice(0, 150).map((p) => {
               const o = owner.get(p.id);
               return {
-                id: p.id, name: p.display_name, code: sched.code(p.university_id), position: p.position_label,
+                id: p.id, name: p.display_name, photo: p.photo, code: sched.code(p.university_id), position: p.position_label,
                 games: sched.chipsFor(p.university_id), points: p.pts, gamesPlayed: p.gp,
                 owner: o ? { id: o, name: team.get(o)?.name ?? "", mine: o === ctx.myTeam?.id } : null,
                 flags: [...(p.duplicate_of ? ["Duplicate"] : []), ...(!p.active ? ["Inactive"] : [])],

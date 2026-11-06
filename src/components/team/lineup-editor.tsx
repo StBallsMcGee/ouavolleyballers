@@ -4,11 +4,13 @@ import { useMemo, useState, useTransition } from "react";
 import { addDrop, saveLineup } from "@/app/actions";
 import { autofillLineup, validateLineup, type LineupPlayer } from "@/lib/lineup/lineup";
 import { BENCH, isEligibleForSlot, slotGroup } from "@/lib/league/settings";
-import { Avatar, GameLine, type GameLineChip } from "@/components/ui";
+import { GameLine, type GameLineChip } from "@/components/ui";
+import { PlayerPhoto } from "@/components/player-photo";
 
 export interface EditorPlayer extends LineupPlayer {
   positionLabel: string | null;
   universityCode: string;
+  photoUrl: string | null;
   weekPoints: number;
   seasonPoints: number;
   games: GameLineChip[];
@@ -93,7 +95,7 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: 
         <span className={`w-9 shrink-0 text-center text-[11px] font-extrabold ${slot === BENCH ? "text-gray-400" : "text-gray-700"}`}>{slot === BENCH ? "BN" : slotGroup(slot)}</span>
         {ep ? (
           <>
-            <Avatar name={ep.name} size={38} />
+            <PlayerPhoto name={ep.name} photo={ep.photoUrl} size={42} />
             <div className="min-w-0 flex-1">
               <Link href={`/players/${ep.playerId}`} className="block truncate text-[15px] font-bold leading-tight hover:underline">{ep.name}</Link>
               <div className="truncate text-[12px] text-gray-500">

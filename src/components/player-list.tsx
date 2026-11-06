@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { Avatar, Badge, GameLine, type GameLineChip } from "@/components/ui";
+import { Badge, GameLine, type GameLineChip } from "@/components/ui";
+import { PlayerPhoto } from "@/components/player-photo";
 
 export interface PlayerListItem {
   id: string;
   name: string;
+  photo?: string | null;
   code: string;
   position: string | null;
   games: GameLineChip[];
@@ -20,7 +22,7 @@ export function PlayerList({ items, showOwner = true }: { items: PlayerListItem[
     <ul className="divide-y divide-gray-100">
       {items.map((p) => (
         <li key={p.id} className="flex items-center gap-3 px-3 py-2.5">
-          <Avatar name={p.name} size={38} />
+          <PlayerPhoto name={p.name} photo={p.photo} size={40} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <Link href={`/players/${p.id}`} className="truncate text-[15px] font-bold leading-tight hover:underline">{p.name}</Link>

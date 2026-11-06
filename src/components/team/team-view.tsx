@@ -41,6 +41,7 @@ export async function TeamView({ teamId, editable }: { teamId: string; editable:
     slot: r.slot,
     locked: r.universityId ? locked.has(r.universityId) : false,
     playsToday: r.universityId ? playsToday.has(r.universityId) : false,
+    photoUrl: r.photoUrl,
     universityCode: r.universityId ? unis.get(r.universityId)?.short_name ?? unis.get(r.universityId)?.name ?? "?" : "?",
     weekPoints: weekByPlayer.get(r.playerId) ?? 0,
     seasonPoints: season.get(r.playerId)?.points ?? 0,

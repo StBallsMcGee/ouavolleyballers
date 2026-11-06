@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // API routes listed here check their own secret (CRON_SECRET) instead of a login session.
-const PUBLIC_PATHS = ["/login", "/auth", "/api/cron", "/api/admin/import"];
+const PUBLIC_PATHS = ["/login", "/auth", "/api/cron", "/api/admin/import", "/api/admin/profiles"];
 
 /** Refreshes the login session on every request and keeps signed-out visitors on /login. */
 export async function middleware(request: NextRequest) {

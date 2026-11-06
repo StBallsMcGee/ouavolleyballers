@@ -5,7 +5,8 @@ import { getMatchupScores, getRoster, getTeamPlayerPoints, type RosterPlayer } f
 import { loadScheduleContext } from "@/lib/data/schedule-context";
 import { slotGroup } from "@/lib/league/settings";
 import { formatDate } from "@/lib/time";
-import { Avatar, Card, Empty, GameLine, MatchupStatus, Notice } from "@/components/ui";
+import { Card, Empty, GameLine, MatchupStatus, Notice } from "@/components/ui";
+import { PlayerPhoto } from "@/components/player-photo";
 
 export default async function MatchupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -38,7 +39,7 @@ export default async function MatchupPage({ params }: { params: Promise<{ id: st
     const v = pts.get(p.playerId) ?? 0;
     return (
       <div className={`flex min-w-0 items-center gap-2 ${align === "right" ? "flex-row-reverse text-right" : ""}`}>
-        <Avatar name={p.name} size={30} />
+        <PlayerPhoto name={p.name} photo={p.photoUrl} size={32} />
         <div className="min-w-0 flex-1">
           <Link href={`/players/${p.playerId}`} className="block truncate text-[13px] font-bold leading-tight">{p.name}</Link>
           <div className="truncate text-[11px] text-gray-500">{sched.code(p.universityId)} · {p.positionLabel ?? "–"}</div>
