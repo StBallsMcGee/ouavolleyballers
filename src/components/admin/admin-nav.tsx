@@ -7,6 +7,7 @@ const LINKS = [
   ["/admin/teams", "Teams & managers"],
   ["/admin/matchups", "Matchups & playoffs"],
   ["/admin/matches", "Matches & locks"],
+  ["/admin/import", "Import"],
   ["/admin/audit", "Audit log"],
 ] as const;
 
