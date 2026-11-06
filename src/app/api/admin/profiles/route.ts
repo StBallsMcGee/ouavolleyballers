@@ -46,6 +46,11 @@ export async function POST(req: NextRequest) {
       }
     }
   }
-  const result = await withTransaction((db) => writeProfiles(db, parsed.data.schools), { commit: true });
-  return NextResponse.json({ ok: true, ...result });
+  try {
+    const result = await withTransaction((db) => writeProfiles(db, parsed.data.schools), { commit: true });
+    return NextResponse.json({ ok: true, ...result });
+  } catch (e) {
+    // Caller already proved it holds CRON_SECRET, so the database message is safe to return.
+    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
+  }
 }
