@@ -48,19 +48,26 @@ export default async function AdminMatchupsPage({ searchParams }: { searchParams
     <>
       <PageHeader title="Matchups & playoffs" subtitle="Matchups become final automatically the day after their week ends, once every match has finished. You can override that here." />
       <AdminNav current="/admin/matchups" />
-      <div className="mb-4 flex gap-1 overflow-x-auto pb-1">
+      <div className="mb-3 flex flex-wrap gap-1.5 px-4 sm:px-0">
         {ctx.weeks.map((w) => <a key={w.week} href={`/admin/matchups?week=${w.week}`} className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold ${w.week === week ? "bg-coral-500 text-white" : "bg-gray-100 text-gray-700"}`}>W{w.week}</a>)}
       </div>
-      <Card title={`Week ${week}`}>
+      <Card title={`Week ${week}`} flush>
         {thisWeek.length === 0 ? <Empty>No matchups this week.</Empty> : (
-          <table className="table">
-            <thead><tr><th>Home</th><th>Away</th><th className="text-right">Score</th><th>Status</th></tr></thead>
-            <tbody>{thisWeek.map((m) => <tr key={m.id}><td>{names[m.home_team_id]}</td><td>{names[m.away_team_id]}</td><td className="text-right font-mono">{m.home_score.toFixed(1)}–{m.away_score.toFixed(1)}{m.score_source === "imported" ? " *" : ""}</td><td><MatchupStatusSelect id={m.id} status={m.status} /></td></tr>)}</tbody>
-          </table>
+          <ul className="divide-y divide-gray-100">
+            {thisWeek.map((m) => (
+              <li key={m.id} className="flex items-center gap-3 px-4 py-2.5">
+                <div className="min-w-0 flex-1 text-sm">
+                  <div className="flex justify-between gap-2"><span className="truncate">{names[m.home_team_id]}</span><span className="shrink-0 font-mono">{m.home_score.toFixed(1)}</span></div>
+                  <div className="flex justify-between gap-2"><span className="truncate">{names[m.away_team_id]}</span><span className="shrink-0 font-mono">{m.away_score.toFixed(1)}</span></div>
+                  {m.score_source === "imported" ? <div className="text-[11px] text-gray-500">Result from USportVB</div> : null}
+                </div>
+                <MatchupStatusSelect id={m.id} status={m.status} />
+              </li>
+            ))}
+          </ul>
         )}
-        <p className="mt-2 text-xs text-gray-500">* result recorded on USportVB before the move to Sideout.</p>
       </Card>
-      <Card title="Playoffs" className="mt-4">
+      <Card title="Playoffs" className="mt-3">
         {!po.enabled ? <Notice>Playoffs are turned off. Turn them on and choose the number of teams and first week in <a href="/admin/settings" className="link">League settings</a>.</Notice> : plan ? (
           <><p className="mb-2 text-sm text-gray-500">Seeded from the current standings (top {po.teams}). {planNote}</p><PlayoffCreator week={plan.week} pairs={plan.pairs} names={names} /></>
         ) : <p className="text-sm text-gray-500">{planNote}</p>}

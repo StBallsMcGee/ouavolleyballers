@@ -113,9 +113,32 @@ export interface GameLineChip {
   tone: "bye" | "live" | "today" | "upcoming" | "final" | "none";
 }
 
-/** The "Sat 2:00 PM @ GPH" / "BYE" line under a player's name. */
-export function GameLine({ chips }: { chips: GameLineChip[] }) {
+function toneClass(t: GameLineChip["tone"]) {
+  return t === "bye" ? "font-extrabold text-amber-700" : t === "live" ? "font-bold text-red-600" : t === "today" ? "font-bold text-gray-900" : t === "final" ? "text-gray-500" : "text-gray-700";
+}
+
+/** The single most useful game: live/today/next upcoming, else the last result, else BYE. */
+export function primaryChip(chips: readonly GameLineChip[]): { chip: GameLineChip | null; more: number } {
+  if (chips.length === 0) return { chip: null, more: 0 };
+  if (chips[0]!.tone === "bye") return { chip: chips[0]!, more: 0 };
+  const next = chips.find((c) => c.tone === "live" || c.tone === "today" || c.tone === "upcoming");
+  const chip = next ?? chips[chips.length - 1]!;
+  return { chip, more: chips.length - 1 };
+}
+
+/** The "Sat 2:00 PM @ GPH" / "BYE" line under a player's name. `compact` = one line only. */
+export function GameLine({ chips, compact = false }: { chips: GameLineChip[]; compact?: boolean }) {
   if (chips.length === 0) return <span className="text-gray-400">No games scheduled</span>;
+  if (compact) {
+    const { chip, more } = primaryChip(chips);
+    if (!chip) return null;
+    return (
+      <span className="block truncate">
+        <span className={toneClass(chip.tone)}>{chip.text}</span>
+        {more > 0 ? <span className="ml-1 rounded bg-gray-100 px-1 text-[10px] font-bold text-gray-500" title={`${more + 1} games this week`}>+{more}</span> : null}
+      </span>
+    );
+  }
   return (
     <span className="flex flex-wrap gap-x-2 gap-y-0.5">
       {chips.map((c, i) => (

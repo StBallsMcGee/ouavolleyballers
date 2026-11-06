@@ -92,7 +92,7 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: 
     const isMover = !!p && p.playerId === moving;
     return (
       <li key={p ? p.playerId : slot} className={`flex items-center gap-3 px-3 py-2.5 ${isMover ? "bg-coral-50" : ""}`}>
-        <span className={`w-9 shrink-0 text-center text-[11px] font-extrabold ${slot === BENCH ? "text-gray-400" : "text-gray-700"}`}>{slot === BENCH ? "BN" : slotGroup(slot)}</span>
+        <span className={`w-8 shrink-0 text-center text-[11px] font-extrabold ${slot === BENCH ? "text-gray-400" : "text-gray-700"}`}>{slot === BENCH ? "BN" : slotGroup(slot)}</span>
         {ep ? (
           <>
             <PlayerPhoto name={ep.name} photo={ep.photoUrl} size={42} />
@@ -104,11 +104,10 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: 
                   <button className="ml-2 font-semibold text-red-600" disabled={pending} onClick={() => drop(ep)}>Drop</button>
                 ) : null}
               </div>
-              <div className="mt-0.5 text-[12px] leading-snug"><GameLine chips={ep.games} /></div>
+              <div className="mt-0.5 text-[12px] leading-snug"><GameLine chips={ep.games} compact /></div>
             </div>
             <div className="w-12 shrink-0 text-right">
               <div className={`text-[15px] font-extrabold tabular-nums ${ep.weekPoints < 0 ? "text-red-600" : slot === BENCH ? "text-gray-400" : ""}`}>{fmt(ep.weekPoints)}</div>
-              <div className="text-[10px] text-gray-400">{fmt(ep.seasonPoints)} szn</div>
             </div>
           </>
         ) : (
@@ -125,8 +124,7 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: 
     <div className="space-y-3 pb-16">
       {editable ? (
         <div className="flex items-center gap-2 px-4 sm:px-0">
-          <button className="btn-secondary min-h-[34px] px-3 py-1 text-xs" onClick={autofill} disabled={pending || !!moving}>Start active players</button>
-          {moving ? <span className="text-xs font-semibold text-coral-700">Tap HERE to move {byId.get(moving)?.name}</span> : null}
+          {moving ? <span className="min-w-0 truncate text-xs font-semibold text-coral-700">Tap HERE to move {byId.get(moving)?.name}</span> : <button className="btn-secondary min-h-[34px] px-3 py-1 text-xs" onClick={autofill} disabled={pending}>Start active players</button>}
         </div>
       ) : null}
       {msg && !dirty ? <p className={`px-4 text-sm sm:px-0 ${msg.ok ? "text-emerald-700" : "text-red-600"}`} role="status">{msg.text}</p> : null}

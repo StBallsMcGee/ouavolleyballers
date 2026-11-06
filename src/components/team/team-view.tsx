@@ -80,9 +80,6 @@ export async function TeamView({ teamId, editable }: { teamId: string; editable:
       <div className="mt-3">
         <LineupEditor teamId={teamId} players={players} slots={slots} editable={editable} rosterLimit={league.settings.roster.TOTAL} />
       </div>
-      <p className="px-4 pb-4 text-xs text-gray-500 sm:px-0">
-        Each player locks when her match starts (if no start time is listed: {league.settings.lineupLock.fallbackLocalTime} Toronto time on match day) and stays locked for the rest of the day. Only starters score. Times are Toronto time.
-      </p>
     </>
   );
 }

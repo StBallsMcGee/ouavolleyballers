@@ -27,7 +27,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
     .sort((a, b) => b.pts - a.pts || a.display_name.localeCompare(b.display_name));
   return (
     <>
-      <PageHeader title="Players" subtitle={`${league.season_label} fantasy points · ${sched.week ? `week ${sched.week.week} games shown` : "next games shown"}`} />
+      <PageHeader title="Players" />
       <PlayerFilters unis={[...sched.unis.values()]} sp={sp} />
       <Card flush title={`${rows.length} players`}>
         {rows.length === 0 ? <Empty>No players match these filters.</Empty> : (

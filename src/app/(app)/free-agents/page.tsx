@@ -32,7 +32,7 @@ export default async function FreeAgentsPage({ searchParams }: { searchParams: P
   const myRoster = roster.map((r) => ({ id: r.playerId, name: r.name, locked: r.universityId ? locked.has(r.universityId) : false }));
   return (
     <>
-      <PageHeader title="Free agents" subtitle={myTeam ? `Your roster ${roster.length}/${limit} · added players join your bench` : undefined} />
+      <PageHeader title="Free agents" subtitle={myTeam ? `Your roster ${roster.length}/${limit}` : undefined} />
       {!enabled ? <div className="mb-3"><Notice tone="amber">Free agency is currently closed by the league administrator.</Notice></div> : null}
       <PlayerFilters unis={[...sched.unis.values()]} sp={sp} showStatus={false} />
       <Card flush title={`${rows.length} available`}>

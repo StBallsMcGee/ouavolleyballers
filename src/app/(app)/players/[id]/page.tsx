@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireLeague } from "@/lib/data/context";
 import { getOwnership, getRuleSets, getSeasonPlayerPoints, getUniversities, ruleSetInForce } from "@/lib/data/queries";
 import { buildBlurb, yearLabel } from "@/lib/players/blurb";
+import { statSummary } from "@/lib/players/format";
 import { PlayerPhoto } from "@/components/player-photo";
 import { scoreStatLine, STAT_SHORT, CORE_STAT_KEYS, type StatLine } from "@/lib/scoring/engine";
 import { formatDate } from "@/lib/time";
@@ -106,8 +107,26 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
         const total = rs.reduce((a, r) => a + r.pts, 0);
         const sum = (k: (typeof CORE_STAT_KEYS)[number]) => rs.reduce((a, r) => a + (r.line[k] ?? 0), 0);
         return (
-          <Card key={season} title={`${season} · ${rs.length} matches`} action={<span className="text-sm">Fantasy points <Points value={Math.round(total * 10) / 10} /></span>} flush>
-            <div className="overflow-x-auto">
+          <details key={season} open={season === league.season_label || seasons.length === 1} className="group border-y border-gray-200 bg-white sm:rounded-xl sm:border">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 border-b border-gray-100 px-4 py-2.5">
+              <span className="text-[13px] font-extrabold uppercase tracking-wide text-gray-800">{season} · {rs.length} matches</span>
+              <span className="flex items-center gap-2 text-sm"><Points value={Math.round(total * 10) / 10} /> pts<span className="text-gray-400 transition group-open:rotate-90">›</span></span>
+            </summary>
+            <ul className="divide-y divide-gray-100 sm:hidden">
+              {rs.map((r) => (
+                <li key={r.id}>
+                  <Link href={`/matches/${r.id}`} className="flex items-center gap-3 px-4 py-2.5 active:bg-gray-50">
+                    <div className="w-16 shrink-0 text-xs">
+                      <div className="font-semibold text-gray-800">{formatDate(r.date, { month: "short", day: "numeric" })}</div>
+                      <div className="truncate text-gray-500">vs {r.opp ? unis.get(r.opp)?.short_name ?? unis.get(r.opp)?.name : "?"}</div>
+                    </div>
+                    <div className="min-w-0 flex-1 text-xs text-gray-700">{statSummary(r.line)}{r.sets ? <span className="text-gray-400"> · {r.sets} sets</span> : null}</div>
+                    <div className="shrink-0 text-right text-sm"><Points value={r.pts} />{r.official ? null : <span className="text-gray-400">*</span>}</div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto sm:block">
               <table className="table">
                 <thead><tr><th>Date</th><th>Opponent</th><th className="text-right">Sets</th>{CORE_STAT_KEYS.map((k) => <th key={k} className="text-right">{STAT_SHORT[k]}</th>)}<th className="text-right">Pts</th></tr></thead>
                 <tbody>
@@ -124,11 +143,11 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
                 </tbody>
               </table>
             </div>
-          </Card>
+          </details>
         );
       })}
       </div>
-      <p className="px-4 py-4 text-xs text-gray-500 sm:px-0">K kills · E attack errors · TA attack attempts · A assists · SA aces · SE service errors · D digs · BS solo blocks · BA block assists. * calculated with current league scoring for reference.</p>
+      <p className="px-4 py-4 text-xs text-gray-500 sm:px-0">K kills · E attack errors · TA attempts · A assists · SA aces · SE service errors · D digs · BS solo blocks · BA block assists. * earlier season, shown with current scoring.</p>
     </>
   );
 }

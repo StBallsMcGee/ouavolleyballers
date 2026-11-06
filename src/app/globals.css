@@ -8,7 +8,10 @@
 }
 
 html, body { background: #f2f4f7; }
-body { @apply text-gray-900 antialiased; -webkit-tap-highlight-color: transparent; }
+/* Phones: the page never scrolls sideways. Content is designed to fit; this is the safety net. */
+html, body { max-width: 100%; overflow-x: clip; }
+body { @apply text-gray-900 antialiased; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+img, svg, video { max-width: 100%; }
 
 @layer components {
   .card { @apply mx-4 rounded-xl border border-gray-200 bg-white shadow-sm sm:mx-0; }

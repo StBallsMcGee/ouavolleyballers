@@ -43,7 +43,7 @@ export default async function MatchupPage({ params }: { params: Promise<{ id: st
         <div className="min-w-0 flex-1">
           <Link href={`/players/${p.playerId}`} className="block truncate text-[13px] font-bold leading-tight">{p.name}</Link>
           <div className="truncate text-[11px] text-gray-500">{sched.code(p.universityId)} · {p.positionLabel ?? "–"}</div>
-          {isCurrent ? <div className="truncate text-[11px]"><GameLine chips={sched.chipsFor(p.universityId).slice(0, 2)} /></div> : null}
+          {isCurrent ? <div className="text-[11px]"><GameLine chips={sched.chipsFor(p.universityId)} compact /></div> : null}
         </div>
         <div className={`w-10 shrink-0 text-[14px] font-extrabold tabular-nums ${v < 0 ? "text-red-600" : ""}`}>{v.toFixed(1)}</div>
       </div>
@@ -80,7 +80,7 @@ export default async function MatchupPage({ params }: { params: Promise<{ id: st
 
       <div className="mt-3 space-y-3">
         {m.score_source === "imported" ? (
-          <Notice>This result was recorded on USportVB before the league moved to Sideout, so a player-by-player breakdown isn&apos;t available.</Notice>
+          <Notice>{m.status === "void" ? "No contest: this week was played on USportVB and has no recorded result yet." : "Result recorded on USportVB before the switch to Sideout."}</Notice>
         ) : !isCurrent ? (
           <Card flush title="Points by player">
             {home.length + away.length === 0 ? <Empty>No points recorded for this week.</Empty> : (
@@ -126,7 +126,6 @@ export default async function MatchupPage({ params }: { params: Promise<{ id: st
                 </ul>
               </section>
             ) : null}
-            <p className="px-4 text-xs text-gray-500 sm:px-0">Points shown are what counts this week: a player only scores for matches she started. Lineups shown are the current ones.</p>
           </>
         )}
       </div>

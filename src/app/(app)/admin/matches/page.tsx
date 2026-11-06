@@ -15,26 +15,22 @@ export default async function AdminMatchesPage({ searchParams }: { searchParams:
   const [matches, unis] = await Promise.all([getMatchesBetween(ctx.supabase, from, to), getUniversities(ctx.supabase)]);
   return (
     <>
-      <PageHeader title="Matches & locks" subtitle={`${formatDate(from)} – ${formatDate(to)}. Lock times are in Toronto time. Untick "counts" for exhibition matches that shouldn't score.`} />
+      <PageHeader title="Matches & locks" subtitle={`${formatDate(from)} – ${formatDate(to)} · Toronto time. Untick "counts" for exhibitions.`} />
       <AdminNav current="/admin/matches" />
-      <div className="mb-4 flex gap-2"><a className="btn-secondary" href={`/admin/matches?from=${addDays(from, -14)}`}>← Earlier</a><a className="btn-secondary" href={`/admin/matches?from=${addDays(from, 14)}`}>Later →</a></div>
-      <Card>
+      <div className="mb-3 flex gap-2 px-4 sm:px-0"><a className="btn-secondary" href={`/admin/matches?from=${addDays(from, -14)}`}>← Earlier</a><a className="btn-secondary" href={`/admin/matches?from=${addDays(from, 14)}`}>Later →</a></div>
+      <Card flush>
         {matches.length === 0 ? <Empty>No matches in this period.</Empty> : (
-          <div className="-mx-4 overflow-x-auto sm:mx-0">
-            <table className="table">
-              <thead><tr><th>Date</th><th>Match</th><th>Lock source</th><th>Lock time · status · counts</th></tr></thead>
-              <tbody>
-                {matches.map((m) => (
-                  <tr key={m.id}>
-                    <td>{formatDate(m.match_date)}</td>
-                    <td>{unis.get(m.home_university_id)?.name} – {unis.get(m.away_university_id)?.name}</td>
-                    <td className="text-xs text-gray-500">{m.lock_source === "fallback" ? "default time" : m.lock_source}</td>
-                    <td><MatchRowEditor id={m.id} lockAt={m.lock_at} counts={m.counts_for_fantasy} status={m.status} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ul className="divide-y divide-gray-100">
+            {matches.map((m) => (
+              <li key={m.id} className="space-y-2 px-4 py-3">
+                <div className="flex items-baseline justify-between gap-2 text-sm">
+                  <span className="min-w-0 truncate font-semibold">{unis.get(m.away_university_id)?.short_name ?? unis.get(m.away_university_id)?.name} @ {unis.get(m.home_university_id)?.short_name ?? unis.get(m.home_university_id)?.name}</span>
+                  <span className="shrink-0 text-xs text-gray-500">{formatDate(m.match_date)} · {m.lock_source === "fallback" ? "default lock" : m.lock_source === "admin" ? "set by admin" : "start time"}</span>
+                </div>
+                <MatchRowEditor id={m.id} lockAt={m.lock_at} counts={m.counts_for_fantasy} status={m.status} />
+              </li>
+            ))}
+          </ul>
         )}
       </Card>
     </>
