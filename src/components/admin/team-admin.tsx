@@ -12,11 +12,11 @@ export function InviteForm({ teamId, email, name, claimed }: { teamId: string; e
   const [msg, setMsg] = useState<Msg>(null);
   const [pending, start] = useTransition();
   return (
-    <form className="flex flex-wrap items-center gap-2" onSubmit={(ev) => { ev.preventDefault(); start(async () => { const r = await inviteManager(teamId, e, n, send); setMsg({ ok: r.ok, text: r.ok ? r.message ?? "" : r.error }); }); }}>
-      <input className="input w-52 py-1 text-xs" type="email" placeholder="manager@email.com" value={e} onChange={(x) => setE(x.target.value)} required />
-      <input className="input w-40 py-1 text-xs" placeholder="Manager name" value={n} onChange={(x) => setN(x.target.value)} />
+    <form className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center" onSubmit={(ev) => { ev.preventDefault(); start(async () => { const r = await inviteManager(teamId, e, n, send); setMsg({ ok: r.ok, text: r.ok ? r.message ?? "" : r.error }); }); }}>
+      <input className="input col-span-2 py-1.5 sm:w-56" type="email" placeholder="manager@email.com" value={e} onChange={(x) => setE(x.target.value)} required />
+      <input className="input col-span-2 py-1.5 sm:w-40" placeholder="Manager name" value={n} onChange={(x) => setN(x.target.value)} />
       <label className="flex items-center gap-1 text-xs text-gray-500"><input type="checkbox" className="accent-coral-500" checked={send} onChange={(x) => setSend(x.target.checked)} />email invite</label>
-      <button className="btn-secondary px-3 py-1 text-xs" disabled={pending}>{claimed ? "Re-assign" : email ? "Update / resend" : "Invite"}</button>
+      <button className="btn-secondary min-h-[36px] px-3 py-1 text-xs" disabled={pending}>{claimed ? "Re-assign" : email ? "Update / resend" : "Invite"}</button>
       <Result m={msg} />
     </form>
   );

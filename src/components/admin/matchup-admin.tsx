@@ -8,7 +8,7 @@ export function MatchupStatusSelect({ id, status }: { id: string; status: string
   const [pending, start] = useTransition();
   return (
     <span className="inline-flex items-center gap-2">
-      <select className="input w-36 py-1 text-xs" value={value} disabled={pending} onChange={(e) => { const v = e.target.value as "scheduled" | "in_progress" | "final" | "void"; if (v === "void" && !confirm("Mark as no contest? Neither team gets a win or loss.")) return; setValue(v); start(async () => { const r = await setMatchupStatus(id, v); setErr(r.ok ? null : r.error); }); }}>
+      <select className="input w-32 shrink-0 py-1.5" value={value} disabled={pending} onChange={(e) => { const v = e.target.value as "scheduled" | "in_progress" | "final" | "void"; if (v === "void" && !confirm("Mark as no contest? Neither team gets a win or loss.")) return; setValue(v); start(async () => { const r = await setMatchupStatus(id, v); setErr(r.ok ? null : r.error); }); }}>
         <option value="scheduled">Upcoming</option><option value="in_progress">In progress</option><option value="final">Final</option><option value="void">No contest</option>
       </select>
       {err ? <span className="text-xs text-red-600">{err}</span> : null}

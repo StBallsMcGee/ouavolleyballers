@@ -16,7 +16,7 @@ export default async function MatchupsPage({ searchParams }: { searchParams: Pro
   return (
     <>
       <PageHeader title="Matchups" subtitle={info ? `Week ${week}: ${formatDate(info.starts_on)} – ${formatDate(info.ends_on)}${info.is_playoff ? " · Playoffs" : ""}` : `Week ${week}`} />
-      <div className="mb-3 flex gap-1 overflow-x-auto px-4 pb-1 sm:px-0">
+      <div className="mb-3 flex flex-wrap gap-1.5 px-4 sm:px-0">
         {ctx.weeks.map((w) => (
           <Link key={w.week} href={`/matchups?week=${w.week}`} className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold ${w.week === week ? "bg-coral-500 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
             W{w.week}{w.week === ctx.currentWeek ? " •" : ""}
@@ -47,7 +47,6 @@ export default async function MatchupsPage({ searchParams }: { searchParams: Pro
           })}
         </div>
       )}
-      <p className="mt-4 px-4 text-xs text-gray-500 sm:px-0">Scores update automatically as statistics arrive. Results for weeks before the switch to Sideout are kept exactly as recorded on USportVB.</p>
     </>
   );
 }

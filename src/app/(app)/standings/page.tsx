@@ -20,31 +20,40 @@ export default async function StandingsPage() {
   };
   return (
     <>
-      <PageHeader title="Standings" subtitle="Head-to-head. Ranked by win percentage (ties count as half a win), then total points scored, then head-to-head, then fewest points against." />
-      <Card>
-        <div className="-mx-4 overflow-x-auto sm:mx-0">
-          <table className="table">
-            <thead>
-              <tr><th>#</th><th>Team</th><th className="text-center">W-L-T</th><th className="text-right">PF</th><th className="text-right">PA</th>{weeks.map((w) => <th key={w} className="text-right">W{w}</th>)}</tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.teamId} className={r.teamId === myTeam?.id ? "bg-coral-50" : ""}>
-                  <td className="text-gray-500">{r.rank}</td>
-                  <td><TeamLink id={r.teamId} name={team.get(r.teamId)?.name ?? ""} mine={r.teamId === myTeam?.id} /><div className="text-xs text-gray-500">{team.get(r.teamId)?.manager}</div></td>
-                  <td className="text-center font-mono">{r.wins}-{r.losses}-{r.ties}</td>
-                  <td className="text-right font-mono">{r.pointsFor.toFixed(1)}</td>
-                  <td className="text-right font-mono text-gray-500">{r.pointsAgainst.toFixed(1)}</td>
-                  {weeks.map((w) => {
-                    const s = weekScore(r.teamId, w);
-                    return <td key={w} className="text-right font-mono text-xs">{s ? <><span className={s.result === "W" ? "text-emerald-600" : s.result === "L" ? "text-red-600" : "text-gray-700"}>{s.result}</span> {s.pts.toFixed(1)}</> : "–"}</td>;
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <PageHeader title="Standings" />
+      <Card flush>
+        <table className="w-full table-fixed text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+              <th className="w-8 py-2 pl-3 text-left">#</th>
+              <th className="py-2 text-left">Team</th>
+              <th className="w-16 py-2 text-center">W-L</th>
+              <th className="w-16 py-2 pr-3 text-right">PF</th>
+              <th className="hidden w-16 py-2 pr-3 text-right md:table-cell">PA</th>
+              {weeks.map((w) => <th key={w} className="hidden w-16 py-2 pr-3 text-right lg:table-cell">W{w}</th>)}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((r) => (
+              <tr key={r.teamId} className={r.teamId === myTeam?.id ? "bg-coral-50" : ""}>
+                <td className="py-2.5 pl-3 text-xs font-bold text-gray-400">{r.rank}</td>
+                <td className="py-2.5 pr-2">
+                  <div className="truncate"><TeamLink id={r.teamId} name={team.get(r.teamId)?.name ?? ""} mine={r.teamId === myTeam?.id} /></div>
+                  <div className="truncate text-xs text-gray-500">{team.get(r.teamId)?.manager}</div>
+                </td>
+                <td className="py-2.5 text-center font-mono text-xs font-semibold">{r.wins}-{r.losses}{r.ties ? `-${r.ties}` : ""}</td>
+                <td className="py-2.5 pr-3 text-right font-mono text-xs">{r.pointsFor.toFixed(1)}</td>
+                <td className="hidden py-2.5 pr-3 text-right font-mono text-xs text-gray-500 md:table-cell">{r.pointsAgainst.toFixed(1)}</td>
+                {weeks.map((w) => {
+                  const s2 = weekScore(r.teamId, w);
+                  return <td key={w} className="hidden py-2.5 pr-3 text-right font-mono text-xs lg:table-cell">{s2 ? <><span className={s2.result === "W" ? "text-emerald-600" : s2.result === "L" ? "text-red-600" : ""}>{s2.result}</span> {s2.pts.toFixed(1)}</> : "–"}</td>;
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </Card>
+      <p className="px-4 py-3 text-xs text-gray-500 sm:px-0">Ranked by win % (ties count half), then points for.</p>
     </>
   );
 }

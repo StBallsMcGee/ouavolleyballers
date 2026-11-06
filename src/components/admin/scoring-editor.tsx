@@ -24,13 +24,13 @@ export function ScoringEditor({ initial, currentWeek, teams }: { initial: Rule[]
   return (
     <div className="space-y-5">
       <section className="card p-4">
-        <table className="table">
-          <thead><tr><th>Use</th><th>Category</th><th className="w-32 text-right">Points each</th></tr></thead>
+        <table className="table table-fixed">
+          <thead><tr><th className="w-12">Use</th><th>Category</th><th className="w-24 text-right">Points</th></tr></thead>
           <tbody>
             {rules.map((r, i) => (
               <tr key={r.stat_key}>
                 <td><input type="checkbox" className="accent-coral-500" checked={r.active} onChange={(e) => update(i, { active: e.target.checked })} /></td>
-                <td><input className="input py-1" value={r.label} onChange={(e) => update(i, { label: e.target.value })} /><div className="mt-0.5 font-mono text-[11px] text-gray-500">{r.stat_key}</div></td>
+                <td><input className="input min-w-0 py-1" value={r.label} onChange={(e) => update(i, { label: e.target.value })} /><div className="mt-0.5 font-mono text-[11px] text-gray-500">{r.stat_key}</div></td>
                 <td><input type="number" step="0.05" className="input py-1 text-right font-mono" value={r.points} onChange={(e) => update(i, { points: Number(e.target.value) })} /></td>
               </tr>
             ))}
@@ -62,12 +62,12 @@ export function ScoringEditor({ initial, currentWeek, teams }: { initial: Rule[]
         <section className="card p-4">
           <h3 className="mb-2 font-bold">Preview: weeks {effective} onward ({affected.length ? "scores that would change" : "no completed games affected yet"})</h3>
           {affected.length ? (
-            <div className="-mx-4 overflow-x-auto sm:mx-0">
-              <table className="table">
-                <thead><tr><th>Week</th><th>Team</th><th className="text-right">Now</th><th className="text-right">New</th><th className="text-right">Change</th></tr></thead>
+            <div>
+              <table className="table table-fixed">
+                <thead><tr><th className="w-12">Wk</th><th>Team</th><th className="w-14 text-right">Now</th><th className="w-14 text-right">New</th><th className="w-14 text-right">+/−</th></tr></thead>
                 <tbody>
                   {affected.sort((a, b) => a.week - b.week || (b.proposed - b.current) - (a.proposed - a.current)).map((p) => (
-                    <tr key={`${p.teamId}${p.week}`}><td>{p.week}</td><td>{teams[p.teamId] ?? "?"}</td><td className="text-right font-mono">{p.current.toFixed(1)}</td><td className="text-right font-mono">{p.proposed.toFixed(1)}</td><td className={`text-right font-mono ${p.proposed - p.current > 0 ? "text-emerald-600" : p.proposed - p.current < 0 ? "text-red-600" : "text-gray-500"}`}>{(p.proposed - p.current).toFixed(1)}</td></tr>
+                    <tr key={`${p.teamId}${p.week}`}><td>{p.week}</td><td className="truncate">{teams[p.teamId] ?? "?"}</td><td className="text-right font-mono">{p.current.toFixed(1)}</td><td className="text-right font-mono">{p.proposed.toFixed(1)}</td><td className={`text-right font-mono ${p.proposed - p.current > 0 ? "text-emerald-600" : p.proposed - p.current < 0 ? "text-red-600" : "text-gray-500"}`}>{(p.proposed - p.current).toFixed(1)}</td></tr>
                   ))}
                 </tbody>
               </table>

@@ -49,7 +49,7 @@ export default async function MatchesPage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <PageHeader title="Match centre" subtitle={`${formatDate(from, { month: "short", day: "numeric" })} – ${formatDate(to, { month: "short", day: "numeric" })} · Toronto time`} actions={<Freshness label="Checked" at={newest} />} />
+      <PageHeader title="Match centre" subtitle={`${formatDate(from, { month: "short", day: "numeric" })} – ${formatDate(to, { month: "short", day: "numeric" })}`} actions={<Freshness label="Checked" at={newest} />} />
       <div className="mb-3 flex gap-2 px-4 sm:px-0">
         <Link href={`/matches?from=${addDays(from, -7)}`} className="btn-secondary min-h-[34px] px-3 py-1 text-xs">← Earlier</Link>
         <Link href="/matches" className="btn-ghost min-h-[34px] px-3 py-1 text-xs">Today</Link>
@@ -64,7 +64,6 @@ export default async function MatchesPage({ searchParams }: { searchParams: Prom
           ))}
         </div>
       )}
-      <p className="mt-4 px-4 pb-4 text-xs text-gray-500 sm:px-0">Away team listed first. Live point-by-point stats aren&apos;t available from our source; player stats appear once published, and each page shows when it was last checked.</p>
     </>
   );
 }

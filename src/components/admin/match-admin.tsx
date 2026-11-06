@@ -25,8 +25,8 @@ export function MatchRowEditor({ id, lockAt, counts, status }: { id: string; loc
   const dirty = lock !== toLocalInput(lockAt) || c !== counts || st !== status;
   return (
     <span className="flex flex-wrap items-center gap-2">
-      <input type="datetime-local" className="input w-48 py-1 text-xs" value={lock} onChange={(e) => setLock(e.target.value)} />
-      <select className="input w-28 py-1 text-xs" value={st} onChange={(e) => setSt(e.target.value)}>
+      <input type="datetime-local" className="input min-w-0 flex-1 py-1.5 sm:w-52 sm:flex-none" value={lock} onChange={(e) => setLock(e.target.value)} />
+      <select className="input w-28 py-1.5" value={st} onChange={(e) => setSt(e.target.value)}>
         {["scheduled", "live", "final", "postponed", "cancelled"].map((s) => <option key={s} value={s}>{s}</option>)}
       </select>
       <label className="flex items-center gap-1 text-xs"><input type="checkbox" className="accent-coral-500" checked={c} onChange={(e) => setC(e.target.checked)} />counts</label>

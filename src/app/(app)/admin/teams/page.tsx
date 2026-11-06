@@ -19,30 +19,35 @@ export default async function AdminTeamsPage() {
   const role = new Map((members ?? []).map((m) => [m.user_id, m.role]));
   return (
     <>
-      <PageHeader title="Teams & managers" subtitle="Invite each manager by email. When they accept and sign in, their team is linked to their account automatically." />
+      <PageHeader title="Teams & managers" subtitle="Invite each manager by email; their team links to them when they sign in." />
       <AdminNav current="/admin/teams" />
-      <Card>
-        <div className="-mx-4 overflow-x-auto sm:mx-0">
-          <table className="table">
-            <thead><tr><th>Team</th><th>Manager</th><th>Status</th><th>Invitation</th></tr></thead>
-            <tbody>
-              {teams.map((t) => {
-                const i = inv.get(t.id);
-                return (
-                  <tr key={t.id} className="align-top">
-                    <td><TeamLink id={t.id} name={t.name} /></td>
-                    <td>{t.manager}{t.owner_user_id && role.get(t.owner_user_id) === "admin" ? <span className="ml-2"><Badge tone="coral">Admin</Badge></span> : null}</td>
-                    <td>{t.owner_user_id ? <div className="space-y-1"><Badge tone="mint">Claimed</Badge><TeamOwnerButtons teamId={t.id} ownerId={t.owner_user_id} isAdmin={role.get(t.owner_user_id) === "admin"} /></div> : i ? <Badge tone="amber">Invited</Badge> : <Badge>Not invited</Badge>}</td>
-                    <td><InviteForm teamId={t.id} email={i?.email ?? ""} name={i?.display_name ?? t.manager_display_name ?? ""} claimed={!!t.owner_user_id} /></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      <Card flush>
+        <ul className="divide-y divide-gray-100">
+          {teams.map((t) => {
+            const i = inv.get(t.id);
+            return (
+              <li key={t.id} className="space-y-1.5 px-4 py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate"><TeamLink id={t.id} name={t.name} /></div>
+                    <div className="truncate text-xs text-gray-500">{t.manager}{t.owner_user_id && role.get(t.owner_user_id) === "admin" ? " · admin" : ""}</div>
+                  </div>
+                  <div className="shrink-0">{t.owner_user_id ? <Badge tone="mint">Claimed</Badge> : i ? <Badge tone="amber">Invited</Badge> : <Badge>Not invited</Badge>}</div>
+                </div>
+                <details className="group">
+                  <summary className="cursor-pointer list-none text-xs font-bold text-coral-600">{t.owner_user_id ? "Manage" : i ? `Invited: ${i.email} · change` : "Invite manager"} <span className="inline-block transition group-open:rotate-90">›</span></summary>
+                  <div className="mt-2 space-y-2">
+                    {t.owner_user_id ? <TeamOwnerButtons teamId={t.id} ownerId={t.owner_user_id} isAdmin={role.get(t.owner_user_id) === "admin"} /> : null}
+                    <InviteForm teamId={t.id} email={i?.email ?? ""} name={i?.display_name ?? t.manager_display_name ?? ""} claimed={!!t.owner_user_id} />
+                  </div>
+                </details>
+              </li>
+            );
+          })}
+        </ul>
       </Card>
-      <Card title="Roster correction" className="mt-4">
-        <p className="mb-3 text-sm text-gray-500">For fixing mistakes only. Normal moves should go through free agency or trades. Corrections are recorded in the audit log and the league activity feed.</p>
+      <Card title="Roster correction" className="mt-3">
+        <p className="mb-3 text-sm text-gray-500">For fixing mistakes only. Recorded in the audit log.</p>
         <RosterCorrection players={players.map((p) => ({ id: p.id, name: p.display_name, team: owner.get(p.id) ?? null }))} teams={teams.map((t) => ({ id: t.id, name: t.name }))} />
       </Card>
     </>

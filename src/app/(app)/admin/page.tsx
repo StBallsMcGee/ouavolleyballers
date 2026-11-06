@@ -46,23 +46,20 @@ export default async function AdminPage() {
           <dl className="grid grid-cols-2 gap-2 text-sm">
             <dt className="text-gray-500">Last successful</dt><dd>{lastOk?.finished_at ? `${timeAgo(lastOk.finished_at)} (${formatDateTime(lastOk.finished_at)})` : "never"}</dd>
             <dt className="text-gray-500">Last attempt</dt><dd>{last ? `${timeAgo(last.started_at)} · ${last.status}` : "never"}</dd>
-            <dt className="text-gray-500">Next scheduled</dt><dd>Set by the scheduler (see docs/DEPLOYMENT.md)</dd>
           </dl>
           {!runs?.length ? <div className="mt-3"><Empty>No sync has run yet.</Empty></div> : (
-            <table className="table mt-3">
-              <thead><tr><th>Started</th><th>Status</th><th className="text-right">Matches</th><th className="text-right">New</th><th className="text-right">Updated</th></tr></thead>
-              <tbody>
-                {runs.map((r) => (
-                  <tr key={r.id} title={r.error ?? (r.warnings as string[]).slice(0, 5).join("\n")}>
-                    <td className="text-xs">{formatDateTime(r.started_at)}</td>
-                    <td><Badge tone={r.status === "succeeded" ? "mint" : r.status === "failed" ? "red" : "slate"}>{r.status}</Badge>{r.error ? <div className="max-w-[16rem] truncate text-xs text-red-600">{r.error}</div> : null}{(r.warnings as string[]).length ? <div className="text-xs text-amber-700">{(r.warnings as string[]).length} warnings</div> : null}</td>
-                    <td className="text-right font-mono">{r.matches_checked}</td>
-                    <td className="text-right font-mono">{r.records_inserted}</td>
-                    <td className="text-right font-mono">{r.records_updated}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ul className="mt-3 divide-y divide-gray-100 text-sm">
+              {runs.map((r) => (
+                <li key={r.id} className="py-2" title={r.error ?? (r.warnings as string[]).slice(0, 5).join("\n")}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-gray-600">{formatDateTime(r.started_at)} · {r.job === "usportvb-schedule" ? "schedule" : "stats"}</span>
+                    <Badge tone={r.status === "succeeded" ? "mint" : r.status === "failed" ? "red" : "slate"}>{r.status}</Badge>
+                  </div>
+                  <div className="text-xs text-gray-500">{r.matches_checked} matches checked · {r.records_inserted} new · {r.records_updated} updated{(r.warnings as string[]).length ? ` · ${(r.warnings as string[]).length} warnings` : ""}</div>
+                  {r.error ? <div className="break-words text-xs text-red-600">{r.error}</div> : null}
+                </li>
+              ))}
+            </ul>
           )}
         </Card>
 
