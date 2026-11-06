@@ -8,6 +8,7 @@
 import type { Db } from "@/lib/db/pg";
 import { SOURCE_SYSTEM } from "@/lib/sources/usportvb";
 import type { NormalizedFeed } from "./normalize";
+import { setAbbreviations } from "./schedule";
 
 export interface UpsertCounts {
   inserted: number;
@@ -189,6 +190,7 @@ export async function writeFeed(db: Db, feed: NormalizedFeed, opts: WriteOptions
     ],
   );
 
+  await setAbbreviations(db);
   const changedMatchIds = [...new Set(stats.rows.map((r) => r.match_id))];
   if (changedMatchIds.length > 0) {
     await db.query(`update public.matches set last_updated_at = now() where id = any($1::uuid[])`, [changedMatchIds]);
