@@ -1,0 +1,337 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { z } from "zod";
+import { requireAdmin } from "@/lib/data/context";
+import { leagueSettingsSchema } from "@/lib/league/settings";
+import { supabaseServer, supabaseServiceRole } from "@/lib/supabase/server";
+
+/**
+ * Every action here calls a database function as the signed-in user. The database checks
+ * permissions and validates the change again; nothing here is trusted on its own.
+ */
+export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
+
+const uuid = z.string().uuid();
+
+function fail(e: unknown): ActionResult {
+  const msg = e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String((e as { message: unknown }).message) : "Something went wrong.";
+  return { ok: false, error: msg };
+}
+
+async function rpc(name: string, args: Record<string, unknown>) {
+  const sb = await supabaseServer();
+  const { data, error } = await sb.rpc(name, args);
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+function refresh(...paths: string[]) {
+  for (const p of ["/", ...paths]) revalidatePath(p);
+}
+
+/* ---------------------------------------------------------------- Manager actions */
+
+const lineupSchema = z.array(z.object({ player_id: uuid, slot: z.string().regex(/^(BENCH|UTIL\d*|S\d*|L\d*|OH\d*|M\d*)$/) })).max(40);
+
+export async function saveLineup(teamId: string, lineup: Array<{ player_id: string; slot: string }>): Promise<ActionResult> {
+  try {
+    await rpc("set_lineup", { p_team: uuid.parse(teamId), p_lineup: lineupSchema.parse(lineup) });
+    refresh("/team", `/teams/${teamId}`, "/matchups");
+    return { ok: true, message: "Lineup saved." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function addDrop(teamId: string, addPlayerId: string | null, dropPlayerId: string | null): Promise<ActionResult> {
+  try {
+    await rpc("add_drop", {
+      p_team: uuid.parse(teamId),
+      p_add: addPlayerId ? uuid.parse(addPlayerId) : null,
+      p_drop: dropPlayerId ? uuid.parse(dropPlayerId) : null,
+    });
+    refresh("/team", "/free-agents", "/players", "/activity");
+    return { ok: true, message: addPlayerId ? "Player added to your bench." : "Player dropped." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function proposeTrade(form: { fromTeam: string; toTeam: string; give: string[]; receive: string[]; message: string }): Promise<ActionResult> {
+  try {
+    await rpc("propose_trade", {
+      p_from_team: uuid.parse(form.fromTeam),
+      p_to_team: uuid.parse(form.toTeam),
+      p_give: z.array(uuid).max(11).parse(form.give),
+      p_receive: z.array(uuid).max(11).parse(form.receive),
+      p_message: z.string().max(500).parse(form.message ?? ""),
+    });
+    refresh("/trades");
+    return { ok: true, message: "Trade offer sent." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function respondTrade(tradeId: string, accept: boolean): Promise<ActionResult> {
+  try {
+    const status = await rpc("respond_trade", { p_trade: uuid.parse(tradeId), p_accept: accept });
+    refresh("/trades", "/team", "/activity");
+    const msg = status === "completed" ? "Trade completed. New players are on your bench." : status === "pending_review" ? "Accepted. Waiting for the commissioner's approval." : status === "failed" ? "The trade could not be completed (rosters changed)." : "Trade declined.";
+    return { ok: true, message: msg };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function cancelTrade(tradeId: string): Promise<ActionResult> {
+  try {
+    await rpc("cancel_trade", { p_trade: uuid.parse(tradeId) });
+    refresh("/trades");
+    return { ok: true, message: "Offer withdrawn." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function renameTeam(teamId: string, name: string): Promise<ActionResult> {
+  try {
+    await rpc("rename_my_team", { p_team: uuid.parse(teamId), p_name: name });
+    refresh("/team", "/account", "/standings");
+    return { ok: true, message: "Team name updated." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function updateDisplayName(name: string): Promise<ActionResult> {
+  try {
+    await rpc("update_my_display_name", { p_name: name });
+    refresh("/account");
+    return { ok: true, message: "Name updated." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function signOut() {
+  const sb = await supabaseServer();
+  await sb.auth.signOut();
+  redirect("/login");
+}
+
+/* ---------------------------------------------------------------- Administrator actions */
+
+export async function reviewTrade(tradeId: string, approve: boolean, reason: string): Promise<ActionResult> {
+  try {
+    await rpc("review_trade", { p_trade: uuid.parse(tradeId), p_approve: approve, p_reason: reason || null });
+    refresh("/trades", "/admin");
+    return { ok: true, message: approve ? "Trade approved and processed." : "Trade vetoed." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function updateLeague(input: { name: string; status: string; settings: unknown }): Promise<ActionResult> {
+  try {
+    const ctx = await requireAdmin();
+    const settings = leagueSettingsSchema.parse(input.settings);
+    await rpc("admin_update_league", { p_league: ctx.league.id, p_name: input.name, p_settings: settings, p_status: input.status });
+    refresh("/admin", "/admin/settings", "/team", "/free-agents", "/trades");
+    return { ok: true, message: "League settings saved." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+const ruleInput = z.object({
+  stat_key: z.string().regex(/^[a-z][a-z0-9_]{0,40}$/),
+  label: z.string().min(1).max(60),
+  points: z.number().finite().min(-100).max(100),
+  active: z.boolean(),
+});
+
+export async function createScoringVersion(input: { rules: unknown; effectiveFromWeek: number; note: string }): Promise<ActionResult> {
+  try {
+    const ctx = await requireAdmin();
+    const rules = z.array(ruleInput).min(1).max(40).parse(input.rules);
+    const version = await rpc("admin_create_scoring_rule_set", {
+      p_league: ctx.league.id,
+      p_rules: rules,
+      p_effective_from_week: z.number().int().min(1).parse(input.effectiveFromWeek),
+      p_note: input.note || null,
+    });
+    refresh("/scoring", "/admin/scoring", "/matchups", "/standings", "/players");
+    return { ok: true, message: `Scoring version ${version} saved.` };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function adminMovePlayer(playerId: string, toTeamId: string | null, reason: string): Promise<ActionResult> {
+  try {
+    const ctx = await requireAdmin();
+    await rpc("admin_move_player", { p_league: ctx.league.id, p_player: uuid.parse(playerId), p_to_team: toTeamId ? uuid.parse(toTeamId) : null, p_reason: reason });
+    refresh("/admin/teams", "/team", "/free-agents");
+    return { ok: true, message: "Roster corrected." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function inviteManager(teamId: string, email: string, displayName: string, sendEmail: boolean): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+    const cleanEmail = z.string().email().parse(email.trim().toLowerCase());
+    await rpc("admin_invite_manager", { p_team: uuid.parse(teamId), p_email: cleanEmail, p_display_name: displayName });
+    if (sendEmail) {
+      const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+      const { error } = await supabaseServiceRole().auth.admin.inviteUserByEmail(cleanEmail, {
+        redirectTo: `${site}/auth/callback?next=/auth/update-password`,
+        data: { display_name: displayName },
+      });
+      if (error && !/already been registered/i.test(error.message)) {
+        return { ok: false, error: `Saved, but the email could not be sent: ${error.message}` };
+      }
+      if (error) return { ok: true, message: "This person already has an account. They will get the team next time they sign in." };
+    }
+    refresh("/admin/teams");
+    return { ok: true, message: sendEmail ? "Invitation sent." : "Saved. They can sign in with this email to claim the team." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function unassignOwner(teamId: string): Promise<ActionResult> {
+  try {
+    await rpc("admin_unassign_owner", { p_team: uuid.parse(teamId) });
+    refresh("/admin/teams");
+    return { ok: true, message: "Manager removed from team. Roster unchanged." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function setMemberRole(userId: string, role: "admin" | "manager"): Promise<ActionResult> {
+  try {
+    const ctx = await requireAdmin();
+    await rpc("admin_set_member_role", { p_league: ctx.league.id, p_user: uuid.parse(userId), p_role: role });
+    refresh("/admin/teams");
+    return { ok: true, message: "Role updated." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function setMatchupStatus(matchupId: string, status: "scheduled" | "in_progress" | "final" | "void"): Promise<ActionResult> {
+  try {
+    await rpc("admin_set_matchup_status", { p_matchup: uuid.parse(matchupId), p_status: status });
+    refresh("/matchups", "/standings", "/admin/matchups");
+    return { ok: true, message: "Matchup updated." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function updateMatch(matchId: string, lockAtIso: string | null, counts: boolean | null, status: string | null): Promise<ActionResult> {
+  try {
+    const ctx = await requireAdmin();
+    await rpc("admin_update_match", {
+      p_match: uuid.parse(matchId),
+      p_league: ctx.league.id,
+      p_lock_at: lockAtIso,
+      p_counts: counts,
+      p_status: status,
+    });
+    refresh("/matches", "/admin/matches", "/team");
+    return { ok: true, message: "Match updated." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function createPlayoffRound(week: number, pairs: Array<{ home_team_id: string; away_team_id: string; round: number }>): Promise<ActionResult> {
+  try {
+    const ctx = await requireAdmin();
+    const n = await rpc("admin_create_playoff_matchups", { p_league: ctx.league.id, p_week: week, p_pairs: pairs });
+    refresh("/matchups", "/admin/matchups");
+    return { ok: true, message: `${n} playoff matchups created for week ${week}.` };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function runSyncNow(): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+    const { runSync } = await import("@/lib/sync/run");
+    const r = await runSync();
+    refresh("/admin", "/admin/sync", "/matches");
+    return r.status === "succeeded"
+      ? { ok: true, message: `Sync finished: ${r.inserted} new and ${r.updated} updated records.` }
+      : { ok: false, error: r.error ?? r.status };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Called after sign-in: links any team the administrator assigned to this email. */
+export async function claimTeams(): Promise<number> {
+  try {
+    return Number(await rpc("claim_my_teams", {}));
+  } catch {
+    return 0;
+  }
+}
+
+/* ---------------------------------------------------------------- Scoring preview */
+
+export interface ScoringPreviewRow {
+  teamId: string;
+  week: number;
+  current: number;
+  proposed: number;
+}
+
+/**
+ * Recalculates completed weeks with proposed rules, using the exact lineups that were in
+ * place when each match locked. Nothing is saved; this only shows the effect of a change.
+ */
+export async function previewScoring(rules: unknown): Promise<{ ok: true; rows: ScoringPreviewRow[] } | { ok: false; error: string }> {
+  try {
+    const ctx = await requireAdmin();
+    const parsed = z.array(ruleInput).min(1).max(40).parse(rules);
+    const { fetchAll } = await import("@/lib/data/queries");
+    const { scoreStatLine, sumPoints, CORE_STAT_KEYS } = await import("@/lib/scoring/engine");
+    const sb = ctx.supabase;
+    const credited = await fetchAll<{ fantasy_team_id: string; player_id: string; match_id: string; week: number; points: number }>((from, to) =>
+      sb.from("v_team_player_match_points").select("fantasy_team_id, player_id, match_id, week, points").eq("league_id", ctx.league.id).eq("counted", true).range(from, to) as never);
+    const matchIds = [...new Set(credited.map((c) => c.match_id))];
+    const stats = new Map<string, Record<string, number>>();
+    for (let i = 0; i < matchIds.length; i += 100) {
+      const { data } = await sb.from("player_match_statistics").select("*").in("match_id", matchIds.slice(i, i + 100));
+      for (const s of data ?? []) stats.set(`${s.player_id}:${s.match_id}`, s);
+    }
+    const rs = parsed.map((r) => ({ statKey: r.stat_key, label: r.label, points: r.points, active: r.active }));
+    const acc = new Map<string, { cur: number[]; next: number[] }>();
+    for (const c of credited) {
+      const s = stats.get(`${c.player_id}:${c.match_id}`);
+      if (!s) continue;
+      const line = { ...Object.fromEntries(CORE_STAT_KEYS.map((k) => [k, s[k] ?? 0])), other: (s.other_statistics ?? {}) as Record<string, number> };
+      const key = `${c.fantasy_team_id}:${c.week}`;
+      const a = acc.get(key) ?? { cur: [], next: [] };
+      a.cur.push(Number(c.points));
+      a.next.push(scoreStatLine(line, rs));
+      acc.set(key, a);
+    }
+    const rows: ScoringPreviewRow[] = [...acc.entries()].map(([k, v]) => {
+      const [teamId, week] = k.split(":");
+      return { teamId: teamId!, week: Number(week), current: sumPoints(v.cur), proposed: sumPoints(v.next) };
+    });
+    return { ok: true, rows };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Preview failed." };
+  }
+}
