@@ -40,7 +40,7 @@ export default async function FreeAgentsPage({ searchParams }: { searchParams: P
           <PlayerList
             showOwner={false}
             items={rows.slice(0, 120).map((p) => ({
-              id: p.id, name: p.display_name, code: sched.code(p.university_id), position: p.position_label,
+              id: p.id, name: p.display_name, photo: p.photo, code: sched.code(p.university_id), position: p.position_label,
               games: sched.chipsFor(p.university_id), points: p.pts, gamesPlayed: p.gp,
               action: myTeam && enabled ? <AddPlayerButton teamId={myTeam.id} playerId={p.id} playerName={p.display_name} rosterFull={roster.length >= limit} roster={myRoster} /> : undefined,
             }))}

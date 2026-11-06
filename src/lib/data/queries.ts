@@ -72,6 +72,7 @@ export interface RosterPlayer {
   universityId: string | null;
   slot: string;
   acquiredAt: string;
+  photoUrl: string | null;
 }
 export async function getRoster(sb: Sb, teamId: string): Promise<RosterPlayer[]> {
   const { data: ra } = await sb
@@ -81,6 +82,9 @@ export async function getRoster(sb: Sb, teamId: string): Promise<RosterPlayer[]>
     .is("released_at", null);
   const { data: le } = await sb.from("lineup_entries").select("roster_assignment_id, slot").eq("fantasy_team_id", teamId).is("valid_to", null);
   const slotOf = new Map((le ?? []).map((e) => [e.roster_assignment_id as string, e.slot as string]));
+  const ids = (ra ?? []).map((r) => r.player_id as string);
+  const { data: pp } = ids.length ? await sb.from("player_profiles").select("player_id, photo_url").in("player_id", ids) : { data: [] };
+  const photoOf = new Map((pp ?? []).map((p) => [p.player_id as string, p.photo_url as string | null]));
   return (ra ?? []).map((r) => {
     const p = r.players as unknown as { display_name: string; positions: string[]; position_label: string | null; jersey_number: number | null; university_id: string | null };
     return {
@@ -93,6 +97,7 @@ export async function getRoster(sb: Sb, teamId: string): Promise<RosterPlayer[]>
       universityId: p.university_id,
       slot: slotOf.get(r.id) ?? "BENCH",
       acquiredAt: r.acquired_at,
+      photoUrl: photoOf.get(r.player_id) ?? null,
     };
   });
 }
