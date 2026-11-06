@@ -10,7 +10,7 @@ function InlineForm({ label, initial, onSave }: { label: string; initial: string
     <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); start(async () => { const r = await onSave(value); setMsg({ ok: r.ok, text: (r.ok ? r.message : r.error) ?? "" }); }); }}>
       <label className="label">{label}</label>
       <div className="flex gap-2"><input className="input" maxLength={60} value={value} onChange={(e) => setValue(e.target.value)} /><button className="btn-primary" disabled={pending || !value.trim() || value === initial}>Save</button></div>
-      {msg ? <p className={`text-sm ${msg.ok ? "text-mint-400" : "text-red-300"}`}>{msg.text}</p> : null}
+      {msg ? <p className={`text-sm ${msg.ok ? "text-emerald-600" : "text-red-600"}`}>{msg.text}</p> : null}
     </form>
   );
 }

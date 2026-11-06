@@ -29,15 +29,15 @@ export default async function StandingsPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.teamId} className={r.teamId === myTeam?.id ? "bg-coral-500/5" : ""}>
-                  <td className="text-slate-400">{r.rank}</td>
-                  <td><TeamLink id={r.teamId} name={team.get(r.teamId)?.name ?? ""} mine={r.teamId === myTeam?.id} /><div className="text-xs text-slate-500">{team.get(r.teamId)?.manager}</div></td>
+                <tr key={r.teamId} className={r.teamId === myTeam?.id ? "bg-coral-50" : ""}>
+                  <td className="text-gray-500">{r.rank}</td>
+                  <td><TeamLink id={r.teamId} name={team.get(r.teamId)?.name ?? ""} mine={r.teamId === myTeam?.id} /><div className="text-xs text-gray-500">{team.get(r.teamId)?.manager}</div></td>
                   <td className="text-center font-mono">{r.wins}-{r.losses}-{r.ties}</td>
                   <td className="text-right font-mono">{r.pointsFor.toFixed(1)}</td>
-                  <td className="text-right font-mono text-slate-400">{r.pointsAgainst.toFixed(1)}</td>
+                  <td className="text-right font-mono text-gray-500">{r.pointsAgainst.toFixed(1)}</td>
                   {weeks.map((w) => {
                     const s = weekScore(r.teamId, w);
-                    return <td key={w} className="text-right font-mono text-xs">{s ? <><span className={s.result === "W" ? "text-mint-400" : s.result === "L" ? "text-red-300" : "text-slate-300"}>{s.result}</span> {s.pts.toFixed(1)}</> : "–"}</td>;
+                    return <td key={w} className="text-right font-mono text-xs">{s ? <><span className={s.result === "W" ? "text-emerald-600" : s.result === "L" ? "text-red-600" : "text-gray-700"}>{s.result}</span> {s.pts.toFixed(1)}</> : "–"}</td>;
                   })}
                 </tr>
               ))}

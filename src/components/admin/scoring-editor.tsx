@@ -30,7 +30,7 @@ export function ScoringEditor({ initial, currentWeek, teams }: { initial: Rule[]
             {rules.map((r, i) => (
               <tr key={r.stat_key}>
                 <td><input type="checkbox" className="accent-coral-500" checked={r.active} onChange={(e) => update(i, { active: e.target.checked })} /></td>
-                <td><input className="input py-1" value={r.label} onChange={(e) => update(i, { label: e.target.value })} /><div className="mt-0.5 font-mono text-[11px] text-slate-500">{r.stat_key}</div></td>
+                <td><input className="input py-1" value={r.label} onChange={(e) => update(i, { label: e.target.value })} /><div className="mt-0.5 font-mono text-[11px] text-gray-500">{r.stat_key}</div></td>
                 <td><input type="number" step="0.05" className="input py-1 text-right font-mono" value={r.points} onChange={(e) => update(i, { points: Number(e.target.value) })} /></td>
               </tr>
             ))}
@@ -55,7 +55,7 @@ export function ScoringEditor({ initial, currentWeek, teams }: { initial: Rule[]
           <button className="btn-secondary" disabled={pending} onClick={() => start(async () => { const r = await previewScoring(rules); if (r.ok) setPreview(r.rows); else setMsg({ ok: false, text: r.error }); })}>Preview effect</button>
           <button className="btn-primary" disabled={pending || !changed} onClick={() => { if (!confirm(`Save new scoring, effective from week ${effective}?`)) return; start(async () => { const r = await createScoringVersion({ rules, effectiveFromWeek: effective, note }); setMsg({ ok: r.ok, text: r.ok ? r.message ?? "Saved" : r.error }); }); }}>Save as new version</button>
         </div>
-        {msg ? <p className={`text-sm ${msg.ok ? "text-mint-400" : "text-red-300"}`}>{msg.text}</p> : null}
+        {msg ? <p className={`text-sm ${msg.ok ? "text-emerald-600" : "text-red-600"}`}>{msg.text}</p> : null}
       </section>
 
       {preview ? (
@@ -67,13 +67,13 @@ export function ScoringEditor({ initial, currentWeek, teams }: { initial: Rule[]
                 <thead><tr><th>Week</th><th>Team</th><th className="text-right">Now</th><th className="text-right">New</th><th className="text-right">Change</th></tr></thead>
                 <tbody>
                   {affected.sort((a, b) => a.week - b.week || (b.proposed - b.current) - (a.proposed - a.current)).map((p) => (
-                    <tr key={`${p.teamId}${p.week}`}><td>{p.week}</td><td>{teams[p.teamId] ?? "?"}</td><td className="text-right font-mono">{p.current.toFixed(1)}</td><td className="text-right font-mono">{p.proposed.toFixed(1)}</td><td className={`text-right font-mono ${p.proposed - p.current > 0 ? "text-mint-400" : p.proposed - p.current < 0 ? "text-red-300" : "text-slate-500"}`}>{(p.proposed - p.current).toFixed(1)}</td></tr>
+                    <tr key={`${p.teamId}${p.week}`}><td>{p.week}</td><td>{teams[p.teamId] ?? "?"}</td><td className="text-right font-mono">{p.current.toFixed(1)}</td><td className="text-right font-mono">{p.proposed.toFixed(1)}</td><td className={`text-right font-mono ${p.proposed - p.current > 0 ? "text-emerald-600" : p.proposed - p.current < 0 ? "text-red-600" : "text-gray-500"}`}>{(p.proposed - p.current).toFixed(1)}</td></tr>
                   ))}
                 </tbody>
               </table>
             </div>
           ) : null}
-          <p className="mt-2 text-xs text-slate-500">Weeks imported from USportVB keep their recorded results and are not recalculated.</p>
+          <p className="mt-2 text-xs text-gray-500">Weeks imported from USportVB keep their recorded results and are not recalculated.</p>
         </section>
       ) : null}
     </div>
@@ -86,8 +86,8 @@ function AddCategory({ onAdd, existing }: { onAdd: (key: string, label: string) 
   const valid = /^[a-z][a-z0-9_]{0,40}$/.test(key) && !existing.includes(key) && label.trim();
   return (
     <details className="mt-3 text-sm">
-      <summary className="cursor-pointer text-slate-400">Add a custom category…</summary>
-      <p className="my-2 text-xs text-slate-500">Custom categories only score if the data source provides that statistic (stored under that key). Our current source provides the nine standard categories above.</p>
+      <summary className="cursor-pointer text-gray-500">Add a custom category…</summary>
+      <p className="my-2 text-xs text-gray-500">Custom categories only score if the data source provides that statistic (stored under that key). Our current source provides the nine standard categories above.</p>
       <div className="flex flex-wrap gap-2">
         <input className="input w-48" placeholder="key, e.g. reception_errors" value={key} onChange={(e) => setKey(e.target.value.toLowerCase())} />
         <input className="input w-48" placeholder="Label" value={label} onChange={(e) => setLabel(e.target.value)} />

@@ -26,7 +26,7 @@ export function SettingsForm({ name, status, settings }: { name: string; status:
             <div key={k}><label className="label">{k === "TOTAL" ? "Total size" : `${k} slots`}</label><input type="number" min={0} max={k === "TOTAL" ? 30 : 10} className="input" value={s.roster[k]} onChange={(e) => setS({ ...s, roster: { ...s.roster, [k]: num(e.target.value) } })} /></div>
           ))}
         </div>
-        <p className="mt-2 text-xs text-slate-400">{starters} starting slots + {Math.max(0, s.roster.TOTAL - starters)} bench spots. The total can&apos;t be set below the largest current roster.</p>
+        <p className="mt-2 text-xs text-gray-500">{starters} starting slots + {Math.max(0, s.roster.TOTAL - starters)} bench spots. The total can&apos;t be set below the largest current roster.</p>
       </section>
 
       <section className="card grid gap-4 p-4 sm:grid-cols-2">
@@ -52,7 +52,7 @@ export function SettingsForm({ name, status, settings }: { name: string; status:
           <h3 className="mb-3 font-bold">Lineup locks</h3>
           <label className="label">Default lock time when a match start time is unknown (Toronto time)</label>
           <input type="time" className="input" value={s.lineupLock.fallbackLocalTime} onChange={(e) => setS({ ...s, lineupLock: { fallbackLocalTime: e.target.value } })} />
-          <p className="mt-2 text-xs text-slate-400">Players lock individually when their own match locks and stay locked for the rest of that day. You can also set exact lock times per match under &quot;Matches &amp; locks&quot;.</p>
+          <p className="mt-2 text-xs text-gray-500">Players lock individually when their own match locks and stay locked for the rest of that day. You can also set exact lock times per match under &quot;Matches &amp; locks&quot;.</p>
         </div>
         <div>
           <h3 className="mb-3 font-bold">Playoffs</h3>
@@ -66,7 +66,7 @@ export function SettingsForm({ name, status, settings }: { name: string; status:
 
       <div className="flex items-center gap-3">
         <button className="btn-primary" disabled={pending}>{pending ? "Saving…" : "Save settings"}</button>
-        {msg ? <span className={`text-sm ${msg.ok ? "text-mint-400" : "text-red-300"}`}>{msg.text}</span> : null}
+        {msg ? <span className={`text-sm ${msg.ok ? "text-emerald-600" : "text-red-600"}`}>{msg.text}</span> : null}
       </div>
     </form>
   );

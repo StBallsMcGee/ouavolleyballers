@@ -131,6 +131,11 @@ successful run, the last attempt and any errors. **Sync now** runs one immediate
 
 ## 4. Import the league
 
+> **Done on 6 Nov 2026** through the website's protected import endpoint (`/api/admin/import`), which runs
+> inside Vercel with the keys already stored there. Before activating, use **Admin → Import → Preview refresh /
+> Apply refresh** to bring over anything that changed on USportVB since then. The command-line method below
+> remains available for developers.
+
 The import is run from a computer with this repository (a developer, or Claude Code, can do it).
 It needs Node.js 22 and the `DATABASE_URL` from step 1c.
 

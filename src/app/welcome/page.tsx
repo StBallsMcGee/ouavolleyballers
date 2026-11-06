@@ -11,9 +11,9 @@ export default async function WelcomePage() {
   if (claimed > 0 || ctx.league) redirect("/");
   return (
     <main className="grid min-h-screen place-items-center px-4">
-      <div className="card max-w-md space-y-4 p-6 text-center">
+      <div className="card !mx-0 max-w-md space-y-4 p-6 text-center">
         <h1 className="text-xl font-bold">You&apos;re signed in</h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-gray-500">
           Your account ({ctx.user.email}) isn&apos;t linked to a team yet. Ask the league administrator to assign your team to this email address, then reload this page.
         </p>
         <form action={signOut}>

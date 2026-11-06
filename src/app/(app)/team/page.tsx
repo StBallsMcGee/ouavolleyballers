@@ -16,9 +16,6 @@ export default async function MyTeamPage() {
     );
   }
   return (
-    <>
-      <PageHeader title={ctx.myTeam.name} subtitle={`Managed by ${ctx.myTeam.manager}`} actions={<Link href="/account" className="btn-ghost">Rename team</Link>} />
-      <TeamView teamId={ctx.myTeam.id} editable />
-    </>
+    <TeamView teamId={ctx.myTeam.id} editable />
   );
 }

@@ -267,8 +267,8 @@ export async function runSyncNow(): Promise<ActionResult> {
   try {
     await requireAdmin();
     const { runSync } = await import("@/lib/sync/run");
-    const r = await runSync();
-    refresh("/admin", "/admin/sync", "/matches");
+    const r = await runSync({ scheduleMaxAgeHours: 0 }); // "Sync now" also refreshes schedules
+    refresh("/admin", "/admin/sync", "/matches", "/team");
     return r.status === "succeeded"
       ? { ok: true, message: `Sync finished: ${r.inserted} new and ${r.updated} updated records.` }
       : { ok: false, error: r.error ?? r.status };

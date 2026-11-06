@@ -48,7 +48,7 @@
 | What | Status |
 |---|---|
 | Player stats per match | ✅ From the USportVB players feed (verified to match USportVB's own points exactly). |
-| Upcoming schedule / match start times | ❌ Not available right now: USportVB's schedule endpoint fails because USports blocks it. Matches appear once stats exist. Lineups lock at the **default lock time** (18:00 Toronto, editable) on match day, and you can enter exact times per match in Admin → Matches & locks. |
+| Upcoming schedule / match start times | ✅ From USportVB's per-team season schedules (refreshed every 3 hours). Lineups lock at the real start time; games without a listed time use the **default lock time** (18:00 Toronto, editable), and admins can set exact times in Admin → Matches & locks. Each player shows their games this week, or **BYE**. |
 | Live in-match stats | ❌ No reliable live source. Stats appear when USportVB publishes them, and every page shows when the data was last updated. Nothing is shown as "live" unless the source says so. |
 | Official USports box scores | ❌ Blocked (403) for automated access. Not used. |
 

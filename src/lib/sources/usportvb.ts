@@ -227,6 +227,27 @@ export async function fetchPlayers(gender: "womens" | "mens", conference: string
   return playersResponseSchema.parse(raw);
 }
 
+/** One game from /api/teams/{id}/games (the season schedule for a university). */
+export const scheduleGameSchema = z.object({
+  id: z.string(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  homeTeam: z.string(),
+  awayTeam: z.string(),
+  homeScore: num.nullable().optional(),
+  awayScore: num.nullable().optional(),
+  status: z.string(),
+  isMens: z.boolean(),
+  gameUrl: z.string().nullable().optional(),
+  gameTime: z.string().nullable().optional(),
+  gameTimezone: z.string().nullable().optional(),
+});
+export type UsvbScheduleGame = z.infer<typeof scheduleGameSchema>;
+
+export async function fetchTeamSchedule(universitySourceId: string, opts: FetchOptions = {}) {
+  const raw = await getJson(`/api/teams/${encodeURIComponent(universitySourceId)}/games`, opts);
+  return z.array(scheduleGameSchema).parse(raw);
+}
+
 export async function fetchLeague(leagueId: string, opts: FetchOptions = {}) {
   const raw = await getJson(`/api/fantasy/league/${encodeURIComponent(leagueId)}`, opts);
   return leagueSchema.parse(raw);

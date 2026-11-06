@@ -24,23 +24,23 @@ export default async function TradesPage() {
     const items = (t.trade_items ?? []) as Array<{ player_id: string; from_team_id: string; players: { display_name: string; position_label: string | null } }>;
     const side = (teamId: string) => items.filter((i) => i.from_team_id === teamId);
     return (
-      <div className="rounded-xl bg-court-950/60 p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+      <div className="rounded-xl bg-gray-50 p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
           <span>{formatDateTime(t.created_at)}</span>
           <Badge tone={statusTone[t.status as keyof typeof statusTone]}>{statusText[t.status as keyof typeof statusText]}</Badge>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {[t.proposing_team_id, t.receiving_team_id].map((tid: string) => (
             <div key={tid}>
-              <div className="mb-1 text-sm"><TeamLink id={tid} name={team.get(tid)?.name ?? "?"} mine={tid === myTeam?.id} /> <span className="text-slate-500">sends</span></div>
+              <div className="mb-1 text-sm"><TeamLink id={tid} name={team.get(tid)?.name ?? "?"} mine={tid === myTeam?.id} /> <span className="text-gray-500">sends</span></div>
               <ul className="space-y-1 text-sm">
-                {side(tid).length === 0 ? <li className="text-slate-500">Nothing</li> : side(tid).map((i) => <li key={i.player_id}><Link href={`/players/${i.player_id}`} className="hover:underline">{i.players.display_name}</Link> <span className="text-xs text-slate-500">{i.players.position_label}</span></li>)}
+                {side(tid).length === 0 ? <li className="text-gray-500">Nothing</li> : side(tid).map((i) => <li key={i.player_id}><Link href={`/players/${i.player_id}`} className="hover:underline">{i.players.display_name}</Link> <span className="text-xs text-gray-500">{i.players.position_label}</span></li>)}
               </ul>
             </div>
           ))}
         </div>
-        {t.message ? <p className="mt-3 border-l-2 border-white/10 pl-3 text-sm italic text-slate-300">“{t.message}”</p> : null}
-        {t.status_reason ? <p className="mt-2 text-xs text-slate-400">{t.status_reason}</p> : null}
+        {t.message ? <p className="mt-3 border-l-2 border-gray-200 pl-3 text-sm italic text-gray-700">“{t.message}”</p> : null}
+        {t.status_reason ? <p className="mt-2 text-xs text-gray-500">{t.status_reason}</p> : null}
         {buttons ? <div className="mt-3">{buttons}</div> : null}
       </div>
     );
@@ -51,12 +51,12 @@ export default async function TradesPage() {
       <PageHeader title="Trades" actions={myTeam && league.settings.trades.enabled ? <Link href="/trades/new" className="btn-primary">Propose a trade</Link> : null} />
       {!league.settings.trades.enabled ? <div className="mb-4"><Notice tone="amber">Trading is currently closed by the league administrator.</Notice></div> : null}
       {league.settings.trades.enabled ? (
-        <p className="mb-4 text-sm text-slate-400">
+        <p className="mb-3 px-4 text-sm text-gray-500 sm:px-0">
           Accepted trades {league.settings.trades.review === "commissioner" ? "go to the commissioner for approval, then " : ""}move players straight onto the receiving team&apos;s bench.
           {league.settings.trades.deadlineWeek ? ` Trade deadline: end of week ${league.settings.trades.deadlineWeek}.` : ""} Rosters can&apos;t go over {league.settings.roster.TOTAL} players.
         </p>
       ) : null}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {review.length ? <Card title="Waiting for your approval (commissioner)"><div className="space-y-3">{review.map((t) => <TradeCard key={t.id} t={t} buttons={<TradeButtons tradeId={t.id} kind="review" />} />)}</div></Card> : null}
         <Card title="Offers to you">{incoming.length ? <div className="space-y-3">{incoming.map((t) => <TradeCard key={t.id} t={t} buttons={<TradeButtons tradeId={t.id} kind="respond" />} />)}</div> : <Empty>No offers waiting.</Empty>}</Card>
         <Card title="Your open offers">{outgoing.length ? <div className="space-y-3">{outgoing.map((t) => <TradeCard key={t.id} t={t} buttons={<TradeButtons tradeId={t.id} kind="cancel" />} />)}</div> : <Empty>You have no open offers.</Empty>}</Card>

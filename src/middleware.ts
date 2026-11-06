@@ -7,7 +7,18 @@ const PUBLIC_PATHS = ["/login", "/auth", "/api/cron", "/api/admin/import"];
 /** Refreshes the login session on every request and keeps signed-out visitors on /login. */
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
-  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    // Typically a Vercel *preview* deployment whose environment variables were only set for
+    // Production. Explain instead of crashing with MIDDLEWARE_INVOCATION_FAILED.
+    return new NextResponse(
+      "Sideout is not configured for this deployment: NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are missing. " +
+        "In Vercel, add them for this environment (Settings → Environment Variables), or use the production address.",
+      { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } },
+    );
+  }
+  const supabase = createServerClient(url, key, {
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll: (list) => {
@@ -17,13 +28,20 @@ export async function middleware(request: NextRequest) {
       },
     },
   });
-  const { data } = await supabase.auth.getUser();
+  // A failed session check (network blip, expired token) is treated as "signed out", never a crash.
+  let signedIn = false;
+  try {
+    const { data } = await supabase.auth.getUser();
+    signedIn = !!data.user;
+  } catch {
+    signedIn = false;
+  }
   const path = request.nextUrl.pathname;
-  if (!data.user && !PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.search = path === "/" ? "" : `?next=${encodeURIComponent(path)}`;
-    return NextResponse.redirect(url);
+  if (!signedIn && !PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) {
+    const login = request.nextUrl.clone();
+    login.pathname = "/login";
+    login.search = path === "/" ? "" : `?next=${encodeURIComponent(path)}`;
+    return NextResponse.redirect(login);
   }
   return response;
 }

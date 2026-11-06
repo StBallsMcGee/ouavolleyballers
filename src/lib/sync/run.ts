@@ -10,8 +10,10 @@ import type pg from "pg";
 import { getPool } from "@/lib/db/pg";
 import { normalizeFeed } from "@/lib/ingest/normalize";
 import { writeFeed } from "@/lib/ingest/writer";
+import { writeSchedule, type ScheduleWriteResult } from "@/lib/ingest/schedule";
+import { localDate } from "@/lib/time";
 import { parseSettings } from "@/lib/league/settings";
-import { fetchPlayers, type FetchOptions, type UsvbPlayer } from "@/lib/sources/usportvb";
+import { fetchPlayers, fetchTeamSchedule, type FetchOptions, type UsvbPlayer, type UsvbScheduleGame } from "@/lib/sources/usportvb";
 
 export interface SyncResult {
   status: "succeeded" | "failed" | "skipped";
@@ -22,6 +24,7 @@ export interface SyncResult {
   matchupsUpdated: number;
   warnings: string[];
   error?: string;
+  schedule?: { status: "succeeded" | "failed" | "skipped"; result?: ScheduleWriteResult; error?: string };
 }
 
 export async function runSync(opts: {
@@ -29,7 +32,80 @@ export async function runSync(opts: {
   fetchOptions?: FetchOptions;
   /** For tests: supply the feed instead of downloading it. */
   feed?: UsvbPlayer[];
+  /** Refresh season schedules if the last successful refresh is older than this (default 3 h). */
+  scheduleMaxAgeHours?: number;
+  /** For tests: supply schedules instead of downloading them. */
+  schedules?: UsvbScheduleGame[];
 } = {}): Promise<SyncResult> {
+  const result = await runStatsSync(opts);
+  if (result.status !== "skipped") result.schedule = await runScheduleSync(opts);
+  return result;
+}
+
+/**
+ * Season schedules (future games, start times, home/away, live/final). One request per OUA
+ * university, a second apart; refreshed at most every few hours because schedules rarely change.
+ */
+export async function runScheduleSync(opts: {
+  pool?: pg.Pool;
+  fetchOptions?: FetchOptions;
+  scheduleMaxAgeHours?: number;
+  schedules?: UsvbScheduleGame[];
+}): Promise<NonNullable<SyncResult["schedule"]>> {
+  const pool = opts.pool ?? getPool();
+  const maxAge = opts.scheduleMaxAgeHours ?? 3;
+  const recent = await pool.query(
+    `select 1 from public.sync_runs where job = 'usportvb-schedule' and status = 'succeeded'
+     and started_at > now() - make_interval(secs => $1) limit 1`, [maxAge * 3600]);
+  if (recent.rowCount && !opts.schedules) return { status: "skipped" };
+
+  const run = await pool.query<{ id: string }>(`insert into public.sync_runs (job) values ('usportvb-schedule') returning id`);
+  const runId = run.rows[0]!.id;
+  const done = async (status: "succeeded" | "failed", r?: ScheduleWriteResult, error?: string) => {
+    await pool.query(
+      `update public.sync_runs set finished_at = now(), status = $2, matches_checked = $3, records_inserted = $4,
+         records_updated = $5, warnings = $6, error = $7 where id = $1`,
+      [runId, status, r?.gamesSeen ?? 0, r?.matchesInserted ?? 0, r?.matchesUpdated ?? 0, JSON.stringify(r?.warnings ?? []), error ?? null]);
+    return { status, result: r, error };
+  };
+
+  try {
+    const lg = (await pool.query<{ timezone: string; settings: unknown }>(
+      `select timezone, settings from public.leagues where status in ('setup', 'active') and gender = 'womens' order by created_at limit 1`)).rows[0];
+    let games: UsvbScheduleGame[] = opts.schedules ?? [];
+    if (!opts.schedules) {
+      const unis = await pool.query<{ source_id: string }>(
+        `select source_id from public.universities where source_system = 'usportvb' and conference = 'OUA' order by name`);
+      for (const [i, u] of unis.rows.entries()) {
+        if (i > 0) await new Promise((r) => setTimeout(r, 1000)); // one request per second
+        games.push(...(await fetchTeamSchedule(u.source_id, opts.fetchOptions)));
+      }
+    }
+    if (games.length === 0) return await done("failed", undefined, "The source returned no scheduled games; nothing changed.");
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      const timezone = lg?.timezone ?? "America/Toronto";
+      const r = await writeSchedule(client, games, {
+        timezone,
+        fallbackLocalTime: parseSettings(lg?.settings).lineupLock.fallbackLocalTime,
+        today: localDate(new Date(), timezone),
+        gender: "womens",
+      });
+      await client.query("commit");
+      return await done("succeeded", r);
+    } catch (e) {
+      await client.query("rollback").catch(() => undefined);
+      throw e;
+    } finally {
+      client.release();
+    }
+  } catch (e) {
+    return done("failed", undefined, `Schedule refresh failed: ${(e as Error).message}`);
+  }
+}
+
+async function runStatsSync(opts: { pool?: pg.Pool; fetchOptions?: FetchOptions; feed?: UsvbPlayer[] }): Promise<SyncResult> {
   const pool = opts.pool ?? getPool();
   const run = await pool.query<{ id: string }>(`insert into public.sync_runs (job) values ('usportvb-players') returning id`);
   const runId = run.rows[0]!.id;

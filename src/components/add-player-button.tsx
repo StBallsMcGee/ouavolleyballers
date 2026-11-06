@@ -13,11 +13,11 @@ export function AddPlayerButton({ teamId, playerId, playerName, rosterFull, rost
       setMsg(r.ok ? { ok: true, text: "Added to your bench" } : { ok: false, text: r.error });
       if (r.ok) setOpen(false);
     });
-  if (msg?.ok) return <span className="text-xs text-mint-400">{msg.text}</span>;
-  if (!open) return <button className="btn-primary px-3 py-1 text-xs" onClick={() => (rosterFull ? setOpen(true) : confirm(`Add ${playerName} to your bench?`) && run())} disabled={pending}>{pending ? "…" : "Add"}</button>;
+  if (msg?.ok) return <span className="text-xs text-emerald-600">{msg.text}</span>;
+  if (!open) return <button aria-label={`Add ${playerName}`} className="grid h-9 w-9 place-items-center rounded-full bg-emerald-600 text-xl font-bold leading-none text-white active:scale-95 disabled:opacity-50" onClick={() => (rosterFull ? setOpen(true) : confirm(`Add ${playerName} to your bench?`) && run())} disabled={pending}>{pending ? "…" : "+"}</button>;
   return (
     <div className="flex flex-col items-end gap-1">
-      <select className="input w-44 py-1 text-xs" value={drop} onChange={(e) => setDrop(e.target.value)}>
+      <select className="input w-40 py-1 text-xs" value={drop} onChange={(e) => setDrop(e.target.value)}>
         <option value="">Choose a player to drop…</option>
         {roster.filter((r) => !r.locked).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
       </select>
@@ -25,7 +25,7 @@ export function AddPlayerButton({ teamId, playerId, playerName, rosterFull, rost
         <button className="btn-ghost px-2 py-1 text-xs" onClick={() => setOpen(false)}>Cancel</button>
         <button className="btn-primary px-2 py-1 text-xs" disabled={!drop || pending} onClick={run}>Add &amp; drop</button>
       </div>
-      {msg && !msg.ok ? <span className="max-w-[14rem] text-right text-xs text-red-300">{msg.text}</span> : null}
+      {msg && !msg.ok ? <span className="max-w-[14rem] text-right text-xs text-red-600">{msg.text}</span> : null}
     </div>
   );
 }

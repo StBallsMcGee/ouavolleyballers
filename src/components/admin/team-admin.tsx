@@ -3,7 +3,7 @@ import { useState, useTransition } from "react";
 import { adminMovePlayer, inviteManager, setMemberRole, unassignOwner } from "@/app/actions";
 
 type Msg = { ok: boolean; text: string } | null;
-const Result = ({ m }: { m: Msg }) => (m ? <span className={`text-xs ${m.ok ? "text-mint-400" : "text-red-300"}`}>{m.text}</span> : null);
+const Result = ({ m }: { m: Msg }) => (m ? <span className={`text-xs ${m.ok ? "text-emerald-600" : "text-red-600"}`}>{m.text}</span> : null);
 
 export function InviteForm({ teamId, email, name, claimed }: { teamId: string; email: string; name: string; claimed: boolean }) {
   const [e, setE] = useState(email);
@@ -15,7 +15,7 @@ export function InviteForm({ teamId, email, name, claimed }: { teamId: string; e
     <form className="flex flex-wrap items-center gap-2" onSubmit={(ev) => { ev.preventDefault(); start(async () => { const r = await inviteManager(teamId, e, n, send); setMsg({ ok: r.ok, text: r.ok ? r.message ?? "" : r.error }); }); }}>
       <input className="input w-52 py-1 text-xs" type="email" placeholder="manager@email.com" value={e} onChange={(x) => setE(x.target.value)} required />
       <input className="input w-40 py-1 text-xs" placeholder="Manager name" value={n} onChange={(x) => setN(x.target.value)} />
-      <label className="flex items-center gap-1 text-xs text-slate-400"><input type="checkbox" className="accent-coral-500" checked={send} onChange={(x) => setSend(x.target.checked)} />email invite</label>
+      <label className="flex items-center gap-1 text-xs text-gray-500"><input type="checkbox" className="accent-coral-500" checked={send} onChange={(x) => setSend(x.target.checked)} />email invite</label>
       <button className="btn-secondary px-3 py-1 text-xs" disabled={pending}>{claimed ? "Re-assign" : email ? "Update / resend" : "Invite"}</button>
       <Result m={msg} />
     </form>
@@ -28,7 +28,7 @@ export function TeamOwnerButtons({ teamId, ownerId, isAdmin }: { teamId: string;
   return (
     <span className="flex flex-wrap items-center gap-2">
       <button className="btn-ghost px-2 py-1 text-xs" disabled={pending} onClick={() => start(async () => { const r = await setMemberRole(ownerId, isAdmin ? "manager" : "admin"); setMsg({ ok: r.ok, text: r.ok ? r.message ?? "" : r.error }); })}>{isAdmin ? "Remove admin" : "Make admin"}</button>
-      <button className="btn-ghost px-2 py-1 text-xs text-red-300" disabled={pending} onClick={() => confirm("Remove this manager from the team? The roster is not changed.") && start(async () => { const r = await unassignOwner(teamId); setMsg({ ok: r.ok, text: r.ok ? r.message ?? "" : r.error }); })}>Unassign</button>
+      <button className="btn-ghost px-2 py-1 text-xs text-red-600" disabled={pending} onClick={() => confirm("Remove this manager from the team? The roster is not changed.") && start(async () => { const r = await unassignOwner(teamId); setMsg({ ok: r.ok, text: r.ok ? r.message ?? "" : r.error }); })}>Unassign</button>
       <Result m={msg} />
     </span>
   );

@@ -42,7 +42,7 @@ export default async function AdminTeamsPage() {
         </div>
       </Card>
       <Card title="Roster correction" className="mt-4">
-        <p className="mb-3 text-sm text-slate-400">For fixing mistakes only. Normal moves should go through free agency or trades. Corrections are recorded in the audit log and the league activity feed.</p>
+        <p className="mb-3 text-sm text-gray-500">For fixing mistakes only. Normal moves should go through free agency or trades. Corrections are recorded in the audit log and the league activity feed.</p>
         <RosterCorrection players={players.map((p) => ({ id: p.id, name: p.display_name, team: owner.get(p.id) ?? null }))} teams={teams.map((t) => ({ id: t.id, name: t.name }))} />
       </Card>
     </>

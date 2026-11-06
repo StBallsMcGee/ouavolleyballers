@@ -10,7 +10,7 @@ export function TradeButtons({ tradeId, kind }: { tradeId: string; kind: "respon
       const r = await fn();
       setMsg({ ok: r.ok, text: (r.ok ? r.message : r.error) ?? "" });
     });
-  if (msg?.ok) return <span className="text-sm text-mint-400">{msg.text}</span>;
+  if (msg?.ok) return <span className="text-sm text-emerald-600">{msg.text}</span>;
   return (
     <div className="flex flex-wrap items-center gap-2">
       {kind === "respond" ? (
@@ -26,7 +26,7 @@ export function TradeButtons({ tradeId, kind }: { tradeId: string; kind: "respon
           <button className="btn-danger px-3 py-1.5" disabled={pending} onClick={() => { const reason = prompt("Reason for veto (shown to both managers):") ?? ""; run(() => reviewTrade(tradeId, false, reason)); }}>Veto</button>
         </>
       )}
-      {msg && !msg.ok ? <span className="text-sm text-red-300">{msg.text}</span> : null}
+      {msg && !msg.ok ? <span className="text-sm text-red-600">{msg.text}</span> : null}
     </div>
   );
 }
