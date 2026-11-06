@@ -335,3 +335,18 @@ export async function previewScoring(rules: unknown): Promise<{ ok: true; rows: 
     return { ok: false, error: e instanceof Error ? e.message : "Preview failed." };
   }
 }
+
+/* ---------------------------------------------------------------- League refresh from USportVB */
+
+export async function refreshFromUsportvb(apply: boolean): Promise<{ ok: boolean; markdown?: string; error?: string }> {
+  try {
+    const ctx = await requireAdmin();
+    if (ctx.league.status !== "setup") return { ok: false, error: "The league is active, so re-importing is switched off to protect managers' changes." };
+    const { importFromUsportvb } = await import("@/lib/migration/run-import");
+    const r = await importFromUsportvb({ mode: apply ? "apply" : "dry_run", refresh: true, createdBy: ctx.user.email ?? ctx.user.id });
+    if (apply && r.ok) refresh("/admin", "/admin/import", "/team", "/matchups", "/standings");
+    return { ok: r.ok, markdown: r.markdown, error: r.error };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Import failed." };
+  }
+}

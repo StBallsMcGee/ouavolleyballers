@@ -29,6 +29,11 @@ export interface ImportOptions {
   cutoverWeek: number;
   managers?: ManagerInvite[];
   timezone?: string;
+  /**
+   * Refresh mode (league still in setup only): bring the new app in line with the source again
+   * by moving/releasing players, updating lineup slots, team names and pre-cut-over results.
+   */
+  refresh?: boolean;
 }
 
 export interface Issue {
@@ -39,6 +44,7 @@ export interface Issue {
 export interface LeagueImportReport {
   generatedAt: string;
   mode: "dry_run" | "apply";
+  options: { excludeTeamIds: string[]; cutoverWeek: number; refresh: boolean };
   source: { leagueId: string; leagueName: string; season: string; snapshotSha256: string; playersFeedSha256: string };
   counts: {
     sourceTeams: number;
@@ -72,8 +78,17 @@ export interface WriteSummary {
   rosterInserted: number;
   rosterUnchanged: number;
   rosterConflicts: number;
+  /** Refresh mode: players moved between teams / released because the source changed. */
+  rosterMoved: number;
+  rosterReleased: number;
+  /** Players in the new app who are not on any source roster (released in refresh mode). */
+  rosterNotInSource: number;
+  lineupSlotDifferences: number;
+  lineupSlotsChanged: number;
+  teamsRenamed: number;
   matchupsInserted: number;
   matchupsExisting: number;
+  matchupResultsUpdated: number;
   scoringRuleSet: "inserted" | "existing-identical" | "existing-different";
   invitations: number;
 }
@@ -224,6 +239,7 @@ export function validateLeagueSource(
   return {
     generatedAt: new Date().toISOString(),
     mode: "dry_run",
+    options: { excludeTeamIds: [...opts.excludeTeamIds], cutoverWeek: opts.cutoverWeek, refresh: opts.refresh === true },
     source: {
       leagueId: league.publicId,
       leagueName: league.name,
@@ -333,67 +349,139 @@ export async function writeLeague(
   );
   const teamId = new Map(teamRows.rows.map((r) => [r.source_id, r.id]));
 
-  // 6. Rosters and lineups
+  // 6. Rosters and lineups (set-based, so the whole league takes a handful of queries)
   const slots = new Set(startingSlots(settings.roster));
-  let rosterInserted = 0;
-  let rosterUnchanged = 0;
-  let rosterConflicts = 0;
+  const refresh = opts.refresh === true;
+  const sourceIds = teams.filter((t) => !excluded.has(t.publicId)).flatMap((t) => t.players.map((p) => p.publicId));
+  const idRows = await db.query<{ id: string; source_id: string }>(
+    `select id, source_id from public.players where source_system = $1 and source_id = any($2::text[])`, [SOURCE_SYSTEM, sourceIds]);
+  const playerIdOf = new Map(idRows.rows.map((r) => [r.source_id, r.id]));
+  const openRows = await db.query<{ ra_id: string; player_id: string; fantasy_team_id: string; slot: string | null }>(
+    `select ra.id as ra_id, ra.player_id, ra.fantasy_team_id, le.slot
+       from public.roster_assignments ra
+       left join public.lineup_entries le on le.roster_assignment_id = ra.id and le.valid_to is null
+      where ra.league_id = $1 and ra.released_at is null`, [leagueId]);
+  const open = new Map(openRows.rows.map((r) => [r.player_id, r]));
+
+  interface Desired { teamId: string; playerId: string; slot: string; sourceAssignmentId: string }
+  const desired = new Map<string, Desired>();
   for (const t of teams) {
     if (excluded.has(t.publicId)) continue;
-    const ourTeam = teamId.get(t.publicId)!;
     for (const rp of t.players) {
-      const player = await db.query<{ id: string }>(
-        `select id from public.players where source_system = $1 and source_id = $2`, [SOURCE_SYSTEM, rp.publicId]);
-      const playerId = player.rows[0]?.id;
+      const playerId = playerIdOf.get(rp.publicId);
       if (!playerId) throw new Error(`Rostered player ${rp.publicId} missing after feed import.`);
-      const current = await db.query<{ fantasy_team_id: string }>(
-        `select fantasy_team_id from public.roster_assignments where league_id = $1 and player_id = $2 and released_at is null`,
-        [leagueId, playerId]);
-      if (current.rows[0]) {
-        if (current.rows[0].fantasy_team_id === ourTeam) rosterUnchanged++;
-        else rosterConflicts++; // never moved automatically; reported for the administrator
-        continue;
-      }
-      const ra = await db.query<{ id: string }>(
-        `insert into public.roster_assignments (league_id, fantasy_team_id, player_id, acquisition_type, source_assignment_id)
-         values ($1, $2, $3, 'import', $4) returning id`,
-        [leagueId, ourTeam, playerId, `${t.publicId}:${rp.publicId}`]);
-      await db.query(
-        `insert into public.lineup_entries (roster_assignment_id, fantasy_team_id, player_id, slot) values ($1, $2, $3, $4)`,
-        [ra.rows[0]!.id, ourTeam, playerId, slots.has(rp.position) ? rp.position : "BENCH"]);
-      await db.query(
-        `insert into public.transactions (league_id, type, fantasy_team_id, player_id, details)
-         values ($1, 'import', $2, $3, jsonb_build_object('source', 'usportvb', 'slot', $4::text))`,
-        [leagueId, ourTeam, playerId, rp.position]);
-      rosterInserted++;
+      desired.set(playerId, { teamId: teamId.get(t.publicId)!, playerId, slot: slots.has(rp.position) ? rp.position : "BENCH", sourceAssignmentId: `${t.publicId}:${rp.publicId}` });
     }
   }
 
-  // 7. Matchups
-  let matchupsInserted = 0;
-  let matchupsExisting = 0;
-  for (const m of league.matchups) {
-    const d = m.matchupData;
-    const home = teamId.get(d.team1Id);
-    const away = teamId.get(d.team2Id);
-    if (!home || !away) continue; // reported as an error during validation
-    const before = m.week < opts.cutoverWeek;
-    const hasResult = d.winnerId !== "" || d.team1Score !== 0 || d.team2Score !== 0;
-    const r = await db.query<{ inserted: boolean }>(
-      `insert into public.matchups (league_id, week, home_team_id, away_team_id, status, score_source,
-         imported_home_score, imported_away_score, source_system, source_id, finalized_at)
-       values ($1, $2, $3, $4, $5::public.matchup_status, $6, $7, $8, $9, $10, case when $5 = 'final' then now() end)
-       on conflict (league_id, week, home_team_id) do update set source_id = public.matchups.source_id
-       returning (xmax = 0) as inserted`,
-      [leagueId, m.week, home, away,
-       before ? (hasResult ? "final" : "void") : "scheduled",
-       before ? "imported" : "calculated",
-       before && hasResult ? d.team1Score : null,
-       before && hasResult ? d.team2Score : null,
-       SOURCE_SYSTEM, `${league.publicId}:w${m.week}:${d.team1Id}:${d.team2Id}`]);
-    if (r.rows[0]!.inserted) matchupsInserted++;
-    else matchupsExisting++;
+  const toInsert: Desired[] = [];
+  const toRelease: string[] = []; // roster_assignment ids
+  const slotChanges: Array<{ raId: string; d: Desired }> = [];
+  let rosterUnchanged = 0;
+  let rosterConflicts = 0;
+  let rosterMoved = 0;
+  let lineupSlotDifferences = 0;
+  for (const d of desired.values()) {
+    const cur = open.get(d.playerId);
+    if (!cur) toInsert.push(d);
+    else if (cur.fantasy_team_id === d.teamId) {
+      rosterUnchanged++;
+      if ((cur.slot ?? "BENCH") !== d.slot) {
+        lineupSlotDifferences++;
+        if (refresh) slotChanges.push({ raId: cur.ra_id, d });
+      }
+    } else if (refresh) {
+      toRelease.push(cur.ra_id);
+      toInsert.push(d);
+      rosterMoved++;
+    } else rosterConflicts++; // never moved automatically outside refresh mode; reported instead
   }
+  const notInSource = [...open.values()].filter((o) => !desired.has(o.player_id));
+  if (refresh) toRelease.push(...notInSource.map((o) => o.ra_id));
+
+  if (toRelease.length) {
+    await db.query(`update public.lineup_entries set valid_to = now() where roster_assignment_id = any($1::uuid[]) and valid_to is null`, [toRelease]);
+    await db.query(`update public.roster_assignments set released_at = now() where id = any($1::uuid[])`, [toRelease]);
+    await db.query(
+      `insert into public.transactions (league_id, type, fantasy_team_id, player_id, details)
+       select $1, 'import', ra.fantasy_team_id, ra.player_id, '{"source":"usportvb","refresh":"released"}'::jsonb
+       from public.roster_assignments ra where ra.id = any($2::uuid[]) and ra.player_id <> all($3::uuid[])`,
+      [leagueId, toRelease, toInsert.map((d) => d.playerId)]);
+  }
+  if (slotChanges.length) {
+    await db.query(`update public.lineup_entries set valid_to = now() where roster_assignment_id = any($1::uuid[]) and valid_to is null`, [slotChanges.map((c) => c.raId)]);
+    await db.query(
+      `insert into public.lineup_entries (roster_assignment_id, fantasy_team_id, player_id, slot)
+       select x.ra_id, x.team_id, x.player_id, x.slot from jsonb_to_recordset($1::jsonb) as x(ra_id uuid, team_id uuid, player_id uuid, slot text)`,
+      [JSON.stringify(slotChanges.map((c) => ({ ra_id: c.raId, team_id: c.d.teamId, player_id: c.d.playerId, slot: c.d.slot })))]);
+  }
+  if (toInsert.length) {
+    await db.query(
+      `with src as (select * from jsonb_to_recordset($2::jsonb) as x(team_id uuid, player_id uuid, slot text, source_assignment_id text)),
+       ins as (
+         insert into public.roster_assignments (league_id, fantasy_team_id, player_id, acquisition_type, source_assignment_id)
+         select $1, team_id, player_id, 'import', source_assignment_id from src
+         returning id, fantasy_team_id, player_id),
+       le as (
+         insert into public.lineup_entries (roster_assignment_id, fantasy_team_id, player_id, slot)
+         select ins.id, ins.fantasy_team_id, ins.player_id, src.slot from ins join src on src.player_id = ins.player_id
+         returning 1)
+       insert into public.transactions (league_id, type, fantasy_team_id, player_id, details)
+       select $1, 'import', team_id, player_id, jsonb_build_object('source', 'usportvb', 'slot', slot) from src`,
+      [leagueId, JSON.stringify(toInsert.map((d) => ({ team_id: d.teamId, player_id: d.playerId, slot: d.slot, source_assignment_id: d.sourceAssignmentId })))]);
+  }
+
+  // Team names can change on the old platform while the league is still in setup.
+  let teamsRenamed = 0;
+  if (refresh) {
+    const r = await db.query(
+      `with src as (select * from jsonb_to_recordset($2::jsonb) as x(source_id text, name text))
+       update public.fantasy_teams t set name = trim(src.name) from src
+       where t.league_id = $1 and t.source_system = $3 and t.source_id = src.source_id and t.name is distinct from trim(src.name)`,
+      [leagueId, JSON.stringify(teams.filter((t) => !excluded.has(t.publicId)).map((t) => ({ source_id: t.publicId, name: t.name }))), SOURCE_SYSTEM]);
+    teamsRenamed = r.rowCount ?? 0;
+  }
+
+  // 7. Matchups. Weeks before the cut-over keep the source's result; later weeks are scored here.
+  const matchupRows = league.matchups
+    .filter((m) => teamId.has(m.matchupData.team1Id) && teamId.has(m.matchupData.team2Id))
+    .map((m) => {
+      const d = m.matchupData;
+      const before = m.week < opts.cutoverWeek;
+      const hasResult = d.winnerId !== "" || d.team1Score !== 0 || d.team2Score !== 0;
+      return {
+        week: m.week,
+        home: teamId.get(d.team1Id),
+        away: teamId.get(d.team2Id),
+        status: before ? (hasResult ? "final" : "void") : "scheduled",
+        score_source: before ? "imported" : "calculated",
+        hs: before && hasResult ? d.team1Score : null,
+        as: before && hasResult ? d.team2Score : null,
+        source_id: `${league.publicId}:w${m.week}:${d.team1Id}:${d.team2Id}`,
+      };
+    });
+  const mu = await db.query<{ inserted: boolean }>(
+    `with src as (select * from jsonb_to_recordset($2::jsonb) as x(week int, home uuid, away uuid, status text, score_source text, hs numeric, "as" numeric, source_id text))
+     insert into public.matchups (league_id, week, home_team_id, away_team_id, status, score_source, imported_home_score, imported_away_score, source_system, source_id, finalized_at)
+     select $1, week, home, away, status::public.matchup_status, score_source, hs, "as", $3, source_id, case when status = 'final' then now() end from src
+     on conflict (league_id, week, home_team_id) do nothing
+     returning true as inserted`,
+    [leagueId, JSON.stringify(matchupRows), SOURCE_SYSTEM]);
+  const matchupsInserted = mu.rowCount ?? 0;
+  let matchupResultsUpdated = 0;
+  if (refresh) {
+    // Results recorded on the old platform since the last import (e.g. a week that just ended).
+    const r = await db.query(
+      `with src as (select * from jsonb_to_recordset($2::jsonb) as x(week int, home uuid, status text, hs numeric, "as" numeric))
+       update public.matchups m set status = src.status::public.matchup_status, imported_home_score = src.hs, imported_away_score = src."as",
+              finalized_at = case when src.status = 'final' then coalesce(m.finalized_at, now()) else null end
+       from src
+       where m.league_id = $1 and m.week = src.week and m.home_team_id = src.home and m.score_source = 'imported'
+         and (m.status::text, m.imported_home_score, m.imported_away_score) is distinct from (src.status, src.hs, src."as")`,
+      [leagueId, JSON.stringify(matchupRows.filter((r) => r.score_source === "imported"))]);
+    matchupResultsUpdated = r.rowCount ?? 0;
+  }
+  const matchupsExisting = matchupRows.length - matchupsInserted;
 
   // 8. Manager invitations (emails come from the administrator, never from the source)
   let invitations = 0;
@@ -419,11 +507,18 @@ export async function writeLeague(
       inserted: teamRows.rows.filter((r) => r.inserted).length,
       existing: teamRows.rows.filter((r) => !r.inserted).length,
     },
-    rosterInserted,
+    rosterInserted: toInsert.length,
     rosterUnchanged,
     rosterConflicts,
+    rosterMoved,
+    rosterReleased: refresh ? notInSource.length : 0,
+    rosterNotInSource: notInSource.length,
+    lineupSlotDifferences,
+    lineupSlotsChanged: slotChanges.length,
+    teamsRenamed,
     matchupsInserted,
     matchupsExisting,
+    matchupResultsUpdated,
     scoringRuleSet,
     invitations,
   };
@@ -449,8 +544,11 @@ export async function runLeagueImport(
   // Refuse to re-apply after the league has gone live (rosters will legitimately differ).
   const live = await db.query(`select status from public.leagues where source_system = $1 and source_id = $2`,
     [SOURCE_SYSTEM, input.league.publicId]);
-  if (input.mode === "apply" && live.rows[0]?.status === "active") {
-    throw new Error("This league is already active in the new app. Re-importing could undo managers' changes; refused.");
+  if (live.rows[0]?.status && live.rows[0].status !== "setup") {
+    throw new Error("This league is already active in the new app. Importing again could undo managers' changes; refused.");
+  }
+  if (opts.refresh && !live.rows[0]) {
+    report.issues.push({ level: "info", message: "Refresh requested but the league has not been imported yet; running a first import instead." });
   }
 
   const firstPass = await writeLeague(db, input.league, input.teams, input.players, opts);
@@ -461,7 +559,8 @@ export async function runLeagueImport(
     report.write.secondPass = secondPass;
     const createdAgain =
       secondPass.feed.players.inserted + secondPass.feed.matches.inserted + secondPass.feed.stats.inserted +
-      secondPass.teams.inserted + secondPass.rosterInserted + secondPass.matchupsInserted + secondPass.weeksInserted;
+      secondPass.teams.inserted + secondPass.rosterInserted + secondPass.matchupsInserted + secondPass.weeksInserted +
+      secondPass.rosterMoved + secondPass.rosterReleased + secondPass.lineupSlotsChanged + secondPass.teamsRenamed + secondPass.matchupResultsUpdated;
     if (createdAgain > 0 || secondPass.scoringRuleSet === "inserted") {
       report.issues.push({ level: "error", message: `Second pass created ${createdAgain} new records: import is not repeatable.` });
     } else {
@@ -511,13 +610,15 @@ export function reportToMarkdown(r: LeagueImportReport): string {
     const items = r.issues.filter((i) => i.level === level);
     if (items.length) lines.push(`### ${level === "error" ? "Errors" : level === "warning" ? "Warnings" : "Notes"}`, ...items.map((i) => `- ${i.message}`), "");
   }
+  lines.push(`Options: cut-over week ${r.options.cutoverWeek}${r.options.refresh ? " · refresh from source" : ""}`, "");
   if (r.write) {
     const w = r.write.firstPass;
     lines.push("### Database changes" + (r.mode === "dry_run" ? " (rolled back)" : ""),
       `- Universities: +${w.feed.universities.inserted}, players: +${w.feed.players.inserted} (updated ${w.feed.players.updated}), matches: +${w.feed.matches.inserted}, player match stats: +${w.feed.stats.inserted} (updated ${w.feed.stats.updated})`,
       `- League: ${w.league}, weeks: +${w.weeksInserted}, teams: +${w.teams.inserted} (existing ${w.teams.existing})`,
-      `- Roster assignments: +${w.rosterInserted} (unchanged ${w.rosterUnchanged}, conflicts ${w.rosterConflicts})`,
-      `- Matchups: +${w.matchupsInserted} (existing ${w.matchupsExisting}); scoring rule set: ${w.scoringRuleSet}; invitations: ${w.invitations}`);
+      `- Roster assignments: +${w.rosterInserted} (unchanged ${w.rosterUnchanged}, moved ${w.rosterMoved}, released ${w.rosterReleased}, conflicts ${w.rosterConflicts}, not in source ${w.rosterNotInSource})`,
+      `- Lineup slots: ${w.lineupSlotDifferences} differ from the source${r.options.refresh ? `, ${w.lineupSlotsChanged} updated` : ""}; teams renamed: ${w.teamsRenamed}`,
+      `- Matchups: +${w.matchupsInserted} (existing ${w.matchupsExisting}, results updated ${w.matchupResultsUpdated}); scoring rule set: ${w.scoringRuleSet}; invitations: ${w.invitations}`);
     if (r.write.secondPass) {
       const s = r.write.secondPass;
       lines.push(`- Second (repeat) pass created: players ${s.feed.players.inserted}, stats ${s.feed.stats.inserted}, teams ${s.teams.inserted}, roster ${s.rosterInserted}, matchups ${s.matchupsInserted}`);
