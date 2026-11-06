@@ -105,6 +105,16 @@ describe("league import and pre-switch refresh", () => {
     expect(r.issues.some((i) => i.message.startsWith("Repeatability check passed"))).toBe(true);
   });
 
+  it("moving the cut-over earlier hands that week to Sideout scoring", async () => {
+    const same = [team("T1", "Alpha Renamed", "mgr1", [["pA", "BENCH"], ["pE", "OH"]]), team("T2", "Bravo", "mgr2", [["pC", "OH"], ["pB", "M"]]), team("T3", "Empty", "mgr3", [])];
+    await client.query("begin");
+    const r = await runLeagueImport(client, { league: source({ s1: 55.5, s2: 40 }), teams: same, players, mode: "apply", createdBy: "test" }, { ...opts, cutoverWeek: 3, refresh: true });
+    await client.query("commit");
+    expect(r.write!.firstPass.matchupsNowCalculated).toBe(1);
+    const m = (await client.query(`select score_source, status::text, imported_home_score from matchups where week = 3`)).rows[0];
+    expect(m).toEqual({ score_source: "calculated", status: "scheduled", imported_home_score: null });
+  });
+
   it("is refused once the league is active", async () => {
     await client.query(`update leagues set status = 'active'`);
     await expect(run(source(), initialTeams, "apply", true)).rejects.toThrow(/already active/);

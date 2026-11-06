@@ -37,3 +37,10 @@ export function seasonLabelForDate(isoDate: string): string {
 export function seasonLabelForSourceYear(year: number): string {
   return `${year - 1}-${String(year % 100).padStart(2, "0")}`;
 }
+
+/** True when a week starts on a Monday and ends on the following Sunday (7 days). */
+export function isMondayToSunday(w: CalendarWeek): boolean {
+  const start = new Date(`${w.start}T12:00:00Z`);
+  const end = new Date(`${w.end}T12:00:00Z`);
+  return start.getUTCDay() === 1 && end.getUTCDay() === 0 && Math.round((end.getTime() - start.getTime()) / 86400000) === 6;
+}

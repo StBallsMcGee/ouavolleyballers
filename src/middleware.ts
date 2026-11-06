@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { AUTH_COOKIE_OPTIONS } from "@/lib/supabase/cookies";
 
 // API routes listed here check their own secret (CRON_SECRET) instead of a login session.
 const PUBLIC_PATHS = ["/login", "/auth", "/api/cron", "/api/admin/import", "/api/admin/profiles"];
@@ -19,6 +20,7 @@ export async function middleware(request: NextRequest) {
     );
   }
   const supabase = createServerClient(url, key, {
+    cookieOptions: AUTH_COOKIE_OPTIONS,
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll: (list) => {
@@ -28,15 +30,27 @@ export async function middleware(request: NextRequest) {
       },
     },
   });
-  // A failed session check (network blip, expired token) is treated as "signed out", never a crash.
+  // Stay signed in through network hiccups: only a definite "this session is invalid" answer
+  // from the login service signs someone out. If the check merely fails (slow phone network,
+  // service briefly unreachable) and a login cookie exists, the visitor is let through.
+  const hasAuthCookie = request.cookies.getAll().some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
   let signedIn = false;
   try {
-    const { data } = await supabase.auth.getUser();
+    const { data, error } = await supabase.auth.getUser();
     signedIn = !!data.user;
+    if (!signedIn && hasAuthCookie && error && !isDefinitelySignedOut(error)) signedIn = true;
   } catch {
-    signedIn = false;
+    signedIn = hasAuthCookie;
   }
   const path = request.nextUrl.pathname;
+  // Already signed in? Skip the sign-in page.
+  if (signedIn && path === "/login") {
+    const home = request.nextUrl.clone();
+    const next = request.nextUrl.searchParams.get("next");
+    home.pathname = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+    home.search = "";
+    return NextResponse.redirect(home);
+  }
   if (!signedIn && !PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";
@@ -46,6 +60,10 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
+function isDefinitelySignedOut(error: { name?: string; status?: number }): boolean {
+  return error.name === "AuthSessionMissingError" || error.status === 401 || error.status === 403 || error.status === 400;
+}
+
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|.*\\.(?:png|jpg|svg|webp)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest.webmanifest|.*\\.(?:png|jpg|svg|webp)$).*)"],
 };
