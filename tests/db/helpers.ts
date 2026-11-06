@@ -7,6 +7,7 @@ import path from "node:path";
 import pg from "pg";
 
 const ADMIN_URL = process.env.TEST_PG_ADMIN_URL ?? "postgresql://postgres@localhost/postgres?host=/var/tmp/sideout-pg&port=54329";
+// Works for both URL styles: ".../postgres?host=..." and ".../postgres"
 
 export async function createTestDb(): Promise<{ client: pg.Client; url: string; drop: () => Promise<void> }> {
   const name = `sideout_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
@@ -14,7 +15,7 @@ export async function createTestDb(): Promise<{ client: pg.Client; url: string; 
   await admin.connect();
   await admin.query(`create database ${name}`);
   await admin.end();
-  const url = ADMIN_URL.replace("/postgres?", `/${name}?`);
+  const url = ADMIN_URL.replace(/\/postgres(\?|$)/, `/${name}$1`);
   const client = new pg.Client({ connectionString: url });
   await client.connect();
   const root = path.resolve(__dirname, "../..");

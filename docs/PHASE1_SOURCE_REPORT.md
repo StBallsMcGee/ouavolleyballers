@@ -1,7 +1,7 @@
 # Phase 1 — Source Data Report and Migration Plan
 
 **Date of investigation:** 6 November 2026 (2026-27 season, matchup week 3)
-**Status:** League data verified (section 12). Awaiting administrator decisions (section 13). No league data has been imported or written anywhere.
+**Status:** League data verified (section 12). Administrator decisions received 6 Nov 2026: G GOAT excluded (16 teams), the 11th roster spot filled through free agency or trades, free agency and trades enabled, switchover after week 3. Playoff format still to be set by the administrator in the app. The application is built; see docs/DEPLOYMENT.md to go live.
 
 Legend used throughout:
 
