@@ -17,11 +17,11 @@ export default async function AuditPage() {
       <AdminNav current="/admin/audit" />
       <Card>
         {(data ?? []).length === 0 ? <Empty>Nothing recorded yet.</Empty> : (
-          <ul className="divide-y divide-white/5 text-sm">
+          <ul className="divide-y divide-gray-100 text-sm">
             {(data ?? []).map((a) => (
               <li key={a.id} className="py-2">
-                <div className="flex flex-wrap gap-2"><span className="font-mono text-xs text-coral-400">{a.action}</span><span className="text-slate-300">{a.actor ? who.get(a.actor) ?? "unknown user" : "system"}</span><span className="ml-auto text-xs text-slate-500">{formatDateTime(a.at)}</span></div>
-                <details className="text-xs text-slate-400"><summary className="cursor-pointer">Details</summary><pre className="mt-1 overflow-x-auto whitespace-pre-wrap rounded bg-court-950 p-2">{JSON.stringify({ entity: a.entity, id: a.entity_id, before: a.before, after: a.after }, null, 2)}</pre></details>
+                <div className="flex flex-wrap gap-2"><span className="font-mono text-xs text-coral-600">{a.action}</span><span className="text-gray-700">{a.actor ? who.get(a.actor) ?? "unknown user" : "system"}</span><span className="ml-auto text-xs text-gray-500">{formatDateTime(a.at)}</span></div>
+                <details className="text-xs text-gray-500"><summary className="cursor-pointer">Details</summary><pre className="mt-1 overflow-x-auto whitespace-pre-wrap rounded bg-gray-50 p-2">{JSON.stringify({ entity: a.entity, id: a.entity_id, before: a.before, after: a.after }, null, 2)}</pre></details>
               </li>
             ))}
           </ul>

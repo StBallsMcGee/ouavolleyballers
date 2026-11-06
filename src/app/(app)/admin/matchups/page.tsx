@@ -49,7 +49,7 @@ export default async function AdminMatchupsPage({ searchParams }: { searchParams
       <PageHeader title="Matchups & playoffs" subtitle="Matchups become final automatically the day after their week ends, once every match has finished. You can override that here." />
       <AdminNav current="/admin/matchups" />
       <div className="mb-4 flex gap-1 overflow-x-auto pb-1">
-        {ctx.weeks.map((w) => <a key={w.week} href={`/admin/matchups?week=${w.week}`} className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold ${w.week === week ? "bg-coral-500 text-white" : "bg-court-800 text-slate-300"}`}>W{w.week}</a>)}
+        {ctx.weeks.map((w) => <a key={w.week} href={`/admin/matchups?week=${w.week}`} className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold ${w.week === week ? "bg-coral-500 text-white" : "bg-gray-100 text-gray-700"}`}>W{w.week}</a>)}
       </div>
       <Card title={`Week ${week}`}>
         {thisWeek.length === 0 ? <Empty>No matchups this week.</Empty> : (
@@ -58,12 +58,12 @@ export default async function AdminMatchupsPage({ searchParams }: { searchParams
             <tbody>{thisWeek.map((m) => <tr key={m.id}><td>{names[m.home_team_id]}</td><td>{names[m.away_team_id]}</td><td className="text-right font-mono">{m.home_score.toFixed(1)}–{m.away_score.toFixed(1)}{m.score_source === "imported" ? " *" : ""}</td><td><MatchupStatusSelect id={m.id} status={m.status} /></td></tr>)}</tbody>
           </table>
         )}
-        <p className="mt-2 text-xs text-slate-500">* result recorded on USportVB before the move to Sideout.</p>
+        <p className="mt-2 text-xs text-gray-500">* result recorded on USportVB before the move to Sideout.</p>
       </Card>
       <Card title="Playoffs" className="mt-4">
         {!po.enabled ? <Notice>Playoffs are turned off. Turn them on and choose the number of teams and first week in <a href="/admin/settings" className="link">League settings</a>.</Notice> : plan ? (
-          <><p className="mb-2 text-sm text-slate-400">Seeded from the current standings (top {po.teams}). {planNote}</p><PlayoffCreator week={plan.week} pairs={plan.pairs} names={names} /></>
-        ) : <p className="text-sm text-slate-400">{planNote}</p>}
+          <><p className="mb-2 text-sm text-gray-500">Seeded from the current standings (top {po.teams}). {planNote}</p><PlayoffCreator week={plan.week} pairs={plan.pairs} names={names} /></>
+        ) : <p className="text-sm text-gray-500">{planNote}</p>}
       </Card>
     </>
   );

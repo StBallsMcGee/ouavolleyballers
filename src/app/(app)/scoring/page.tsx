@@ -19,11 +19,11 @@ export default async function ScoringPage() {
             <thead><tr><th>Statistic</th><th className="text-right">Points each</th></tr></thead>
             <tbody>
               {current.rules.filter((r) => r.active).map((r) => (
-                <tr key={r.stat_key}><td>{r.label}</td><td className={`text-right font-mono font-bold ${r.points > 0 ? "text-mint-400" : r.points < 0 ? "text-red-300" : "text-slate-400"}`}>{r.points > 0 ? "+" : ""}{r.points}</td></tr>
+                <tr key={r.stat_key}><td>{r.label}</td><td className={`text-right font-mono font-bold ${r.points > 0 ? "text-emerald-600" : r.points < 0 ? "text-red-600" : "text-gray-500"}`}>{r.points > 0 ? "+" : ""}{r.points}</td></tr>
               ))}
             </tbody>
           </table>
-          <p className="mt-3 text-xs text-slate-500">&quot;Errors&quot; are attack errors. &quot;Serve misses&quot; are service errors. &quot;Attempts&quot; are total attack attempts. Reception, block and ball-handling errors are not scored.</p>
+          <p className="mt-3 text-xs text-gray-500">&quot;Errors&quot; are attack errors. &quot;Serve misses&quot; are service errors. &quot;Attempts&quot; are total attack attempts. Reception, block and ball-handling errors are not scored.</p>
         </Card>
       )}
       {sets.length > 1 ? (
@@ -33,7 +33,7 @@ export default async function ScoringPage() {
               <li key={s.id} className="flex flex-wrap items-center gap-2">
                 <Badge tone={s.id === current?.id ? "mint" : "slate"}>v{s.version}</Badge>
                 <span>From week {s.effective_from_week}</span>
-                <span className="text-slate-500">· {formatDateTime(s.created_at)}{s.note ? ` · ${s.note}` : ""}</span>
+                <span className="text-gray-500">· {formatDateTime(s.created_at)}{s.note ? ` · ${s.note}` : ""}</span>
               </li>
             ))}
           </ul>

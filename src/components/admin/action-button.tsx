@@ -11,7 +11,7 @@ export function ActionButton({ action, label, confirmText, className = "btn-seco
       <button className={className} disabled={pending} onClick={() => { if (confirmText && !confirm(confirmText)) return; start(async () => { const r = await action(); setMsg({ ok: r.ok, text: r.ok ? r.message ?? "Done." : r.error }); }); }}>
         {pending ? "Working…" : label}
       </button>
-      {msg ? <span className={`text-xs ${msg.ok ? "text-mint-400" : "text-red-300"}`}>{msg.text}</span> : null}
+      {msg ? <span className={`text-xs ${msg.ok ? "text-emerald-600" : "text-red-600"}`}>{msg.text}</span> : null}
     </span>
   );
 }

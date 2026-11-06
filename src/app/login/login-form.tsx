@@ -46,10 +46,10 @@ export function LoginForm({ next, initialError }: { next: string; initialError: 
   }
 
   return (
-    <form onSubmit={submit} className="card space-y-4 p-6">
-      <div className="grid grid-cols-2 gap-1 rounded-xl bg-court-950 p-1 text-xs font-semibold">
-        <button type="button" onClick={() => setMode("password")} className={`rounded-lg py-2 ${mode === "password" ? "bg-court-700" : "text-slate-400"}`}>Password</button>
-        <button type="button" onClick={() => setMode("link")} className={`rounded-lg py-2 ${mode === "link" ? "bg-court-700" : "text-slate-400"}`}>Email me a link</button>
+    <form onSubmit={submit} className="card !mx-0 space-y-4 p-6">
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-gray-50 p-1 text-xs font-semibold">
+        <button type="button" onClick={() => setMode("password")} className={`rounded-lg py-2 ${mode === "password" ? "bg-gray-200" : "text-gray-500"}`}>Password</button>
+        <button type="button" onClick={() => setMode("link")} className={`rounded-lg py-2 ${mode === "link" ? "bg-gray-200" : "text-gray-500"}`}>Email me a link</button>
       </div>
       <div>
         <label className="label" htmlFor="email">Email</label>
@@ -61,12 +61,12 @@ export function LoginForm({ next, initialError }: { next: string; initialError: 
           <input id="password" type="password" required autoComplete="current-password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
       ) : null}
-      {error ? <p className="text-sm text-red-300" role="alert">{error}</p> : null}
-      {info ? <p className="text-sm text-mint-400">{info}</p> : null}
+      {error ? <p className="text-sm text-red-600" role="alert">{error}</p> : null}
+      {info ? <p className="text-sm text-emerald-600">{info}</p> : null}
       <button className="btn-primary w-full" disabled={busy}>
         {busy ? "Please wait…" : mode === "password" ? "Sign in" : mode === "link" ? "Send sign-in link" : "Send reset link"}
       </button>
-      <button type="button" onClick={() => setMode(mode === "reset" ? "password" : "reset")} className="block w-full text-center text-xs text-slate-400 hover:text-white">
+      <button type="button" onClick={() => setMode(mode === "reset" ? "password" : "reset")} className="block w-full text-center text-xs text-gray-500 hover:text-gray-900">
         {mode === "reset" ? "Back to sign in" : "Forgot your password?"}
       </button>
     </form>

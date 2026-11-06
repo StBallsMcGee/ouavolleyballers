@@ -62,9 +62,9 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
                     <tr key={r.id}>
                       <td><Link href={`/matches/${r.id}`} className="hover:underline">{formatDate(r.date)}</Link></td>
                       <td>{r.opp ? unis.get(r.opp)?.name : "?"}</td>
-                      <td className="text-right font-mono text-slate-400">{r.sets ?? "–"}</td>
+                      <td className="text-right font-mono text-gray-500">{r.sets ?? "–"}</td>
                       {CORE_STAT_KEYS.map((k) => <td key={k} className="text-right font-mono">{r.line[k] ?? 0}</td>)}
-                      <td className="text-right"><Points value={r.pts} />{r.official ? null : <span title="Calculated with the league's current scoring (match outside this season's fantasy weeks)" className="text-slate-500">*</span>}</td>
+                      <td className="text-right"><Points value={r.pts} />{r.official ? null : <span title="Calculated with the league's current scoring (match outside this season's fantasy weeks)" className="text-gray-500">*</span>}</td>
                     </tr>
                   ))}
                   <tr className="font-semibold"><td colSpan={3}>Totals</td>{CORE_STAT_KEYS.map((k) => <td key={k} className="text-right font-mono">{sum(k)}</td>)}<td className="text-right"><Points value={Math.round(total * 10) / 10} /></td></tr>
@@ -74,7 +74,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
           </Card>
         );
       })}
-      <p className="text-xs text-slate-500">K kills · E attack errors · TA attack attempts · A assists · SA aces · SE service errors · D digs · BS solo blocks · BA block assists. * calculated with current league scoring for reference.</p>
+      <p className="text-xs text-gray-500">K kills · E attack errors · TA attack attempts · A assists · SA aces · SE service errors · D digs · BS solo blocks · BA block assists. * calculated with current league scoring for reference.</p>
     </>
   );
 }

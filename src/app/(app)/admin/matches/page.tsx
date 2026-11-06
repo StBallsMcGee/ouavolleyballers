@@ -28,7 +28,7 @@ export default async function AdminMatchesPage({ searchParams }: { searchParams:
                   <tr key={m.id}>
                     <td>{formatDate(m.match_date)}</td>
                     <td>{unis.get(m.home_university_id)?.name} – {unis.get(m.away_university_id)?.name}</td>
-                    <td className="text-xs text-slate-400">{m.lock_source === "fallback" ? "default time" : m.lock_source}</td>
+                    <td className="text-xs text-gray-500">{m.lock_source === "fallback" ? "default time" : m.lock_source}</td>
                     <td><MatchRowEditor id={m.id} lockAt={m.lock_at} counts={m.counts_for_fantasy} status={m.status} /></td>
                   </tr>
                 ))}

@@ -29,7 +29,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
         actions={<div className="flex flex-col items-end gap-1"><MatchStatus status={m.status} statsAvailable={m.stats_available} /><Freshness at={m.last_updated_at} /></div>}
       />
       {(stats ?? []).length === 0 ? <Empty>No player statistics yet. They appear here automatically once the source publishes them.</Empty> : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {[m.home_university_id, m.away_university_id].map((uni) => (
             <Card key={uni} title={unis.get(uni)?.name}>
               <div className="-mx-4 overflow-x-auto sm:mx-0">
@@ -41,9 +41,9 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                       const o = owner.get(s.player_id);
                       return (
                         <tr key={s.player_id}>
-                          <td><Link href={`/players/${p.id}`} className="font-semibold hover:underline">{p.display_name}</Link> <span className="text-xs text-slate-500">{p.position_label}</span></td>
+                          <td><Link href={`/players/${p.id}`} className="font-semibold hover:underline">{p.display_name}</Link> <span className="text-xs text-gray-500">{p.position_label}</span></td>
                           <td className="text-xs">{o ? <TeamLink id={o} name={team.get(o)?.name ?? ""} mine={o === ctx.myTeam?.id} /> : <Badge tone="mint">FA</Badge>}</td>
-                          <td className="text-right font-mono text-slate-400">{s.sets_played ?? "–"}</td>
+                          <td className="text-right font-mono text-gray-500">{s.sets_played ?? "–"}</td>
                           {CORE_STAT_KEYS.map((k) => <td key={k} className="text-right font-mono">{s[k]}</td>)}
                           <td className="text-right"><Points value={pointsOf.get(s.player_id) ?? null} /></td>
                         </tr>

@@ -4,22 +4,22 @@ import { useMemo, useState, useTransition } from "react";
 import { addDrop, saveLineup } from "@/app/actions";
 import { autofillLineup, validateLineup, type LineupPlayer } from "@/lib/lineup/lineup";
 import { BENCH, isEligibleForSlot, slotGroup } from "@/lib/league/settings";
+import { Avatar, GameLine, type GameLineChip } from "@/components/ui";
 
 export interface EditorPlayer extends LineupPlayer {
   positionLabel: string | null;
-  university: string;
+  universityCode: string;
   weekPoints: number;
   seasonPoints: number;
-  nextMatch: string | null;
+  games: GameLineChip[];
 }
 
-function Pts({ v }: { v: number }) {
-  return <span className={`font-mono tabular-nums ${v > 0 ? "text-mint-400" : v < 0 ? "text-red-300" : "text-slate-500"}`}>{v.toFixed(1)}</span>;
-}
+const fmt = (v: number) => v.toFixed(1);
 
 export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: { teamId: string; players: EditorPlayer[]; slots: string[]; editable: boolean; rosterLimit: number }) {
   const original = useMemo(() => new Map(players.map((p) => [p.playerId, p.slot])), [players]);
   const [slotOf, setSlotOf] = useState<Map<string, string>>(original);
+  const [moving, setMoving] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const byId = new Map(players.map((p) => [p.playerId, p]));
@@ -27,30 +27,35 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: 
   const problems = validateLineup(current, original, slots);
   const dirty = players.some((p) => slotOf.get(p.playerId) !== original.get(p.playerId));
   const occupant = (slot: string) => current.find((p) => p.slot === slot);
-  const bench = current.filter((p) => p.slot === BENCH);
+  const bench = current.filter((p) => p.slot === BENCH).sort((a, b) => (byId.get(b.playerId)?.seasonPoints ?? 0) - (byId.get(a.playerId)?.seasonPoints ?? 0));
+  const mover = moving ? current.find((p) => p.playerId === moving) : undefined;
 
-  function assign(slot: string, playerId: string) {
+  /** Can the player being moved go to this slot (swapping with whoever is there)? */
+  function canDrop(slot: string): boolean {
+    if (!mover || mover.slot === slot) return false;
+    const occ = slot === BENCH ? undefined : occupant(slot);
+    if (occ?.locked) return false;
+    return isEligibleForSlot(mover.positions, slot);
+  }
+
+  function moveTo(slot: string) {
+    if (!mover) return;
     const next = new Map(slotOf);
-    const prevOcc = occupant(slot);
-    if (playerId === "") {
-      if (prevOcc) next.set(prevOcc.playerId, BENCH);
-    } else {
-      const fromSlot = next.get(playerId) ?? BENCH;
-      next.set(playerId, slot);
-      if (prevOcc && prevOcc.playerId !== playerId) {
-        // swap: displaced player takes the incoming player's old slot if eligible, else bench
-        const canSwap = fromSlot !== BENCH && isEligibleForSlot(prevOcc.positions, fromSlot);
-        next.set(prevOcc.playerId, canSwap ? fromSlot : BENCH);
-      }
-    }
+    const from = mover.slot;
+    const occ = slot === BENCH ? undefined : occupant(slot);
+    next.set(mover.playerId, slot);
+    // The displaced starter takes the mover's old slot if she can play it, otherwise the bench.
+    if (occ) next.set(occ.playerId, from !== BENCH && isEligibleForSlot(occ.positions, from) ? from : BENCH);
     setSlotOf(next);
+    setMoving(null);
     setMsg(null);
   }
 
   function autofill() {
     const filled = autofillLineup(current, slots);
     setSlotOf(new Map(filled.map((p) => [p.playerId, p.slot])));
-    setMsg({ ok: true, text: "Suggested lineup filled in. Review it, then save." });
+    setMoving(null);
+    setMsg({ ok: true, text: "Players with games today moved into your lineup. Review, then save." });
   }
 
   function save() {
@@ -61,85 +66,103 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: 
   }
 
   function drop(p: EditorPlayer) {
-    if (!confirm(`Drop ${p.name}? They become a free agent immediately and any team can pick them up.`)) return;
+    if (!confirm(`Drop ${p.name}? She becomes a free agent immediately and any team can pick her up.`)) return;
     start(async () => {
       const r = await addDrop(teamId, null, p.playerId);
       setMsg(r.ok ? { ok: true, text: r.message ?? "Dropped." } : { ok: false, text: r.error });
     });
   }
 
-  const row = (slot: string | null, p: LineupPlayer | undefined) => {
+  const actionCell = (slot: string, p: LineupPlayer | undefined) => {
+    if (!editable) return null;
+    if (moving) {
+      if (p && p.playerId === moving) return <button className="w-16 rounded-full border border-gray-300 py-1.5 text-[11px] font-extrabold text-gray-600" onClick={() => setMoving(null)}>CANCEL</button>;
+      if (canDrop(slot)) return <button className="w-16 rounded-full bg-coral-500 py-1.5 text-[11px] font-extrabold text-white" onClick={() => moveTo(slot)}>HERE</button>;
+      return <span className="block w-16" />;
+    }
+    if (!p) return <span className="block w-16" />;
+    if (p.locked) return <span className="grid w-16 place-items-center text-sm text-gray-400" title="Her match today has started">🔒</span>;
+    return <button className="w-16 rounded-full border border-gray-300 py-1.5 text-[11px] font-extrabold text-gray-800 active:bg-gray-100" disabled={pending} onClick={() => { setMoving(p.playerId); setMsg(null); }}>MOVE</button>;
+  };
+
+  const row = (slot: string, p: LineupPlayer | undefined) => {
     const ep = p ? byId.get(p.playerId) : undefined;
-    const lockedHere = !!p?.locked;
-    const options = players.filter((x) => !x.locked && (slot ? isEligibleForSlot(x.positions, slot) : true));
+    const isMover = !!p && p.playerId === moving;
     return (
-      <div key={slot ?? ep?.playerId} className="flex items-center gap-3 border-t border-white/5 py-2.5 first:border-t-0">
-        <span className={`w-12 shrink-0 rounded-md py-1 text-center font-mono text-xs font-bold ${slot ? "bg-coral-500/15 text-coral-400" : "bg-white/5 text-slate-400"}`}>{slot ? slotGroup(slot) : "BN"}</span>
-        <div className="min-w-0 flex-1">
-          {ep ? (
-            <>
-              <div className="flex items-center gap-2">
-                <Link href={`/players/${ep.playerId}`} className="truncate font-semibold hover:underline">{ep.name}</Link>
-                {ep.locked ? <span title="Their match today has started" className="text-xs text-amber-300">🔒</span> : null}
-                {ep.playsToday && !ep.locked ? <span className="rounded bg-mint-500/15 px-1.5 text-[10px] font-bold text-mint-400">PLAYS TODAY</span> : null}
+      <li key={p ? p.playerId : slot} className={`flex items-center gap-3 px-3 py-2.5 ${isMover ? "bg-coral-50" : ""}`}>
+        <span className={`w-9 shrink-0 text-center text-[11px] font-extrabold ${slot === BENCH ? "text-gray-400" : "text-gray-700"}`}>{slot === BENCH ? "BN" : slotGroup(slot)}</span>
+        {ep ? (
+          <>
+            <Avatar name={ep.name} size={38} />
+            <div className="min-w-0 flex-1">
+              <Link href={`/players/${ep.playerId}`} className="block truncate text-[15px] font-bold leading-tight hover:underline">{ep.name}</Link>
+              <div className="truncate text-[12px] text-gray-500">
+                <span className="font-semibold text-gray-700">{ep.universityCode}</span> · {ep.positionLabel ?? "–"}
+                {slot === BENCH && editable && !moving && !ep.locked ? (
+                  <button className="ml-2 font-semibold text-red-600" disabled={pending} onClick={() => drop(ep)}>Drop</button>
+                ) : null}
               </div>
-              <div className="truncate text-xs text-slate-500">{ep.positionLabel ?? "–"} · {ep.university}{ep.nextMatch ? ` · next: ${ep.nextMatch}` : ""}</div>
-            </>
-          ) : (
-            <span className="text-sm text-slate-500">Empty slot</span>
-          )}
-        </div>
-        <div className="hidden w-14 text-right text-sm sm:block">{ep ? <Pts v={ep.weekPoints} /> : null}</div>
-        <div className="hidden w-14 text-right text-sm sm:block">{ep ? <Pts v={ep.seasonPoints} /> : null}</div>
-        {editable && slot ? (
-          <select
-            aria-label={`Choose player for ${slot}`}
-            className="input w-28 py-1 text-xs sm:w-40"
-            disabled={lockedHere || pending}
-            value={p?.playerId ?? ""}
-            onChange={(e) => assign(slot, e.target.value)}
-          >
-            <option value="">— empty —</option>
-            {options.map((o) => (
-              <option key={o.playerId} value={o.playerId}>{o.name}{slotOf.get(o.playerId) !== BENCH && slotOf.get(o.playerId) !== slot ? ` (${slotOf.get(o.playerId)})` : ""}</option>
-            ))}
-          </select>
-        ) : null}
-        {editable && !slot && ep ? (
-          <button className="btn-ghost px-2 py-1 text-xs text-red-300" disabled={pending || ep.locked} onClick={() => drop(ep)}>Drop</button>
-        ) : null}
-      </div>
+              <div className="mt-0.5 text-[12px] leading-snug"><GameLine chips={ep.games} /></div>
+            </div>
+            <div className="w-12 shrink-0 text-right">
+              <div className={`text-[15px] font-extrabold tabular-nums ${ep.weekPoints < 0 ? "text-red-600" : slot === BENCH ? "text-gray-400" : ""}`}>{fmt(ep.weekPoints)}</div>
+              <div className="text-[10px] text-gray-400">{fmt(ep.seasonPoints)} szn</div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 py-2 text-sm font-semibold text-gray-400">Empty</div>
+        )}
+        <div className="shrink-0">{actionCell(slot, p)}</div>
+      </li>
     );
   };
 
+  const startersTotal = slots.reduce((a, s) => a + (byId.get(occupant(s)?.playerId ?? "")?.weekPoints ?? 0), 0);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 pb-16">
       {editable ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <button className="btn-secondary" onClick={autofill} disabled={pending}>Start active players</button>
-          <button className="btn-primary" onClick={save} disabled={!dirty || problems.length > 0 || pending}>{pending ? "Saving…" : "Save lineup"}</button>
-          {dirty ? <button className="btn-ghost" onClick={() => { setSlotOf(original); setMsg(null); }} disabled={pending}>Undo changes</button> : null}
-          {msg ? <span className={`text-sm ${msg.ok ? "text-mint-400" : "text-red-300"}`} role="status">{msg.text}</span> : null}
+        <div className="flex items-center gap-2 px-4 sm:px-0">
+          <button className="btn-secondary min-h-[34px] px-3 py-1 text-xs" onClick={autofill} disabled={pending || !!moving}>Start active players</button>
+          {moving ? <span className="text-xs font-semibold text-coral-700">Tap HERE to move {byId.get(moving)?.name}</span> : null}
         </div>
       ) : null}
-      {problems.length > 0 && dirty ? (
-        <ul className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2 text-sm text-red-200">{problems.map((p, i) => <li key={i}>{p.message}</li>)}</ul>
-      ) : null}
-      <section className="card p-4">
-        <div className="mb-1 flex items-center gap-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-          <span className="w-12">Slot</span><span className="flex-1">Starters</span><span className="hidden w-14 text-right sm:block">Week</span><span className="hidden w-14 text-right sm:block">Season</span>{editable ? <span className="w-28 sm:w-40" /> : null}
+      {msg && !dirty ? <p className={`px-4 text-sm sm:px-0 ${msg.ok ? "text-emerald-700" : "text-red-600"}`} role="status">{msg.text}</p> : null}
+
+      <section className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
+        <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-gray-500">
+          <span>Starters</span>
+          <span>This week {fmt(startersTotal)}</span>
         </div>
-        {slots.map((s) => row(s, occupant(s)))}
+        <ul className="divide-y divide-gray-100">{slots.map((s) => row(s, occupant(s)))}</ul>
       </section>
-      <section className="card p-4">
-        <div className="mb-1 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500">
-          <span>Bench (scores no points) · {players.length}/{rosterLimit} roster spots used</span>
+
+      <section className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
+        <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-gray-500">
+          <span>Bench · {players.length}/{rosterLimit} roster</span>
+          {editable && moving && canDrop(BENCH) ? <button className="rounded-full bg-coral-500 px-3 py-1 text-[11px] font-extrabold text-white" onClick={() => moveTo(BENCH)}>MOVE TO BENCH</button> : null}
         </div>
-        {bench.length === 0 ? <p className="py-2 text-sm text-slate-500">Nobody on the bench.</p> : bench.map((p) => row(null, p))}
+        <ul className="divide-y divide-gray-100">
+          {bench.length === 0 ? <li className="px-4 py-3 text-sm text-gray-400">Nobody on the bench.</li> : bench.map((p) => row(BENCH, p))}
+        </ul>
         {editable && players.length < rosterLimit ? (
-          <p className="mt-3 text-sm text-slate-400">You have {rosterLimit - players.length} open roster spot{rosterLimit - players.length > 1 ? "s" : ""}. <Link href="/free-agents" className="link">Add a free agent</Link> or <Link href="/trades/new" className="link">propose a trade</Link>.</p>
+          <p className="border-t border-gray-100 px-4 py-3 text-sm text-gray-600">
+            {rosterLimit - players.length} open roster spot{rosterLimit - players.length > 1 ? "s" : ""}: <Link href="/free-agents" className="link">add a free agent</Link> or <Link href="/trades/new" className="link">trade</Link>.
+          </p>
         ) : null}
       </section>
+
+      {editable && (dirty || pending) ? (
+        <div className="fixed inset-x-0 bottom-[calc(58px+env(safe-area-inset-bottom))] z-30 border-t border-gray-200 bg-white/95 px-4 py-2.5 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur lg:bottom-0">
+          <div className="mx-auto flex max-w-5xl items-center gap-2">
+            <div className="min-w-0 flex-1 text-xs">
+              {problems.length ? <span className="font-semibold text-red-600">{problems[0]!.message}</span> : msg && !msg.ok ? <span className="font-semibold text-red-600">{msg.text}</span> : <span className="font-semibold text-gray-700">Unsaved lineup changes</span>}
+            </div>
+            <button className="btn-ghost min-h-[36px] px-3 py-1" onClick={() => { setSlotOf(original); setMoving(null); setMsg(null); }} disabled={pending}>Undo</button>
+            <button className="btn-primary min-h-[36px] px-5 py-1" onClick={save} disabled={problems.length > 0 || pending}>{pending ? "Saving…" : "Save"}</button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
