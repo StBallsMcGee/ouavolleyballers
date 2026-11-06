@@ -1,7 +1,7 @@
 # Phase 1 — Source Data Report and Migration Plan
 
 **Date of investigation:** 6 November 2026 (2026-27 season, matchup week 3)
-**Status:** Draft for administrator review. No league data has been imported or written anywhere.
+**Status:** League data verified (section 12). Awaiting administrator decisions (section 13). No league data has been imported or written anywhere.
 
 Legend used throughout:
 
@@ -18,7 +18,7 @@ Legend used throughout:
 2. **Player information and match-by-match player statistics can be retrieved automatically** from a public USportVB endpoint that needs no login. I confirmed it returns all 432 OUA women's players (271 active) with per-match stats back to October 2024. (VERIFIED)
 3. **I can reproduce USportVB's fantasy-point calculation exactly.** Using the site's default scoring values, I recalculated this season's week-2 points for all 187 players who scored, and all 187 matched the site to the decimal. This shows we understand the statistic fields and the formula. (VERIFIED)
 4. **The ambiguous scoring labels are now answered.** "Errors" means *attack* errors, "Attempts" means *total attack attempts*, and "Missed serves" means *service errors*. (STRONG EVIDENCE + VERIFIED by the 187/187 match)
-5. **Your league's own settings (managers, teams, rosters, custom scoring, matchups) were not retrieved.** I don't have your league ID, and I deliberately didn't search for it. This is the main thing I need from you (see section 9).
+5. **[UPDATE 6 Nov: resolved, see section 12.]** ~~Your league's own settings (managers, teams, rosters, custom scoring, matchups) were not retrieved.~~ I don't have your league ID, and I deliberately didn't search for it. This is the main thing I need from you (see section 9).
 6. **The official USports box-score site blocked every request** (a "403 Request blocked" page from its CloudFront network). USportVB's own server also couldn't reach USports while I was testing. **This is the biggest risk to automatic stat updates** and needs a decision (section 7).
 7. **Your league appears to use head-to-head weekly matchups with wins and losses, playoffs, a bench, and day-by-day lineup locking.** It is not simply "most total points". (STRONG EVIDENCE from the site's code and update notes; needs confirming for your league.)
 
@@ -137,6 +137,8 @@ How the label meanings were confirmed: the site's box-score structure lists `kil
 `points = Σ (stat × value)`, added up over each match in the period. For week 2 of 2026-27 (26 Oct – 1 Nov), all **187 / 187** players with points matched USportVB's published figure exactly when using the default values.
 
 ### 5.3 What is still UNVERIFIED
+> **Update:** the league's real values are now VERIFIED (section 12). Attempts = **0**, assists = **0.3**.
+
 - **Your league's actual values.** The spec's candidates differ from the defaults in exactly two places (assists 0.3, attempts −0.5). That fits a customised league, but **−0.5 per attack attempt is a very heavy penalty.** For example, 10 kills on 30 attempts with 3 errors would score −8. That's possible, but please confirm it on your league's settings page. If it actually reads "Attempts −0.05" or similar, this matters a lot.
 - Whether **bench players** score: the update notes say "players on bench will not earn fantasy points". This needs confirming for weekly totals.
 - How USportVB rounds weekly totals, and how it treats a match a player appears in twice (a USportVB data error).
@@ -154,8 +156,8 @@ How the label meanings were confirmed: the site's box-score structure lists `kil
 ### 6.2 Terms of service
 There are none. A support email is listed: **usportvb@gmail.com**. The site is evidently run by one volunteer developer.
 
-### 6.3 A security weakness in USportVB (for your awareness)
-The site code calls the fantasy league and team endpoints, and even the "change player position" endpoint, **without sending any login token**. If the server doesn't check separately, anyone who knows a league ID could read its data (including the league join password) and possibly change lineups. **I did not test this and will not.** You may want to let the USportVB developer know privately. For our migration it means two things: (a) the league data can probably be read with just the league ID, and (b) the response probably contains the league password, which our import tool will strip out before saving anything.
+### 6.3 A privacy concern in USportVB (reported to the administrator privately)
+A possible access-control weakness in USportVB was noted and passed to the administrator privately, for the USportVB developer. Details are deliberately left out of this public repository. For our migration: league responses include the league join password, which our import tool always strips out before saving anything.
 
 ### 6.4 USports (en.usports.ca)
 Every request, including `robots.txt`, got **403 "Request blocked" from CloudFront**. That usually means the site blocks cloud servers or automated clients. Working around a block like this is exactly what the spec forbids. USportVB's own cloud server also got "Failed to fetch data from USport" while I tested, so this may be affecting USportVB too, right now.
@@ -198,6 +200,8 @@ The new app will be designed so the stats source is a replaceable "adapter". Sco
 ---
 
 ## 9. Still unknown — and what I need from you
+> **Update:** items 1–5 are resolved (section 12). Items 6–9 remain, plus the decisions in section 13.
+
 
 | # | Unknown | How to resolve | Who |
 |---|---|---|---|
@@ -260,11 +264,46 @@ On top of the spec's tables (section 8), I propose:
 
 ---
 
-## 12. Next steps
+## 12. League verification results (added 6 Nov 2026, after administrator approval)
 
-1. **You:** send the league ID and approve the one-time league read (section 9, items 1–2).
-2. **You:** screenshot the league settings (scoring, roster, playoffs, trades).
-3. **You:** decide on contacting the USportVB developer (recommended) and on the long-term stats source.
-4. **You (optional):** save the example box-score XML from your browser and share it.
-5. **Me, after 1–2:** run the read-only league fetch and validation, and give you a dry-run migration report with exact manager, team, roster and scoring counts. That completes Phase 1.
-6. **Me, after your approval of that report:** begin Phase 2 (schema, test database, import tool with dry-run, automated tests).
+The administrator supplied the league settings screenshots and approved a one-time read of the league data (the USportVB developer has given permission). Three requests were made: the league, the league's team list, and one team as a cross-check. The per-team requests added nothing beyond the team list, so they weren't repeated for the other 16 teams.
+
+**This public repository deliberately contains no league ID, manager IDs, team names or rosters.** Those are in a private, redacted snapshot and a detailed report given to the administrator.
+
+| Check | Result |
+|---|---|
+| League settings vs screenshots | **VERIFIED — identical.** Women's, OUA only, league size 17, season 2026-27. |
+| Scoring (9 categories) | **VERIFIED:** aces +2, digs +0.5, kills +1, attack errors −1, assists **+0.3**, solo blocks +2, block assists +0.8, service errors −0.5, attack attempts **0**. The spec's provisional "attempts −0.5" was **wrong**; the real value is 0. The only difference from USportVB's defaults is assists (0.3 vs 0.1). |
+| Roster configuration | **VERIFIED:** 3 OH, 2 M, 1 L, 1 S, 1 UTIL (8 starters), **11 total**. That leaves 3 bench spots, but the draft was **10 rounds**, so every team has 1 open roster spot. |
+| Lineup slot names | `S`, `OH1–3`, `M1–2`, `L`, `UTIL`, `BENCH` |
+| Teams | **17** team records; the league's list and team endpoint agree exactly. 17 distinct managers, no manager owns two teams. The commissioner owns one team. |
+| The "17th entry" | **Explained:** one real team with a real manager that has **0 players, made no draft picks, and is in no matchup.** It joined but did not draft. **Administrator decision needed** (section 13). |
+| Draft | Complete: 160 picks (16 teams × 10 rounds), pick numbers 1–160 with no gaps, no player drafted twice. |
+| Rosters | **160 rostered players, all unique** (no player on two teams). All 160 found in the player feed, all active, none of them the duplicate-record players. |
+| Changes since the draft | **4 free-agent drop/add swaps on 2 teams** (4 drafted players dropped, 4 undrafted players added). No trades. Current rosters, not draft picks, are the source of truth. |
+| Lineup validity | Every starter is in a slot matching their listed position. 3 teams have never set a lineup (all 10 players on the bench). |
+| Competition format | **VERIFIED head-to-head:** 72 matchups, weeks 2–10, 8 per week, 16 teams, no repeat pairings. Weeks 11–13 have no matchups, presumably reserved for playoffs (format UNVERIFIED). |
+| Historical results | **None exist yet.** All records 0–0, all matchup scores 0, no weekly points. The draft was 3 Nov 2026 and there have been no OUA women's games since. **No history needs migrating.** |
+| Lineup history | Not exposed by any endpoint we use. Not needed, since nothing has been scored. |
+
+### Source health at time of check
+- Player stats feed (`/api/players`): working; latest rows dated 1 Nov 2026.
+- USportVB match lists (`/api/games-by-date`, `/api/games-by-date-range`): **returning errors or empty results even for dates with known games.** These appear to depend on USports.
+- USports box scores: still 403-blocked from this cloud environment.
+- **To watch:** whether the player feed picks up this weekend's (6–8 Nov) matches. If it doesn't, USportVB's own stats pipeline is affected by the USports block too.
+
+## 13. Decisions needed from the administrator
+
+1. **The empty 17th team.** Options: (a) import it as an inactive team with no roster and no matchups (exactly mirrors USportVB; **recommended**); (b) give it players from free agency; (c) leave it out. Nothing will be deleted either way.
+2. **The 11th roster spot.** Rosters allow 11 but everyone has 10. Should the open spot stay open, or can managers fill it from free agency (USportVB allows free agency)?
+3. **Free agency / trades** in the new app: USportVB had both enabled in practice. Enable them in the new app, or freeze rosters?
+4. **Playoffs:** how many teams qualify, which weeks, and the tiebreakers.
+5. **Bench scoring:** confirm bench players score 0 (USportVB states this).
+6. **Timing:** week 3 matches are this weekend and will be scored on USportVB. The new app should take over at a week boundary, ideally before week 4 or a later Monday, and import USportVB's completed weekly results up to that point.
+7. **Repository visibility:** this GitHub repository is **public**. The spec calls for a private app; please consider making the repo private (GitHub → Settings → General → Danger Zone → Change visibility). Either way, no league data or secrets will be committed.
+
+## 14. Next steps
+
+1. **Administrator:** answer the decisions in section 13.
+2. **Me:** re-check the player feed after this weekend's matches (one request) to confirm USportVB's stats are still updating.
+3. **Me, once approved:** start Phase 2. That means creating the database schema, running the import tool in dry-run mode against a **test** database using the saved snapshot, and building automated tests for scoring and duplicate prevention. Real-league writes only after the dry-run report is approved.
