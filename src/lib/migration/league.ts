@@ -13,7 +13,7 @@ import { createHash } from "node:crypto";
 import type { Db } from "@/lib/db/pg";
 import { DEFAULT_SETTINGS, isEligibleForSlot, parsePositions, startingSlots, type LeagueSettings } from "@/lib/league/settings";
 import { leaguePointsToRules, redactSecrets, SOURCE_SYSTEM, type UsvbLeague, type UsvbPlayer, type UsvbTeam } from "@/lib/sources/usportvb";
-import { seasonLabelForSourceYear, USVB_WEEKS } from "@/lib/sources/usportvb-calendar";
+import { isMondayToSunday, seasonLabelForSourceYear, USVB_WEEKS } from "@/lib/sources/usportvb-calendar";
 import { normalizeFeed } from "@/lib/ingest/normalize";
 import { writeFeed, type FeedWriteResult } from "@/lib/ingest/writer";
 
@@ -126,6 +126,9 @@ export function validateLeagueSource(
   if (league.criticalSettings.gender !== "womens") err(`League gender is ${league.criticalSettings.gender}, expected womens.`);
   if (league.criticalSettings.conferences.join(",") !== "OUA") warn(`League conferences: ${league.criticalSettings.conferences.join(", ")}.`);
   if (!USVB_WEEKS[league.year]) err(`No matchup calendar is known for season ${league.year}.`);
+  for (const w of USVB_WEEKS[league.year] ?? []) {
+    if (!isMondayToSunday(w)) err(`Week ${w.week} (${w.start} to ${w.end}) does not run Monday to Sunday.`);
+  }
   const missing = league.teams.filter((id) => !teamIds.has(id));
   const extra = [...teamIds].filter((id) => !league.teams.includes(id));
   if (missing.length) err(`League lists teams not returned by the teams endpoint: ${missing.join(", ")}.`);
