@@ -225,3 +225,40 @@ export function ruleSetInForce(sets: readonly RuleSetRow[], week: number): RuleS
       .sort((a, b) => b.effective_from_week - a.effective_from_week || b.version - a.version)[0] ?? null
   );
 }
+
+/**
+ * A team's lineup as it stood at a moment in time (lineup history is never overwritten), with
+ * player details and photos. Used to show past weeks exactly as they were.
+ */
+export async function getLineupAt(sb: Sb, teamId: string, atIso: string): Promise<RosterPlayer[]> {
+  const { data: entries } = await sb
+    .from("lineup_entries")
+    .select("roster_assignment_id, player_id, slot, valid_from, valid_to")
+    .eq("fantasy_team_id", teamId);
+  const at = new Date(atIso).getTime();
+  const live = (entries ?? []).filter((e) => new Date(e.valid_from).getTime() <= at && (!e.valid_to || new Date(e.valid_to).getTime() > at));
+  const ids = live.map((e) => e.player_id as string);
+  if (ids.length === 0) return [];
+  const [{ data: players }, { data: pp }] = await Promise.all([
+    sb.from("players").select("id, display_name, positions, position_label, jersey_number, university_id").in("id", ids),
+    sb.from("player_profiles").select("player_id, photo_url").in("player_id", ids),
+  ]);
+  const pl = new Map((players ?? []).map((p) => [p.id as string, p]));
+  const photo = new Map((pp ?? []).map((p) => [p.player_id as string, p.photo_url as string | null]));
+  return live.flatMap((e) => {
+    const p = pl.get(e.player_id);
+    if (!p) return [];
+    return [{
+      assignmentId: e.roster_assignment_id,
+      playerId: e.player_id,
+      name: p.display_name,
+      positions: p.positions ?? [],
+      positionLabel: p.position_label,
+      jersey: p.jersey_number,
+      universityId: p.university_id,
+      slot: e.slot,
+      acquiredAt: e.valid_from,
+      photoUrl: photo.get(e.player_id) ?? null,
+    }];
+  });
+}

@@ -89,6 +89,8 @@ export interface WriteSummary {
   matchupsInserted: number;
   matchupsExisting: number;
   matchupResultsUpdated: number;
+  /** Refresh mode: weeks at/after the cut-over that were USportVB weeks and are now scored here. */
+  matchupsNowCalculated: number;
   scoringRuleSet: "inserted" | "existing-identical" | "existing-different";
   invitations: number;
 }
@@ -481,6 +483,17 @@ export async function writeLeague(
       [leagueId, JSON.stringify(matchupRows.filter((r) => r.score_source === "imported"))]);
     matchupResultsUpdated = r.rowCount ?? 0;
   }
+  let matchupsNowCalculated = 0;
+  if (refresh) {
+    // Moving the cut-over earlier (e.g. to score this week in Sideout): those weeks stop being
+    // USportVB weeks and are calculated from Sideout lineups and real statistics from now on.
+    const r = await db.query(
+      `update public.matchups set score_source = 'calculated', status = 'scheduled', imported_home_score = null,
+              imported_away_score = null, finalized_at = null
+       where league_id = $1 and week >= $2 and score_source = 'imported'`,
+      [leagueId, opts.cutoverWeek]);
+    matchupsNowCalculated = r.rowCount ?? 0;
+  }
   const matchupsExisting = matchupRows.length - matchupsInserted;
 
   // 8. Manager invitations (emails come from the administrator, never from the source)
@@ -519,6 +532,7 @@ export async function writeLeague(
     matchupsInserted,
     matchupsExisting,
     matchupResultsUpdated,
+    matchupsNowCalculated,
     scoringRuleSet,
     invitations,
   };
@@ -560,7 +574,7 @@ export async function runLeagueImport(
     const createdAgain =
       secondPass.feed.players.inserted + secondPass.feed.matches.inserted + secondPass.feed.stats.inserted +
       secondPass.teams.inserted + secondPass.rosterInserted + secondPass.matchupsInserted + secondPass.weeksInserted +
-      secondPass.rosterMoved + secondPass.rosterReleased + secondPass.lineupSlotsChanged + secondPass.teamsRenamed + secondPass.matchupResultsUpdated;
+      secondPass.rosterMoved + secondPass.rosterReleased + secondPass.lineupSlotsChanged + secondPass.teamsRenamed + secondPass.matchupResultsUpdated + secondPass.matchupsNowCalculated;
     if (createdAgain > 0 || secondPass.scoringRuleSet === "inserted") {
       report.issues.push({ level: "error", message: `Second pass created ${createdAgain} new records: import is not repeatable.` });
     } else {
@@ -618,7 +632,7 @@ export function reportToMarkdown(r: LeagueImportReport): string {
       `- League: ${w.league}, weeks: +${w.weeksInserted}, teams: +${w.teams.inserted} (existing ${w.teams.existing})`,
       `- Roster assignments: +${w.rosterInserted} (unchanged ${w.rosterUnchanged}, moved ${w.rosterMoved}, released ${w.rosterReleased}, conflicts ${w.rosterConflicts}, not in source ${w.rosterNotInSource})`,
       `- Lineup slots: ${w.lineupSlotDifferences} differ from the source${r.options.refresh ? `, ${w.lineupSlotsChanged} updated` : ""}; teams renamed: ${w.teamsRenamed}`,
-      `- Matchups: +${w.matchupsInserted} (existing ${w.matchupsExisting}, results updated ${w.matchupResultsUpdated}); scoring rule set: ${w.scoringRuleSet}; invitations: ${w.invitations}`);
+      `- Matchups: +${w.matchupsInserted} (existing ${w.matchupsExisting}, results updated ${w.matchupResultsUpdated}, now scored by Sideout ${w.matchupsNowCalculated}); scoring rule set: ${w.scoringRuleSet}; invitations: ${w.invitations}`);
     if (r.write.secondPass) {
       const s = r.write.secondPass;
       lines.push(`- Second (repeat) pass created: players ${s.feed.players.inserted}, stats ${s.feed.stats.inserted}, teams ${s.teams.inserted}, roster ${s.rosterInserted}, matchups ${s.matchupsInserted}`);
