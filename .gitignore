@@ -16,3 +16,9 @@ node_modules/
 dist/
 coverage/
 .DS_Store
+
+# Import/sync reports can contain league member data
+/reports/
+/private_league_data/
+*.tsbuildinfo
+next-env.d.ts
