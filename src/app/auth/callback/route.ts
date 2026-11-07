@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
   const code = url.searchParams.get("code");
   const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type") as EmailOtpType | null;
+  // Invitation emails sent from the Admin page put the sign-in after "#", which the server can't
+  // see. Hand over to a page that reads it in the browser (the "#..." part carries across).
+  if (!code && !tokenHash) return NextResponse.redirect(new URL(`/auth/finish?next=${encodeURIComponent(next)}`, url.origin));
   let ok = false;
   if (code) ok = !(await sb.auth.exchangeCodeForSession(code)).error;
   else if (tokenHash && type) ok = !(await sb.auth.verifyOtp({ token_hash: tokenHash, type })).error;
