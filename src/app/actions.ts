@@ -238,6 +238,7 @@ export async function joinCreateAccount(input: { code: string; name: string; ema
     if (!Array.isArray(info) || info.length === 0) return { ok: false, error: "This invite link is no longer valid. Ask the league admin for the new one." };
     const { error } = await supabaseServiceRole().auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { display_name: name } });
     if (error) {
+      if (/not allowed|not_admin/i.test(error.message)) return { ok: false, error: "The site can't create accounts yet (its Supabase service key isn't accepted). Please tell the league admin." };
       if (/already|registered|exists/i.test(error.message)) return { ok: false, error: "There's already an account with this email. Use \"I already have an account\" below to sign in." };
       return { ok: false, error: error.message };
     }

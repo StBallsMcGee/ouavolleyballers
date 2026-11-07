@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/data/context";
 import { fetchAll, getOwnership } from "@/lib/data/queries";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { headers } from "next/headers";
+import { checkServiceKey } from "@/lib/supabase/server";
 import { InviteForm, InviteLinkCard, RosterCorrection, TeamOwnerButtons } from "@/components/admin/team-admin";
 import { Badge, Card, PageHeader, TeamLink } from "@/components/ui";
 
@@ -10,13 +11,14 @@ export const metadata = { title: "Teams & managers" };
 export default async function AdminTeamsPage() {
   const ctx = await requireAdmin();
   const { supabase: sb, league, teams } = ctx;
-  const [{ data: invites }, { data: members }, owner, players, joinCode, h] = await Promise.all([
+  const [{ data: invites }, { data: members }, owner, players, joinCode, h, keyCheck] = await Promise.all([
     sb.from("team_invitations").select("fantasy_team_id, email, display_name, claimed_at"),
     sb.from("league_members").select("user_id, role").eq("league_id", league.id),
     getOwnership(sb, league.id),
     fetchAll<{ id: string; display_name: string }>((from, to) => sb.from("players").select("id, display_name").eq("active", true).eq("conference", "OUA").eq("gender", "womens").is("duplicate_of", null).order("display_name").range(from, to) as never),
     sb.rpc("admin_join_code", { p_league: league.id, p_reset: false }),
     headers(),
+    checkServiceKey(),
   ]);
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
   // The address the admin is using right now, so the link always points at this site.
@@ -30,6 +32,9 @@ export default async function AdminTeamsPage() {
       <AdminNav current="/admin/teams" />
       <Card title="Invite link" className="mb-3">
         <InviteLinkCard origin={origin} initialCode={(joinCode.data as string | null) ?? null} error={joinError} />
+        <p className={`mt-3 rounded-lg px-3 py-2 text-xs font-semibold ${keyCheck.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>
+          {keyCheck.ok ? "✓ " : "✗ "}Setup check: {keyCheck.detail}
+        </p>
       </Card>
       <Card flush>
         <ul className="divide-y divide-gray-100">
