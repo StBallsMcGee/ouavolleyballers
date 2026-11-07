@@ -114,7 +114,7 @@ export interface GameLineChip {
 }
 
 function toneClass(t: GameLineChip["tone"]) {
-  return t === "bye" ? "font-extrabold text-amber-700" : t === "live" ? "font-bold text-red-600" : t === "today" ? "font-bold text-gray-900" : t === "final" ? "text-gray-500" : "text-gray-700";
+  return t === "bye" ? "font-extrabold text-amber-700" : t === "live" ? "font-bold text-red-600" : t === "today" ? "font-bold text-gray-900" : t === "final" ? "text-gray-500" : t === "none" ? "text-gray-400" : "text-gray-700";
 }
 
 /** The single most useful game: live/today/next upcoming, else the last result, else BYE. */

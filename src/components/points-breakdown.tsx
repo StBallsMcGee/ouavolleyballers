@@ -1,11 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { scoreBreakdown, sumPoints, type ScoringRule, type StatLine } from "@/lib/scoring/engine";
 import { PlayerPhoto } from "@/components/player-photo";
 
 export interface BreakdownGame {
   label: string; // "Fri vs WAT"
+  date: string; // "2026-11-06"
   line: StatLine;
   points: number;
   counted: boolean; // false = she was on the bench, so the points didn't count
@@ -31,10 +32,18 @@ export function PointsButton({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState(0); // 0 = whole week (when several games), else game index + 1
+  const [closing, setClosing] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [tab, setTab] = useState(0); // 0 = all games (when several), else game index + 1
+  // Play the closing animation, then remove the card.
+  const close = () => {
+    setClosing(true);
+    timer.current = setTimeout(() => { setOpen(false); setClosing(false); }, 170);
+  };
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     return () => {
@@ -60,20 +69,21 @@ export function PointsButton({
       {open ? createPortal(
         // Rendered at the top of the page so it never inherits the row's layout or alignment.
         <div className="fixed inset-0 z-[60] flex items-end justify-center text-left sm:items-center" role="dialog" aria-modal="true" aria-label={`${name} points breakdown`}>
-          <button className="absolute inset-0 bg-black/50" aria-label="Close" onClick={() => setOpen(false)} />
-          <div className="relative mx-3 mb-[calc(env(safe-area-inset-bottom)+12px)] w-full max-w-md rounded-2xl bg-white pt-12 shadow-2xl sm:mb-0">
+          <button className={`absolute inset-0 bg-black/50 ${closing ? "animate-fade-out" : "animate-fade-in"}`} aria-label="Close" onClick={close} />
+          <div className={`relative mx-3 w-full max-w-md ${closing ? "animate-pop-out" : "animate-pop"}`} style={{ transformOrigin: "50% 80%" }}>
+          <div className="relative mb-[calc(env(safe-area-inset-bottom)+12px)] rounded-2xl bg-white pt-12 shadow-2xl sm:mb-0">
             <div className="absolute -top-10 left-1/2 -translate-x-1/2 rounded-full bg-white p-1 shadow">
               <PlayerPhoto name={name} photo={photo} size={80} />
             </div>
-            <button className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full text-2xl leading-none text-gray-500 hover:bg-gray-100" aria-label="Close" onClick={() => setOpen(false)}>×</button>
+            <button className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full text-2xl leading-none text-gray-500 hover:bg-gray-100" aria-label="Close" onClick={close}>×</button>
             <div className="px-5 text-center">
               <h2 className="text-xl font-extrabold">{name}</h2>
               <p className="text-sm text-gray-500">{several && tab === 0 ? `${subtitle} · ${games.length} games` : `${subtitle}${shown[0] ? ` · ${shown[0].label}` : ""}`}</p>
             </div>
             {several ? (
               <div className="mt-3 flex flex-wrap justify-center gap-1.5 px-4">
-                {["Week", ...games.map((g) => g.label)].map((l, i) => (
-                  <button key={l + i} onClick={() => setTab(i)} className={`rounded-full px-3 py-1 text-xs font-bold ${tab === i ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}>{l}</button>
+                {["All", ...games.map((g) => g.label)].map((l, i) => (
+                  <button key={l + i} onClick={() => setTab(i)} className={`rounded-full px-3 py-1 text-xs font-bold transition-colors duration-200 ${tab === i ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}>{l}</button>
                 ))}
               </div>
             ) : null}
@@ -109,6 +119,7 @@ export function PointsButton({
                 </tfoot>
               </table>
             )}
+          </div>
           </div>
         </div>,
         document.body,

@@ -40,7 +40,7 @@ export async function weekBreakdowns(
     const label = `${dayFmt.format(new Date(`${m.match_date}T12:00:00Z`))} ${m.home_away_known && !isHome ? "@" : "vs"} ${opp?.short_name ?? opp?.name ?? "?"}`;
     const line = Object.fromEntries(CORE_STAT_KEYS.map((k) => [k, Number(s[k] ?? 0)])) as StatLine;
     line.other = (s.other_statistics ?? {}) as Record<string, number>;
-    out.set(r.player_id, [...(out.get(r.player_id) ?? []), { label, line, points: r.points, counted: r.counted }]);
+    out.set(r.player_id, [...(out.get(r.player_id) ?? []), { label, date: m.match_date as string, line, points: r.points, counted: r.counted }]);
   }
   return out;
 }

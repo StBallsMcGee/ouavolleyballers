@@ -19,14 +19,7 @@ export interface WeekRange {
  * Game chips for one university: every game in the given fantasy week, or "BYE" (plus the next
  * game) when they don't play that week. Times are shown in Toronto time.
  */
-export function gameChips(
-  universityId: string | null,
-  matches: readonly MatchRow[],
-  unis: ReadonlyMap<string, University>,
-  week: WeekRange | null,
-  today: string,
-): GameLineChip[] {
-  if (!universityId) return [];
+function chipMaker(universityId: string, matches: readonly MatchRow[], unis: ReadonlyMap<string, University>, today: string) {
   const mine = matches
     .filter((m) => (m.home_university_id === universityId || m.away_university_id === universityId) && m.status !== "cancelled")
     .sort((a, b) => a.match_date.localeCompare(b.match_date) || (a.start_time ?? a.lock_at).localeCompare(b.start_time ?? b.lock_at));
@@ -50,7 +43,18 @@ export function gameChips(
     if (m.match_date === today) return { text: `Today ${time} ${opp(m)}`, tone: "today" };
     return { text: `${day(m.match_date)} ${time} ${opp(m)}`, tone: "upcoming" };
   };
+  return { mine, opp, chip };
+}
 
+export function gameChips(
+  universityId: string | null,
+  matches: readonly MatchRow[],
+  unis: ReadonlyMap<string, University>,
+  week: WeekRange | null,
+  today: string,
+): GameLineChip[] {
+  if (!universityId) return [];
+  const { mine, opp, chip } = chipMaker(universityId, matches, unis, today);
   if (!week) {
     const next = mine.find((m) => m.match_date >= today);
     return next ? [chip(next)] : [];
@@ -59,6 +63,28 @@ export function gameChips(
   if (inWeek.length > 0) return inWeek.map(chip);
   const next = mine.find((m) => m.match_date > week.ends_on);
   return [{ text: "BYE", tone: "bye" }, ...(next ? [{ text: `Next ${dateFmt.format(new Date(`${next.match_date}T12:00:00Z`))} ${opp(next)}`, tone: "upcoming" as const }] : [])];
+}
+
+/**
+ * Game chips for one calendar day: the game(s) that day with the result or start time,
+ * or "No game" when the university doesn't play that day.
+ */
+export function dayChips(
+  universityId: string | null,
+  matches: readonly MatchRow[],
+  unis: ReadonlyMap<string, University>,
+  date: string,
+  today: string,
+): GameLineChip[] {
+  if (!universityId) return [];
+  const { mine, chip } = chipMaker(universityId, matches, unis, today);
+  const that = mine.filter((m) => m.match_date === date);
+  if (that.length === 0) return [{ text: "No game", tone: "none" }];
+  return that.map((m) => {
+    const c = chip(m);
+    // The day is already in the header: drop the weekday prefix ("Fri 7:00 PM" -> "7:00 PM").
+    return { ...c, text: c.text.replace(/^(Today|Mon|Tue|Wed|Thu|Fri|Sat|Sun) (?=\d|TBD|Final)/, "") };
+  });
 }
 
 /** True when the university has no game in the week. */

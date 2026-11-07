@@ -29,3 +29,15 @@ img, svg, video { max-width: 100%; }
   .link { @apply font-semibold text-coral-600 hover:underline; }
   .section-title { @apply px-4 pb-1 pt-4 text-[11px] font-extrabold uppercase tracking-wider text-gray-500 sm:px-0; }
 }
+
+/* Taps feel physical: links and buttons dip slightly while pressed. */
+a, button, summary { transition: transform .12s ease, background-color .15s ease, color .15s ease, box-shadow .15s ease; }
+button:not(.absolute):not(.fixed):active:not(:disabled), summary:active { transform: scale(.97); }
+/* Collapsible panels (e.g. Filters) grow open instead of snapping. */
+details[open] > :not(summary) { animation: grow .2s cubic-bezier(.2,.8,.2,1) both; transform-origin: top; }
+@keyframes grow { from { opacity: 0; transform: scaleY(.9); } to { opacity: 1; transform: none; } }
+
+/* People who ask their phone for less motion get none. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

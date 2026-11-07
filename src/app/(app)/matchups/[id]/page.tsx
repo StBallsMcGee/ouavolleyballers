@@ -1,15 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireLeague } from "@/lib/data/context";
-import { getLineupAt, getMatchupScores, getTeamPlayerPoints, type RosterPlayer } from "@/lib/data/queries";
-import { loadScheduleContext } from "@/lib/data/schedule-context";
+import { getMatchesBetween, getMatchupScores, getTeamPlayerPoints, getUniversities, loadLineupHistory, type RosterPlayer } from "@/lib/data/queries";
+import { dayChips } from "@/lib/data/games";
+import { countedTotal, daysOfWeek, lineupMomentFor, playerDay } from "@/lib/data/days";
 import { slotGroup } from "@/lib/league/settings";
-import { formatDate } from "@/lib/time";
-import { GameLine, MatchupStatus, Notice } from "@/components/ui";
-import { PlayerPhoto } from "@/components/player-photo";
-import { PointsButton } from "@/components/points-breakdown";
+import { formatDate, parseDay } from "@/lib/time";
+import { MatchupStatus, Notice } from "@/components/ui";
+import { MatchupDays, type MatchupDay, type SidePlayer } from "@/components/matchup-days";
 import { rulesForWeek, weekBreakdowns } from "@/lib/data/breakdowns";
-import { getUniversities } from "@/lib/data/queries";
 
 /** "Alora Lavallee" -> "A. Lavallee" so names fit side by side on a phone. */
 function shortName(name: string) {
@@ -17,72 +16,80 @@ function shortName(name: string) {
   return parts.length > 1 ? `${parts[0]![0]}. ${parts.slice(1).join(" ")}` : name;
 }
 
-export default async function MatchupPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function MatchupPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ day?: string }> }) {
+  const [{ id }, sp] = await Promise.all([params, searchParams]);
   const ctx = await requireLeague();
   const { supabase: sb, league, slots, today } = ctx;
   const { data: row } = await sb.from("matchups").select("week").eq("id", id).maybeSingle();
   if (!row) notFound();
-  const m = (await getMatchupScores(sb, league.id, row.week)).find((x) => x.id === id);
+  const weekInfo = ctx.weeks.find((w) => w.week === row.week);
+  const days = daysOfWeek(weekInfo?.starts_on ?? today);
+  const monday = days[0]!.date;
+  const sunday = days[6]!.date;
+
+  const [scores, unis, matches, rules] = await Promise.all([
+    getMatchupScores(sb, league.id, row.week),
+    getUniversities(sb),
+    getMatchesBetween(sb, monday, sunday),
+    rulesForWeek(sb, league.id, row.week),
+  ]);
+  const m = scores.find((x) => x.id === id);
   if (!m) notFound();
   const team = new Map(ctx.teams.map((t) => [t.id, t]));
-  const weekInfo = ctx.weeks.find((w) => w.week === m.week);
-  const isPast = !!weekInfo && weekInfo.ends_on < today;
-  // Past weeks: the lineups as they stood at the end of that week. Otherwise: today's lineups.
-  const at = isPast && weekInfo ? new Date(`${weekInfo.ends_on}T23:59:00-05:00`).toISOString() : new Date().toISOString();
   const imported = m.score_source === "imported";
 
-  const [homeRows, awayRows, home, away, sched] = await Promise.all([
+  const [homeRows, awayRows, homeHist, awayHist] = await Promise.all([
     getTeamPlayerPoints(sb, league.id, { teamId: m.home_team_id, week: m.week }),
     getTeamPlayerPoints(sb, league.id, { teamId: m.away_team_id, week: m.week }),
-    getLineupAt(sb, m.home_team_id, at),
-    getLineupAt(sb, m.away_team_id, at),
-    loadScheduleContext(sb, ctx.weeks, m.week, today),
+    loadLineupHistory(sb, m.home_team_id),
+    loadLineupHistory(sb, m.away_team_id),
   ]);
-  const points = (rows: typeof homeRows) => {
-    const counted = new Map<string, number>();
-    const bench = new Map<string, number>();
-    for (const r of rows) {
-      const map = r.counted ? counted : bench;
-      map.set(r.player_id, Math.round(((map.get(r.player_id) ?? 0) + r.points) * 100) / 100);
-    }
-    return { counted, bench };
-  };
-  const hp = points(homeRows);
-  const ap = points(awayRows);
-  const unis = await getUniversities(sb);
-  const [homeBreak, awayBreak, rules] = await Promise.all([
-    weekBreakdowns(sb, homeRows, unis),
-    weekBreakdowns(sb, awayRows, unis),
-    rulesForWeek(sb, league.id, m.week),
-  ]);
-  const showGames = !isPast;
+  const breaks = await weekBreakdowns(sb, [...homeRows, ...awayRows], unis);
 
-  const Side = ({ p, pts, align, benchRow }: { p: RosterPlayer | undefined; pts: ReturnType<typeof points>; align: "left" | "right"; benchRow?: boolean }) => {
-    const breaks = pts === hp ? homeBreak : awayBreak;
-    if (!p) return <div className={`py-2 text-xs font-semibold text-gray-400 ${align === "right" ? "text-right" : ""}`}>Empty</div>;
-    const v = benchRow ? pts.bench.get(p.playerId) ?? 0 : pts.counted.get(p.playerId) ?? 0;
-    return (
-      <div className={`flex min-w-0 items-center gap-2 ${align === "right" ? "flex-row-reverse text-right" : ""}`}>
-        <PlayerPhoto name={p.name} photo={p.photoUrl} size={28} />
-        <Link href={`/players/${p.playerId}`} className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-bold leading-tight"><span className="sm:hidden">{shortName(p.name)}</span><span className="hidden sm:inline">{p.name}</span></div>
-          <div className="truncate text-[11px] text-gray-500">{sched.code(p.universityId)} · {p.positionLabel ?? "–"}</div>
-          {showGames ? <div className="text-[11px]"><GameLine chips={sched.chipsFor(p.universityId)} compact /></div> : null}
-        </Link>
-        <div className={`w-10 shrink-0 text-[14px] font-extrabold tabular-nums ${align === "right" ? "text-left" : "text-right"} ${imported ? "text-gray-300" : benchRow ? "text-gray-400" : v < 0 ? "text-red-600" : ""}`}>
-          {imported ? "–" : (
-            <PointsButton value={v} name={p.name} photo={p.photoUrl} subtitle={`Week ${m.week}`} rules={rules}
-              games={(breaks.get(p.playerId) ?? []).filter((g) => (benchRow ? !g.counted : g.counted))} />
-          )}
-        </div>
-      </div>
-    );
-  };
+  // Which day to open: the one asked for, else today, else (past weeks) the last day with games.
+  const inWeek = (d: string | null) => !!d && d >= monday && d <= sunday;
+  const requested = parseDay(sp.day);
+  const lastGameDay = [...matches].filter((x) => x.status !== "cancelled" && x.match_date <= today).map((x) => x.match_date).sort().pop();
+  const day = inWeek(requested) ? requested! : inWeek(today) ? today : sunday < today ? (lastGameDay ?? sunday) : monday;
 
-  const homeBench = home.filter((p) => p.slot === "BENCH");
-  const awayBench = away.filter((p) => p.slot === "BENCH");
-  const benchRows = Math.max(homeBench.length, awayBench.length);
+  const code = (uni: string | null) => (uni ? unis.get(uni)?.short_name ?? unis.get(uni)?.name ?? "?" : "?");
+  const side = (p: RosterPlayer, date: string): SidePlayer => ({
+    playerId: p.playerId,
+    name: p.name,
+    shortName: shortName(p.name),
+    photoUrl: p.photoUrl,
+    code: code(p.universityId),
+    pos: p.positionLabel ?? "–",
+    day: playerDay(breaks.get(p.playerId) ?? [], date, dayChips(p.universityId, matches, unis, date, today)),
+  });
+  const universities = new Set<string>();
+  const byDay: Record<string, MatchupDay> = {};
+  for (const d of days) {
+    const at = lineupMomentFor(d.date, today, league.timezone);
+    const homeL = homeHist(at);
+    const awayL = awayHist(at);
+    const home = homeL.map((p) => side(p, d.date));
+    const away = awayL.map((p) => side(p, d.date));
+    for (const p of [...homeL, ...awayL]) if (p.universityId) universities.add(p.universityId);
+    const slotOf = new Map([...homeL, ...awayL].map((p) => [p.playerId, p.slot]));
+    byDay[d.date] = {
+      starters: slots.map((s) => ({
+        slot: s,
+        group: slotGroup(s),
+        home: home.find((p) => slotOf.get(p.playerId) === s) ?? null,
+        away: away.find((p) => slotOf.get(p.playerId) === s) ?? null,
+      })),
+      homeBench: home.filter((p) => slotOf.get(p.playerId) === "BENCH"),
+      awayBench: away.filter((p) => slotOf.get(p.playerId) === "BENCH"),
+      homeTotal: countedTotal(home.map((p) => p.day)),
+      awayTotal: countedTotal(away.map((p) => p.day)),
+    };
+  }
+  const marks = days
+    .filter((d) => matches.some((x) => x.match_date === d.date && x.status !== "cancelled" && (universities.has(x.home_university_id) || universities.has(x.away_university_id))))
+    .map((d) => d.date);
+  const prevHref = m.week > 1 ? `/matchups?week=${m.week - 1}` : null;
+  const nextHref = ctx.weeks.some((w) => w.week === m.week + 1) ? `/matchups?week=${m.week + 1}` : null;
 
   const ScoreSide = ({ teamId, score, align }: { teamId: string; score: number; align: "left" | "right" }) => {
     const won = m.winner_team_id === teamId;
@@ -117,35 +124,7 @@ export default async function MatchupPage({ params }: { params: Promise<{ id: st
         {imported ? (
           <Notice>{m.status === "void" ? "No contest: this week was played on USportVB with no result." : "Final score recorded on USportVB; player points weren't tracked here."}</Notice>
         ) : null}
-        <section className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
-          <div className="flex justify-between border-b border-gray-100 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-gray-500">
-            <span>Starters</span>
-            <span>{isPast ? "Lineups at end of week" : "Current lineups"}</span>
-          </div>
-          <ul className="divide-y divide-gray-100">
-            {slots.map((s) => (
-              <li key={s} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 px-2 py-2">
-                <Side p={home.find((p) => p.slot === s)} pts={hp} align="left" />
-                <span className="w-7 text-center text-[10px] font-extrabold text-gray-500">{slotGroup(s)}</span>
-                <Side p={away.find((p) => p.slot === s)} pts={ap} align="right" />
-              </li>
-            ))}
-          </ul>
-        </section>
-        {benchRows > 0 ? (
-          <section className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
-            <div className="border-b border-gray-100 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-gray-500">Bench · doesn&apos;t count</div>
-            <ul className="divide-y divide-gray-100">
-              {Array.from({ length: benchRows }, (_, i) => (
-                <li key={i} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-2 py-2 opacity-80">
-                  <Side p={homeBench[i]} pts={hp} align="left" benchRow />
-                  <span className="w-8 text-center text-[10px] font-extrabold text-gray-400">BN</span>
-                  <Side p={awayBench[i]} pts={ap} align="right" benchRow />
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+        <MatchupDays days={days} initialDay={day} today={today} byDay={byDay} rules={rules} imported={imported} prevHref={prevHref} nextHref={nextHref} marks={marks} weekLabel={`Week ${m.week}`} />
       </div>
     </>
   );
