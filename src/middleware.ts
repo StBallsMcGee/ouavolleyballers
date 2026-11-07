@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_COOKIE_OPTIONS } from "@/lib/supabase/cookies";
 
 // API routes listed here check their own secret (CRON_SECRET) instead of a login session.
-const PUBLIC_PATHS = ["/login", "/auth", "/api/cron", "/api/admin/import", "/api/admin/profiles"];
+const PUBLIC_PATHS = ["/login", "/auth", "/join", "/api/cron", "/api/admin/import", "/api/admin/profiles"];
 
 /**
  * Carries the user this middleware just verified to the page, so the page doesn't ask the login

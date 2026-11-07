@@ -187,9 +187,16 @@ You'll now see **Admin** in the menu.
 
 ## 6. Invite the managers
 
-**Admin → Teams & managers**: enter each manager's email and name, keep **email invite**
-ticked and click **Invite**. They get an email, choose a password, and their team is
-automatically linked to them. The status column shows Not invited → Invited → Claimed.
+**Easiest: the invite link.** Run `supabase/migrations/20261107000200_join_links.sql` once in
+the Supabase SQL editor. Then **Admin → Teams & managers → Invite link → Text / share link**
+and send it to the group chat. Each manager opens it, enters their name, email and a password,
+and taps their team. First come, first served; a team already claimed can't be taken. If someone
+picks the wrong team, open that team below (**Manage → Unassign**), then they can pick again.
+**Make a new link** stops the old one working (use it once everyone has joined).
+
+**Or by email**: enter each manager's email and name, keep **email invite** ticked and click
+**Invite**. They get an email, choose a password, and their team is automatically linked to
+them. The status column shows Not invited → Invited → Claimed.
 
 ---
 

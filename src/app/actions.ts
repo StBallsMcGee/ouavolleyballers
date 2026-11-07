@@ -204,6 +204,62 @@ export async function inviteManager(teamId: string, email: string, displayName: 
   }
 }
 
+/* ---------------------------------------------------------------- Shareable invite link */
+
+/** Admin: the league's invite link code (reset = make a new one; the old link stops working). */
+export async function adminJoinCode(reset: boolean): Promise<{ ok: true; code: string } | { ok: false; error: string }> {
+  try {
+    const ctx = await requireAdmin();
+    const code = (await rpc("admin_join_code", { p_league: ctx.league.id, p_reset: reset })) as string;
+    return { ok: true, code };
+  } catch (e) {
+    return fail(e) as { ok: false; error: string };
+  }
+}
+
+const joinSchema = z.object({
+  code: z.string().regex(/^[0-9a-f]{16}$/, "This invite link is not valid."),
+  name: z.string().trim().min(1, "Enter your name.").max(60),
+  email: z.string().trim().toLowerCase().email("Enter a valid email address."),
+  password: z.string().min(8, "Use at least 8 characters for your password.").max(72),
+});
+
+/**
+ * From the invite link: create an account (no email needed) and sign in. The link's code is
+ * checked first, so accounts can only be made by people who were sent the link.
+ */
+export async function joinCreateAccount(input: { code: string; name: string; email: string; password: string }): Promise<ActionResult> {
+  try {
+    const v = joinSchema.safeParse(input);
+    if (!v.success) return { ok: false, error: v.error.issues[0]?.message ?? "Check the form." };
+    const { code, name, email, password } = v.data;
+    const sb = await supabaseServer();
+    const { data: info } = await sb.rpc("join_link_info", { p_code: code });
+    if (!Array.isArray(info) || info.length === 0) return { ok: false, error: "This invite link is no longer valid. Ask the league admin for the new one." };
+    const { error } = await supabaseServiceRole().auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { display_name: name } });
+    if (error) {
+      if (/already|registered|exists/i.test(error.message)) return { ok: false, error: "There's already an account with this email. Use \"I already have an account\" below to sign in." };
+      return { ok: false, error: error.message };
+    }
+    const { error: signInError } = await sb.auth.signInWithPassword({ email, password });
+    if (signInError) return { ok: false, error: signInError.message };
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** From the invite link, signed in: take an unclaimed team. */
+export async function joinClaimTeam(code: string, teamId: string, name: string): Promise<ActionResult> {
+  try {
+    await rpc("join_with_link", { p_code: code, p_team: uuid.parse(teamId), p_display_name: name || null });
+    refresh("/team", "/standings", "/admin/teams");
+    return { ok: true, message: "You're in!" };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 export async function unassignOwner(teamId: string): Promise<ActionResult> {
   try {
     await rpc("admin_unassign_owner", { p_team: uuid.parse(teamId) });
