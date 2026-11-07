@@ -5,6 +5,13 @@ import { AUTH_COOKIE_OPTIONS } from "@/lib/supabase/cookies";
 // API routes listed here check their own secret (CRON_SECRET) instead of a login session.
 const PUBLIC_PATHS = ["/login", "/auth", "/api/cron", "/api/admin/import", "/api/admin/profiles"];
 
+/**
+ * Carries the user this middleware just verified to the page, so the page doesn't ask the login
+ * service a second time (one less network round trip on every screen). Any value a browser sends
+ * itself is always removed first.
+ */
+export const VERIFIED_USER_HEADER = "x-sideout-verified-user";
+
 /** Refreshes the login session on every request and keeps signed-out visitors on /login. */
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -35,9 +42,11 @@ export async function middleware(request: NextRequest) {
   // service briefly unreachable) and a login cookie exists, the visitor is let through.
   const hasAuthCookie = request.cookies.getAll().some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
   let signedIn = false;
+  let verified: { id: string; email: string | null } | null = null;
   try {
     const { data, error } = await supabase.auth.getUser();
     signedIn = !!data.user;
+    if (data.user) verified = { id: data.user.id, email: data.user.email ?? null };
     if (!signedIn && hasAuthCookie && error && !isDefinitelySignedOut(error)) signedIn = true;
   } catch {
     signedIn = hasAuthCookie;
@@ -57,7 +66,12 @@ export async function middleware(request: NextRequest) {
     login.search = path === "/" ? "" : `?next=${encodeURIComponent(path)}`;
     return NextResponse.redirect(login);
   }
-  return response;
+  const headers = new Headers(request.headers);
+  headers.delete(VERIFIED_USER_HEADER);
+  if (verified) headers.set(VERIFIED_USER_HEADER, encodeURIComponent(JSON.stringify(verified)));
+  const out = NextResponse.next({ request: { headers } });
+  for (const c of response.cookies.getAll()) out.cookies.set(c);
+  return out;
 }
 
 function isDefinitelySignedOut(error: { name?: string; status?: number }): boolean {

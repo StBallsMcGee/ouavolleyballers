@@ -2,10 +2,12 @@ import Link from "next/link";
 import { requireLeague } from "@/lib/data/context";
 import { Empty, PageHeader } from "@/components/ui";
 import { TeamView } from "@/components/team/team-view";
+import { parseDay } from "@/lib/time";
 
 export const metadata = { title: "My Team" };
 
-export default async function MyTeamPage() {
+export default async function MyTeamPage({ searchParams }: { searchParams: Promise<{ day?: string }> }) {
+  const { day } = await searchParams;
   const ctx = await requireLeague();
   if (!ctx.myTeam) {
     return (
@@ -16,6 +18,6 @@ export default async function MyTeamPage() {
     );
   }
   return (
-    <TeamView teamId={ctx.myTeam.id} editable />
+    <TeamView teamId={ctx.myTeam.id} editable day={parseDay(day)} path="/team" />
   );
 }

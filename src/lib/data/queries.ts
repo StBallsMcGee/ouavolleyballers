@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { computeStandings, type MatchupResult, type StandingRow } from "@/lib/standings/standings";
 
@@ -23,10 +24,11 @@ export interface University {
   name: string;
   short_name: string | null;
 }
-export async function getUniversities(sb: Sb): Promise<Map<string, University>> {
+/** Universities rarely change; loaded once per page render even when several parts ask. */
+export const getUniversities = cache(async (sb: Sb): Promise<Map<string, University>> => {
   const { data } = await sb.from("universities").select("id, name, short_name").order("name");
   return new Map((data ?? []).map((u) => [u.id as string, u as University]));
-}
+});
 
 export interface MatchupScore {
   id: string;
@@ -75,12 +77,14 @@ export interface RosterPlayer {
   photoUrl: string | null;
 }
 export async function getRoster(sb: Sb, teamId: string): Promise<RosterPlayer[]> {
-  const { data: ra } = await sb
-    .from("roster_assignments")
-    .select("id, player_id, acquired_at, players(display_name, positions, position_label, jersey_number, university_id)")
-    .eq("fantasy_team_id", teamId)
-    .is("released_at", null);
-  const { data: le } = await sb.from("lineup_entries").select("roster_assignment_id, slot").eq("fantasy_team_id", teamId).is("valid_to", null);
+  const [{ data: ra }, { data: le }] = await Promise.all([
+    sb
+      .from("roster_assignments")
+      .select("id, player_id, acquired_at, players(display_name, positions, position_label, jersey_number, university_id)")
+      .eq("fantasy_team_id", teamId)
+      .is("released_at", null),
+    sb.from("lineup_entries").select("roster_assignment_id, slot").eq("fantasy_team_id", teamId).is("valid_to", null),
+  ]);
   const slotOf = new Map((le ?? []).map((e) => [e.roster_assignment_id as string, e.slot as string]));
   const ids = (ra ?? []).map((r) => r.player_id as string);
   const { data: pp } = ids.length ? await sb.from("player_profiles").select("player_id, photo_url").in("player_id", ids) : { data: [] };
@@ -165,10 +169,13 @@ export async function getTeamPlayerPoints(sb: Sb, leagueId: string, filter: { te
 }
 
 /** Season fantasy points per player (league scoring, all weeks so far). */
-export async function getSeasonPlayerPoints(sb: Sb, leagueId: string): Promise<Map<string, { points: number; games: number }>> {
-  const rows = await fetchAll<{ player_id: string; points: number }>((from, to) =>
-    sb.from("v_player_match_points").select("player_id, points").eq("league_id", leagueId).range(from, to),
-  );
+export async function getSeasonPlayerPoints(sb: Sb, leagueId: string, playerIds?: readonly string[]): Promise<Map<string, { points: number; games: number }>> {
+  if (playerIds && playerIds.length === 0) return new Map();
+  const rows = await fetchAll<{ player_id: string; points: number }>((from, to) => {
+    let q = sb.from("v_player_match_points").select("player_id, points").eq("league_id", leagueId);
+    if (playerIds) q = q.in("player_id", [...playerIds]);
+    return q.range(from, to);
+  });
   const out = new Map<string, { points: number; games: number }>();
   for (const r of rows) {
     const cur = out.get(r.player_id) ?? { points: 0, games: 0 };
@@ -227,38 +234,46 @@ export function ruleSetInForce(sets: readonly RuleSetRow[], week: number): RuleS
 }
 
 /**
- * A team's lineup as it stood at a moment in time (lineup history is never overwritten), with
- * player details and photos. Used to show past weeks exactly as they were.
+ * A team's whole lineup history (it is never overwritten), loaded once. The returned function
+ * gives the lineup as it stood at any moment, with player details and photos.
  */
-export async function getLineupAt(sb: Sb, teamId: string, atIso: string): Promise<RosterPlayer[]> {
+export async function loadLineupHistory(sb: Sb, teamId: string): Promise<(atIso: string) => RosterPlayer[]> {
   const { data: entries } = await sb
     .from("lineup_entries")
     .select("roster_assignment_id, player_id, slot, valid_from, valid_to")
     .eq("fantasy_team_id", teamId);
-  const at = new Date(atIso).getTime();
-  const live = (entries ?? []).filter((e) => new Date(e.valid_from).getTime() <= at && (!e.valid_to || new Date(e.valid_to).getTime() > at));
-  const ids = live.map((e) => e.player_id as string);
-  if (ids.length === 0) return [];
-  const [{ data: players }, { data: pp }] = await Promise.all([
-    sb.from("players").select("id, display_name, positions, position_label, jersey_number, university_id").in("id", ids),
-    sb.from("player_profiles").select("player_id, photo_url").in("player_id", ids),
-  ]);
+  const ids = [...new Set((entries ?? []).map((e) => e.player_id as string))];
+  const [{ data: players }, { data: pp }] = ids.length
+    ? await Promise.all([
+        sb.from("players").select("id, display_name, positions, position_label, jersey_number, university_id").in("id", ids),
+        sb.from("player_profiles").select("player_id, photo_url").in("player_id", ids),
+      ])
+    : [{ data: [] }, { data: [] }];
   const pl = new Map((players ?? []).map((p) => [p.id as string, p]));
   const photo = new Map((pp ?? []).map((p) => [p.player_id as string, p.photo_url as string | null]));
-  return live.flatMap((e) => {
-    const p = pl.get(e.player_id);
-    if (!p) return [];
-    return [{
-      assignmentId: e.roster_assignment_id,
-      playerId: e.player_id,
-      name: p.display_name,
-      positions: p.positions ?? [],
-      positionLabel: p.position_label,
-      jersey: p.jersey_number,
-      universityId: p.university_id,
-      slot: e.slot,
-      acquiredAt: e.valid_from,
-      photoUrl: photo.get(e.player_id) ?? null,
-    }];
-  });
+  return (atIso: string) => {
+    const at = new Date(atIso).getTime();
+    const live = (entries ?? []).filter((e) => new Date(e.valid_from).getTime() <= at && (!e.valid_to || new Date(e.valid_to).getTime() > at));
+    return live.flatMap((e) => {
+      const p = pl.get(e.player_id);
+      if (!p) return [];
+      return [{
+        assignmentId: e.roster_assignment_id,
+        playerId: e.player_id,
+        name: p.display_name,
+        positions: p.positions ?? [],
+        positionLabel: p.position_label,
+        jersey: p.jersey_number,
+        universityId: p.university_id,
+        slot: e.slot,
+        acquiredAt: e.valid_from,
+        photoUrl: photo.get(e.player_id) ?? null,
+      }];
+    });
+  };
+}
+
+/** A team's lineup as it stood at one moment. */
+export async function getLineupAt(sb: Sb, teamId: string, atIso: string): Promise<RosterPlayer[]> {
+  return (await loadLineupHistory(sb, teamId))(atIso);
 }

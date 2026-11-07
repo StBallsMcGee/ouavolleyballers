@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { parseSettings, startingSlots, type LeagueSettings } from "@/lib/league/settings";
 import { localDate } from "@/lib/time";
@@ -37,22 +38,30 @@ export function currentWeekFor(weeks: readonly WeekRow[], today: string): number
   return next ? next.week : weeks[weeks.length - 1]!.week;
 }
 
+/** The user the middleware verified on this request (see middleware.ts), if any. */
+function verifiedUser(raw: string | null): { id: string; email: string | null } | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(decodeURIComponent(raw)) as { id?: unknown; email?: unknown };
+    return typeof v.id === "string" ? { id: v.id, email: typeof v.email === "string" ? v.email : null } : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Everything most pages need: the signed-in user, their league, role and team, the league
  * calendar and the team list. Cached for the duration of one request.
  */
 export const getContext = cache(async () => {
-  const supabase = await supabaseServer();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) redirect("/login");
-  const user = auth.user;
+  const [supabase, h] = await Promise.all([supabaseServer(), headers()]);
+  const user = verifiedUser(h.get("x-sideout-verified-user")) ?? (await supabase.auth.getUser()).data.user;
+  if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, email, display_name, is_site_admin")
-    .eq("id", user.id)
-    .maybeSingle();
-  const { data: memberships } = await supabase.from("league_members").select("league_id, role").eq("user_id", user.id);
+  const [{ data: profile }, { data: memberships }] = await Promise.all([
+    supabase.from("profiles").select("id, email, display_name, is_site_admin").eq("id", user.id).maybeSingle(),
+    supabase.from("league_members").select("league_id, role").eq("user_id", user.id),
+  ]);
 
   let leagueId = memberships?.[0]?.league_id as string | undefined;
   if (!leagueId && profile?.is_site_admin) {

@@ -4,21 +4,29 @@ import { useMemo, useState, useTransition } from "react";
 import { addDrop, saveLineup } from "@/app/actions";
 import { autofillLineup, validateLineup, type LineupPlayer } from "@/lib/lineup/lineup";
 import { BENCH, isEligibleForSlot, slotGroup } from "@/lib/league/settings";
-import { GameLine, type GameLineChip } from "@/components/ui";
+import { GameLine } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
+import { PointsButton } from "@/components/points-breakdown";
+import type { ScoringRule } from "@/lib/scoring/engine";
+import { countedTotal, type PlayerDay } from "@/lib/data/days";
 
 export interface EditorPlayer extends LineupPlayer {
   positionLabel: string | null;
   universityCode: string;
   photoUrl: string | null;
-  weekPoints: number;
   seasonPoints: number;
-  games: GameLineChip[];
+  /** Per calendar day: that day's points and games only. */
+  byDay: Record<string, PlayerDay>;
 }
+
+const NO_DAY: PlayerDay = { points: null, counted: false, games: [], breakdown: [] };
 
 const fmt = (v: number) => v.toFixed(1);
 
-export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: { teamId: string; players: EditorPlayer[]; slots: string[]; editable: boolean; rosterLimit: number }) {
+export function LineupEditor({ teamId, players, slots, editable, rosterLimit, rules, day, dayLabel, weekLabel, isToday, isPast }: {
+  teamId: string; players: EditorPlayer[]; slots: string[]; editable: boolean; rosterLimit: number; rules: ScoringRule[];
+  day: string; dayLabel: string; weekLabel: string; isToday: boolean; isPast: boolean;
+}) {
   const original = useMemo(() => new Map(players.map((p) => [p.playerId, p.slot])), [players]);
   const [slotOf, setSlotOf] = useState<Map<string, string>>(original);
   const [moving, setMoving] = useState<string | null>(null);
@@ -79,7 +87,7 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: 
     if (!editable) return null;
     if (moving) {
       if (p && p.playerId === moving) return <button className="w-16 rounded-full border border-gray-300 py-1.5 text-[11px] font-extrabold text-gray-600" onClick={() => setMoving(null)}>CANCEL</button>;
-      if (canDrop(slot)) return <button className="w-16 rounded-full bg-coral-500 py-1.5 text-[11px] font-extrabold text-white" onClick={() => moveTo(slot)}>HERE</button>;
+      if (canDrop(slot)) return <button className="w-16 animate-pop rounded-full bg-coral-500 py-1.5 text-[11px] font-extrabold text-white" onClick={() => moveTo(slot)}>HERE</button>;
       return <span className="block w-16" />;
     }
     if (!p) return <span className="block w-16" />;
@@ -89,9 +97,10 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: 
 
   const row = (slot: string, p: LineupPlayer | undefined) => {
     const ep = p ? byId.get(p.playerId) : undefined;
+    const d = ep?.byDay[day] ?? NO_DAY;
     const isMover = !!p && p.playerId === moving;
     return (
-      <li key={p ? p.playerId : slot} className={`flex items-center gap-3 px-3 py-2.5 ${isMover ? "bg-coral-50" : ""}`}>
+      <li key={p ? p.playerId : slot} className={`flex items-center gap-3 px-3 py-2.5 transition-colors duration-200 ${isMover ? "bg-coral-50" : ""}`}>
         <span className={`w-8 shrink-0 text-center text-[11px] font-extrabold ${slot === BENCH ? "text-gray-400" : "text-gray-700"}`}>{slot === BENCH ? "BN" : slotGroup(slot)}</span>
         {ep ? (
           <>
@@ -104,10 +113,20 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: 
                   <button className="ml-2 font-semibold text-red-600" disabled={pending} onClick={() => drop(ep)}>Drop</button>
                 ) : null}
               </div>
-              <div className="mt-0.5 text-[12px] leading-snug"><GameLine chips={ep.games} compact /></div>
+              <div className="mt-0.5 text-[12px] leading-snug"><GameLine chips={d.games} compact /></div>
             </div>
             <div className="w-12 shrink-0 text-right">
-              <div className={`text-[15px] font-extrabold tabular-nums ${ep.weekPoints < 0 ? "text-red-600" : slot === BENCH ? "text-gray-400" : ""}`}>{fmt(ep.weekPoints)}</div>
+              {d.points === null ? <span className="text-[15px] font-extrabold text-gray-300">–</span> : (
+                <PointsButton
+                  value={d.points}
+                  name={ep.name}
+                  photo={ep.photoUrl}
+                  subtitle={weekLabel}
+                  games={d.breakdown}
+                  rules={rules}
+                  className={`text-[15px] font-extrabold ${d.points < 0 ? "text-red-600" : !d.counted ? "text-gray-400" : ""}`}
+                />
+              )}
             </div>
           </>
         ) : (
@@ -118,21 +137,30 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: 
     );
   };
 
-  const startersTotal = slots.reduce((a, s) => a + (byId.get(occupant(s)?.playerId ?? "")?.weekPoints ?? 0), 0);
+  const dayTotal = countedTotal(players.map((p) => p.byDay[day] ?? NO_DAY));
+
+  if (isPast && players.length === 0) {
+    return (
+      <p className="mx-4 rounded-xl border border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-500 sm:mx-0">
+        No lineup was recorded here for {dayLabel}. Days before the league moved to Sideout were played on USportVB.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-3 pb-16">
-      {editable ? (
+      {editable && (moving || isToday) ? (
         <div className="flex items-center gap-2 px-4 sm:px-0">
-          {moving ? <span className="min-w-0 truncate text-xs font-semibold text-coral-700">Tap HERE to move {byId.get(moving)?.name}</span> : <button className="btn-secondary min-h-[34px] px-3 py-1 text-xs" onClick={autofill} disabled={pending}>Start active players</button>}
+          {moving ? <span className="min-w-0 animate-fade-in truncate text-xs font-semibold text-coral-700">Tap HERE to move {byId.get(moving)?.name}</span> : <button className="btn-secondary min-h-[34px] px-3 py-1 text-xs" onClick={autofill} disabled={pending}>Start active players</button>}
         </div>
       ) : null}
+      {isPast ? <p className="px-4 text-xs text-gray-500 sm:px-0">The lineup as it stood at the end of {dayLabel}.</p> : !isToday && editable ? <p className="px-4 text-xs text-gray-500 sm:px-0">Lineup changes take effect right away and carry forward to {dayLabel}.</p> : null}
       {msg && !dirty ? <p className={`px-4 text-sm sm:px-0 ${msg.ok ? "text-emerald-700" : "text-red-600"}`} role="status">{msg.text}</p> : null}
 
       <section className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
         <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-gray-500">
           <span>Starters</span>
-          <span>This week {fmt(startersTotal)}</span>
+          <span>{dayLabel} · {fmt(dayTotal)}</span>
         </div>
         <ul className="divide-y divide-gray-100">{slots.map((s) => row(s, occupant(s)))}</ul>
       </section>
@@ -140,7 +168,7 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: 
       <section className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
         <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-gray-500">
           <span>Bench · {players.length}/{rosterLimit} roster</span>
-          {editable && moving && canDrop(BENCH) ? <button className="rounded-full bg-coral-500 px-3 py-1 text-[11px] font-extrabold text-white" onClick={() => moveTo(BENCH)}>MOVE TO BENCH</button> : null}
+          {editable && moving && canDrop(BENCH) ? <button className="animate-pop rounded-full bg-coral-500 px-3 py-1 text-[11px] font-extrabold text-white" onClick={() => moveTo(BENCH)}>MOVE TO BENCH</button> : null}
         </div>
         <ul className="divide-y divide-gray-100">
           {bench.length === 0 ? <li className="px-4 py-3 text-sm text-gray-400">Nobody on the bench.</li> : bench.map((p) => row(BENCH, p))}
@@ -153,7 +181,7 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: 
       </section>
 
       {editable && (dirty || pending) ? (
-        <div className="fixed inset-x-0 bottom-[calc(58px+env(safe-area-inset-bottom))] z-30 border-t border-gray-200 bg-white/95 px-4 py-2.5 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur lg:bottom-0">
+        <div className="fixed inset-x-0 bottom-[calc(58px+env(safe-area-inset-bottom))] z-30 animate-slide-up border-t border-gray-200 bg-white/95 px-4 py-2.5 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur lg:bottom-0">
           <div className="mx-auto flex max-w-5xl items-center gap-2">
             <div className="min-w-0 flex-1 text-xs">
               {problems.length ? <span className="font-semibold text-red-600">{problems[0]!.message}</span> : msg && !msg.ok ? <span className="font-semibold text-red-600">{msg.text}</span> : <span className="font-semibold text-gray-700">Unsaved lineup changes</span>}

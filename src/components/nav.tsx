@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const TABS = [
   { href: "/", label: "Home", icon: "M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z" },
@@ -29,9 +29,25 @@ function isActive(path: string, href: string) {
 export function Nav({ leagueName, isAdmin, userName }: { leagueName: string; isAdmin: boolean; userName: string }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
-  useEffect(() => setOpen(false), [path]);
+  const [closing, setClosing] = useState(false);
+  // The tab lights up the moment it's tapped, before the new page has finished loading.
+  const [tapped, setTapped] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    setOpen(false);
+    setClosing(false);
+    setTapped(null);
+  }, [path]);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  const close = () => {
+    setClosing(true);
+    timer.current = setTimeout(() => { setOpen(false); setClosing(false); }, 190);
+  };
+  const shown = tapped ?? path;
+  const activeTab = TABS.findIndex((t) => isActive(shown, t.href));
   const more = [...MORE, ...(isAdmin ? [{ href: "/admin", label: "Admin" }] : []), { href: "/account", label: "Account" }];
-  const moreActive = more.some((m) => isActive(path, m.href)) && !TABS.some((t) => isActive(path, t.href));
+  const moreActive = open || (more.some((m) => isActive(shown, m.href)) && activeTab < 0);
+  const indicator = activeTab >= 0 ? activeTab : moreActive ? TABS.length : -1;
 
   return (
     <>
@@ -46,7 +62,7 @@ export function Nav({ leagueName, isAdmin, userName }: { leagueName: string; isA
           </Link>
           <nav className="ml-6 hidden items-center gap-1 lg:flex">
             {[...TABS, ...more].map((l) => (
-              <Link key={l.href} href={l.href} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${isActive(path, l.href) ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
+              <Link key={l.href} href={l.href} onClick={() => setTapped(l.href)} className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${isActive(shown, l.href) ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
                 {l.label}
               </Link>
             ))}
@@ -57,15 +73,26 @@ export function Nav({ leagueName, isAdmin, userName }: { leagueName: string; isA
 
       {/* Phone: bottom tab bar */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden" aria-label="Main">
-        <div className="mx-auto grid max-w-lg grid-cols-5">
-          {TABS.map((t) => (
-            <Link key={t.href} href={t.href} className={`flex flex-col items-center gap-0.5 pb-1.5 pt-2 text-[10px] font-bold ${isActive(path, t.href) ? "text-coral-600" : "text-gray-500"}`}>
-              <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={isActive(path, t.href) ? 2.4 : 1.8} strokeLinejoin="round"><path d={t.icon} /></svg>
-              {t.label}
-            </Link>
-          ))}
-          <button onClick={() => setOpen(true)} className={`flex flex-col items-center gap-0.5 pb-1.5 pt-2 text-[10px] font-bold ${moreActive ? "text-coral-600" : "text-gray-500"}`}>
-            <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
+        <div className="relative mx-auto grid max-w-lg grid-cols-5">
+          {/* A coral bar that slides to the active tab. */}
+          <span
+            aria-hidden
+            className={`absolute left-0 top-0 h-[3px] w-1/5 px-5 transition-[transform,opacity] duration-300 ease-[cubic-bezier(.2,.8,.2,1)] ${indicator < 0 ? "opacity-0" : "opacity-100"}`}
+            style={{ transform: `translateX(${Math.max(indicator, 0) * 100}%)` }}
+          >
+            <span className="block h-full rounded-b-full bg-coral-500" />
+          </span>
+          {TABS.map((t) => {
+            const on = isActive(shown, t.href);
+            return (
+              <Link key={t.href} href={t.href} onClick={() => setTapped(t.href)} className={`flex flex-col items-center gap-0.5 pb-1.5 pt-2 text-[10px] font-bold transition-colors duration-200 ${on ? "text-coral-600" : "text-gray-500"}`}>
+                <svg viewBox="0 0 24 24" className={`h-6 w-6 transition-transform duration-200 ${on ? "scale-110" : ""}`} fill="none" stroke="currentColor" strokeWidth={on ? 2.4 : 1.8} strokeLinejoin="round"><path d={t.icon} /></svg>
+                {t.label}
+              </Link>
+            );
+          })}
+          <button onClick={() => (open ? close() : setOpen(true))} className={`flex flex-col items-center gap-0.5 pb-1.5 pt-2 text-[10px] font-bold transition-colors duration-200 ${moreActive ? "text-coral-600" : "text-gray-500"}`}>
+            <svg viewBox="0 0 24 24" className={`h-6 w-6 transition-transform duration-200 ${open ? "rotate-90 scale-110" : ""}`} fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
             More
           </button>
         </div>
@@ -73,14 +100,19 @@ export function Nav({ leagueName, isAdmin, userName }: { leagueName: string; isA
 
       {open ? (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
-          <button className="absolute inset-0 bg-black/30" aria-label="Close menu" onClick={() => setOpen(false)} />
-          <div className="absolute inset-x-0 bottom-0 rounded-t-2xl bg-white pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-2xl">
+          <button className={`absolute inset-0 bg-black/30 ${closing ? "animate-fade-out" : "animate-fade-in"}`} aria-label="Close menu" onClick={close} />
+          <div className={`absolute inset-x-0 bottom-0 rounded-t-2xl bg-white pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-2xl ${closing ? "animate-slide-down" : "animate-slide-up"}`}>
             <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-gray-300" />
             <p className="px-5 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-500">{userName}</p>
             <ul className="divide-y divide-gray-100">
+              <li>
+                <a href="https://oua.tv/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-5 py-3.5 text-[15px] font-semibold text-gray-900">
+                  <span><span className="mr-2 inline-block h-2 w-2 rounded-full bg-red-500" />Watch live on OUA.TV</span><span className="text-gray-400">↗</span>
+                </a>
+              </li>
               {more.map((m) => (
                 <li key={m.href}>
-                  <Link href={m.href} className={`flex items-center justify-between px-5 py-3.5 text-[15px] font-semibold ${isActive(path, m.href) ? "text-coral-600" : "text-gray-900"}`}>
+                  <Link href={m.href} onClick={() => setTapped(m.href)} className={`flex items-center justify-between px-5 py-3.5 text-[15px] font-semibold active:bg-gray-50 ${isActive(shown, m.href) ? "text-coral-600" : "text-gray-900"}`}>
                     {m.label}<span className="text-gray-400">›</span>
                   </Link>
                 </li>

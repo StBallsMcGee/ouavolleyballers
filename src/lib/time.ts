@@ -29,3 +29,29 @@ export function addDays(isoDate: string, n: number): string {
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
+
+/** Minutes the time zone is ahead of UTC at that moment (Toronto in November: -300). */
+function tzOffsetMinutes(at: Date, tz: string): number {
+  const name = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" }).formatToParts(at).find((p) => p.type === "timeZoneName")?.value ?? "GMT";
+  const m = /GMT([+-])(\d{1,2})(?::(\d{2}))?/.exec(name);
+  return m ? (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3] ?? 0)) : 0;
+}
+
+/** The instant a calendar day starts in the league's time zone, e.g. "2026-11-07" -> 05:00Z. */
+export function startOfDayIso(isoDate: string, tz = LEAGUE_TZ): string {
+  const guess = new Date(`${isoDate}T00:00:00Z`);
+  const offset = tzOffsetMinutes(new Date(guess.getTime() + 12 * 3600_000), tz);
+  return new Date(guess.getTime() - offset * 60_000).toISOString();
+}
+
+/** The last moment of a calendar day in the league's time zone (one second before midnight). */
+export function endOfDayIso(isoDate: string, tz = LEAGUE_TZ): string {
+  return new Date(new Date(startOfDayIso(addDays(isoDate, 1), tz)).getTime() - 1000).toISOString();
+}
+
+/** A valid "YYYY-MM-DD" from a URL parameter, or null. */
+export function parseDay(v: string | string[] | undefined): string | null {
+  const s = Array.isArray(v) ? v[0] : v;
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  return Number.isNaN(new Date(`${s}T12:00:00Z`).getTime()) ? null : s;
+}
