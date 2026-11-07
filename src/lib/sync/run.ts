@@ -40,12 +40,14 @@ export async function runSync(opts: {
 } = {}): Promise<SyncResult> {
   const result = await runStatsSync(opts);
   if (result.status !== "skipped") {
-    result.schedule = await runScheduleSync(opts);
-    // Second source: official school box scores for finished games USportVB hasn't recorded.
-    if (!opts.feed) {
-      const { runBoxScoreSync } = await import("@/lib/ingest/boxscores");
-      result.boxScores = await runBoxScoreSync({ pool: opts.pool });
-    }
+    // Schedules (USportVB) and school box scores (school sites) contact different servers, so they
+    // run side by side to keep the whole sync well inside the hosting time limit.
+    const [schedule, boxScores] = await Promise.all([
+      runScheduleSync(opts),
+      opts.feed ? Promise.resolve(undefined) : import("@/lib/ingest/boxscores").then((m) => m.runBoxScoreSync({ pool: opts.pool })),
+    ]);
+    result.schedule = schedule;
+    result.boxScores = boxScores;
   }
   return result;
 }
