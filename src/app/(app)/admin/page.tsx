@@ -52,7 +52,7 @@ export default async function AdminPage() {
               {runs.map((r) => (
                 <li key={r.id} className="py-2" title={r.error ?? (r.warnings as string[]).slice(0, 5).join("\n")}>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-gray-600">{formatDateTime(r.started_at)} · {r.job === "usportvb-schedule" ? "schedule" : "stats"}</span>
+                    <span className="text-xs text-gray-600">{formatDateTime(r.started_at)} · {r.job === "usportvb-schedule" ? "schedule" : r.job === "school-boxscores" ? "school box scores" : "stats"}</span>
                     <Badge tone={r.status === "succeeded" ? "mint" : r.status === "failed" ? "red" : "slate"}>{r.status}</Badge>
                   </div>
                   <div className="text-xs text-gray-500">{r.matches_checked} matches checked · {r.records_inserted} new · {r.records_updated} updated{(r.warnings as string[]).length ? ` · ${(r.warnings as string[]).length} warnings` : ""}</div>
