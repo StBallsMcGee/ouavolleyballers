@@ -78,6 +78,11 @@ export function Nav({ leagueName, isAdmin, userName }: { leagueName: string; isA
             <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-gray-300" />
             <p className="px-5 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-500">{userName}</p>
             <ul className="divide-y divide-gray-100">
+              <li>
+                <a href="https://oua.tv/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-5 py-3.5 text-[15px] font-semibold text-gray-900">
+                  <span><span className="mr-2 inline-block h-2 w-2 rounded-full bg-red-500" />Watch live on OUA.TV</span><span className="text-gray-400">↗</span>
+                </a>
+              </li>
               {more.map((m) => (
                 <li key={m.href}>
                   <Link href={m.href} className={`flex items-center justify-between px-5 py-3.5 text-[15px] font-semibold ${isActive(path, m.href) ? "text-coral-600" : "text-gray-900"}`}>

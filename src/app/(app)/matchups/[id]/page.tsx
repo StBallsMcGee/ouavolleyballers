@@ -7,6 +7,9 @@ import { slotGroup } from "@/lib/league/settings";
 import { formatDate } from "@/lib/time";
 import { GameLine, MatchupStatus, Notice } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
+import { PointsButton } from "@/components/points-breakdown";
+import { rulesForWeek, weekBreakdowns } from "@/lib/data/breakdowns";
+import { getUniversities } from "@/lib/data/queries";
 
 /** "Alora Lavallee" -> "A. Lavallee" so names fit side by side on a phone. */
 function shortName(name: string) {
@@ -47,21 +50,33 @@ export default async function MatchupPage({ params }: { params: Promise<{ id: st
   };
   const hp = points(homeRows);
   const ap = points(awayRows);
+  const unis = await getUniversities(sb);
+  const [homeBreak, awayBreak, rules] = await Promise.all([
+    weekBreakdowns(sb, homeRows, unis),
+    weekBreakdowns(sb, awayRows, unis),
+    rulesForWeek(sb, league.id, m.week),
+  ]);
   const showGames = !isPast;
 
   const Side = ({ p, pts, align, benchRow }: { p: RosterPlayer | undefined; pts: ReturnType<typeof points>; align: "left" | "right"; benchRow?: boolean }) => {
+    const breaks = pts === hp ? homeBreak : awayBreak;
     if (!p) return <div className={`py-2 text-xs font-semibold text-gray-400 ${align === "right" ? "text-right" : ""}`}>Empty</div>;
     const v = benchRow ? pts.bench.get(p.playerId) ?? 0 : pts.counted.get(p.playerId) ?? 0;
     return (
-      <Link href={`/players/${p.playerId}`} className={`flex min-w-0 items-center gap-2 ${align === "right" ? "flex-row-reverse text-right" : ""}`}>
+      <div className={`flex min-w-0 items-center gap-2 ${align === "right" ? "flex-row-reverse text-right" : ""}`}>
         <PlayerPhoto name={p.name} photo={p.photoUrl} size={28} />
-        <div className="min-w-0 flex-1">
+        <Link href={`/players/${p.playerId}`} className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-bold leading-tight"><span className="sm:hidden">{shortName(p.name)}</span><span className="hidden sm:inline">{p.name}</span></div>
           <div className="truncate text-[11px] text-gray-500">{sched.code(p.universityId)} · {p.positionLabel ?? "–"}</div>
           {showGames ? <div className="text-[11px]"><GameLine chips={sched.chipsFor(p.universityId)} compact /></div> : null}
+        </Link>
+        <div className={`w-10 shrink-0 text-[14px] font-extrabold tabular-nums ${align === "right" ? "text-left" : "text-right"} ${imported ? "text-gray-300" : benchRow ? "text-gray-400" : v < 0 ? "text-red-600" : ""}`}>
+          {imported ? "–" : (
+            <PointsButton value={v} name={p.name} photo={p.photoUrl} subtitle={`Week ${m.week}`} rules={rules}
+              games={(breaks.get(p.playerId) ?? []).filter((g) => (benchRow ? !g.counted : g.counted))} />
+          )}
         </div>
-        <div className={`w-9 shrink-0 text-[14px] font-extrabold tabular-nums ${imported ? "text-gray-300" : benchRow ? "text-gray-400" : v < 0 ? "text-red-600" : ""}`}>{imported ? "–" : v.toFixed(1)}</div>
-      </Link>
+      </div>
     );
   };
 

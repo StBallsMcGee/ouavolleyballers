@@ -4,6 +4,8 @@ import { getMatchesBetween, getMatchupScores, getOwnership, getStandings, getUni
 import { addDays, formatDate } from "@/lib/time";
 import { Card, Empty, MatchupStatus, Notice } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
+import { OUA_TV_URL, ouaTvUrl } from "@/lib/oua-tv";
+import { LEAGUE_TZ } from "@/lib/time";
 
 export default async function Dashboard() {
   const ctx = await requireLeague();
@@ -35,6 +37,11 @@ export default async function Dashboard() {
   const photoOf = new Map((perfPhotos ?? []).map((p) => [p.player_id, p.photo_url]));
 
   const mine = myTeam ? matchups.find((m) => m.home_team_id === myTeam.id || m.away_team_id === myTeam.id) : undefined;
+  const todaysGames = recentMatches
+    .filter((m) => m.match_date === today && m.status !== "cancelled" && m.status !== "postponed")
+    .sort((a, b) => (a.start_time ?? a.lock_at).localeCompare(b.start_time ?? b.lock_at));
+  const timeFmt = new Intl.DateTimeFormat("en-US", { timeZone: LEAGUE_TZ, hour: "numeric", minute: "2-digit" });
+  const code = (id: string) => unis.get(id)?.short_name ?? unis.get(id)?.name ?? "?";
   const others = matchups.filter((m) => m !== mine);
 
   return (
@@ -51,6 +58,33 @@ export default async function Dashboard() {
         {offers && offers.length > 0 ? (
           <Notice tone="mint"><Link href="/trades" className="font-bold">{offers.length} trade offer{offers.length > 1 ? "s" : ""} waiting →</Link></Notice>
         ) : null}
+
+        <section className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
+          <div className="flex items-center justify-between gap-2 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" /></span>
+              <span className="text-[13px] font-extrabold uppercase tracking-wide">Watch live</span>
+            </div>
+            <a href={OUA_TV_URL} target="_blank" rel="noopener noreferrer" className="btn-primary min-h-[34px] px-4 py-1 text-xs">OUA.TV ↗</a>
+          </div>
+          {todaysGames.length ? (
+            <ul className="divide-y divide-gray-100 border-t border-gray-100">
+              {todaysGames.map((g) => (
+                <li key={g.id} className="flex items-center gap-3 px-4 py-2">
+                  <Link href={`/matches/${g.id}`} className="min-w-0 flex-1 truncate text-sm font-semibold">
+                    {code(g.away_university_id)} @ {code(g.home_university_id)}
+                    <span className="ml-2 text-xs font-normal text-gray-500">{g.status === "live" ? "LIVE" : g.status === "final" ? "Final" : g.start_time ? timeFmt.format(new Date(g.start_time)) : "Today"}</span>
+                  </Link>
+                  {g.status !== "final" ? (
+                    <a href={ouaTvUrl(unis.get(g.home_university_id)?.name)} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-full border border-gray-300 px-3 py-1 text-xs font-bold">▶ Watch</a>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="border-t border-gray-100 px-4 py-2 text-xs text-gray-500">No OUA women&apos;s games today. Replays and other games are on OUA.TV.</p>
+          )}
+        </section>
 
         {mine && myTeam ? (
           <Link href={`/matchups/${mine.id}`} className="block border-y border-gray-200 bg-white px-4 py-4 active:bg-gray-50 sm:rounded-xl sm:border">

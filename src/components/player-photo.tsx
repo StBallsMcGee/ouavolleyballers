@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Avatar } from "@/components/ui";
 
 /**
@@ -8,11 +8,16 @@ import { Avatar } from "@/components/ui";
  */
 export function PlayerPhoto({ name, photo, size = 40 }: { name: string; photo?: string | null; size?: number }) {
   const [failed, setFailed] = useState(false);
+  // If the image already failed before the page finished loading, notice it on mount.
+  const check = useCallback((img: HTMLImageElement | null) => {
+    if (img && img.complete && img.naturalWidth === 0) setFailed(true);
+  }, []);
   if (!photo || failed) return <Avatar name={name} size={size} />;
   const src = `${photo}?width=${Math.round(size * 2.5)}&quality=80`;
   return (
     // eslint-disable-next-line @next/next/no-img-element -- deliberately not optimised/proxied: the image stays on the school's server
     <img
+      ref={check}
       src={src}
       alt=""
       width={size}

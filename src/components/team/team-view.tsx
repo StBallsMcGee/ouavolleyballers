@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireLeague } from "@/lib/data/context";
 import { getMatchesBetween, getMatchupScores, getRoster, getSeasonPlayerPoints, getStandings, getTeamPlayerPoints, getUniversities, lockedUniversities } from "@/lib/data/queries";
 import { gameChips } from "@/lib/data/games";
+import { rulesForWeek, weekBreakdowns } from "@/lib/data/breakdowns";
 import { addDays } from "@/lib/time";
 import { Avatar, MatchupStatus } from "@/components/ui";
 import { LineupEditor, type EditorPlayer } from "./lineup-editor";
@@ -30,6 +31,10 @@ export async function TeamView({ teamId, editable }: { teamId: string; editable:
   const todays = matches.filter((m) => m.match_date === today && m.status !== "cancelled" && m.status !== "postponed");
   const locked = lockedUniversities(todays);
   const playsToday = new Set(todays.flatMap((m) => [m.home_university_id, m.away_university_id]));
+  const [breakdowns, rules] = await Promise.all([
+    weekBreakdowns(sb, weekPts, unis),
+    currentWeek ? rulesForWeek(sb, league.id, currentWeek) : Promise.resolve([]),
+  ]);
   const weekByPlayer = new Map<string, number>();
   for (const r of weekPts) weekByPlayer.set(r.player_id, Math.round(((weekByPlayer.get(r.player_id) ?? 0) + r.points) * 100) / 100);
 
@@ -42,6 +47,7 @@ export async function TeamView({ teamId, editable }: { teamId: string; editable:
     locked: r.universityId ? locked.has(r.universityId) : false,
     playsToday: r.universityId ? playsToday.has(r.universityId) : false,
     photoUrl: r.photoUrl,
+    breakdown: breakdowns.get(r.playerId) ?? [],
     universityCode: r.universityId ? unis.get(r.universityId)?.short_name ?? unis.get(r.universityId)?.name ?? "?" : "?",
     weekPoints: weekByPlayer.get(r.playerId) ?? 0,
     seasonPoints: season.get(r.playerId)?.points ?? 0,
@@ -78,7 +84,7 @@ export async function TeamView({ teamId, editable }: { teamId: string; editable:
         ) : null}
       </div>
       <div className="mt-3">
-        <LineupEditor teamId={teamId} players={players} slots={slots} editable={editable} rosterLimit={league.settings.roster.TOTAL} />
+        <LineupEditor teamId={teamId} players={players} slots={slots} editable={editable} rosterLimit={league.settings.roster.TOTAL} rules={rules} weekLabel={currentWeek ? `Week ${currentWeek}` : "This week"} />
       </div>
     </>
   );

@@ -6,11 +6,14 @@ import { autofillLineup, validateLineup, type LineupPlayer } from "@/lib/lineup/
 import { BENCH, isEligibleForSlot, slotGroup } from "@/lib/league/settings";
 import { GameLine, type GameLineChip } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
+import { PointsButton, type BreakdownGame } from "@/components/points-breakdown";
+import type { ScoringRule } from "@/lib/scoring/engine";
 
 export interface EditorPlayer extends LineupPlayer {
   positionLabel: string | null;
   universityCode: string;
   photoUrl: string | null;
+  breakdown: BreakdownGame[];
   weekPoints: number;
   seasonPoints: number;
   games: GameLineChip[];
@@ -18,7 +21,7 @@ export interface EditorPlayer extends LineupPlayer {
 
 const fmt = (v: number) => v.toFixed(1);
 
-export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: { teamId: string; players: EditorPlayer[]; slots: string[]; editable: boolean; rosterLimit: number }) {
+export function LineupEditor({ teamId, players, slots, editable, rosterLimit, rules, weekLabel }: { teamId: string; players: EditorPlayer[]; slots: string[]; editable: boolean; rosterLimit: number; rules: ScoringRule[]; weekLabel: string }) {
   const original = useMemo(() => new Map(players.map((p) => [p.playerId, p.slot])), [players]);
   const [slotOf, setSlotOf] = useState<Map<string, string>>(original);
   const [moving, setMoving] = useState<string | null>(null);
@@ -107,7 +110,15 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit }: 
               <div className="mt-0.5 text-[12px] leading-snug"><GameLine chips={ep.games} compact /></div>
             </div>
             <div className="w-12 shrink-0 text-right">
-              <div className={`text-[15px] font-extrabold tabular-nums ${ep.weekPoints < 0 ? "text-red-600" : slot === BENCH ? "text-gray-400" : ""}`}>{fmt(ep.weekPoints)}</div>
+              <PointsButton
+                value={ep.weekPoints}
+                name={ep.name}
+                photo={ep.photoUrl}
+                subtitle={weekLabel}
+                games={ep.breakdown}
+                rules={rules}
+                className={`text-[15px] font-extrabold ${ep.weekPoints < 0 ? "text-red-600" : slot === BENCH ? "text-gray-400" : ""}`}
+              />
             </div>
           </>
         ) : (
