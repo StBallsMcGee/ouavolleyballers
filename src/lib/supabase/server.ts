@@ -24,7 +24,8 @@ export async function supabaseServer() {
 
 /**
  * Service-role client. Bypasses all security rules, so it is ONLY used for sending invitation
- * emails, after the caller has been verified as a league administrator.
+ * emails (after the caller is verified as a league administrator) and for creating an account
+ * from a valid league invite link (after the link's code is checked).
  */
 export function supabaseServiceRole() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
