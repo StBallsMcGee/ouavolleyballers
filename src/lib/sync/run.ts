@@ -25,6 +25,7 @@ export interface SyncResult {
   warnings: string[];
   error?: string;
   schedule?: { status: "succeeded" | "failed" | "skipped"; result?: ScheduleWriteResult; error?: string };
+  boxScores?: import("@/lib/ingest/boxscores").BoxScoreSyncResult;
 }
 
 export async function runSync(opts: {
@@ -38,7 +39,14 @@ export async function runSync(opts: {
   schedules?: UsvbScheduleGame[];
 } = {}): Promise<SyncResult> {
   const result = await runStatsSync(opts);
-  if (result.status !== "skipped") result.schedule = await runScheduleSync(opts);
+  if (result.status !== "skipped") {
+    result.schedule = await runScheduleSync(opts);
+    // Second source: official school box scores for finished games USportVB hasn't recorded.
+    if (!opts.feed) {
+      const { runBoxScoreSync } = await import("@/lib/ingest/boxscores");
+      result.boxScores = await runBoxScoreSync({ pool: opts.pool });
+    }
+  }
   return result;
 }
 
