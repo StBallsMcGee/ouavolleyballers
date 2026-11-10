@@ -96,7 +96,7 @@ export async function runBoxScoreSync(opts: { pool?: pg.Pool; fetchText?: FetchT
          and m.counts_for_fantasy and m.status not in ('cancelled', 'postponed')
          and coalesce(m.start_time, m.lock_at) + interval '2 hours' < now()
          and not exists (select 1 from public.player_match_statistics s where s.match_id = m.id)`,
-      [addDays(today, -(opts.lookbackDays ?? 3)), today])).rows;
+      [addDays(today, -(opts.lookbackDays ?? 10)), today])).rows;
     result.candidates = candidates.length;
     if (candidates.length === 0) return await finish({ ...result, status: "skipped" });
 

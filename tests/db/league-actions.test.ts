@@ -153,3 +153,22 @@ describe("admin actions", () => {
     expect((await rpc(dave, `select count(*)::int n from fantasy_teams`)).rows[0].n).toBe(3);
   });
 });
+
+describe("page context in one call", () => {
+  it("returns the member's own league, teams and weeks; nothing for outsiders", async () => {
+    const a = (await rpc(f.alice, `select my_context() c`)).rows[0].c;
+    expect(a.league.id).toBe(f.leagueId);
+    expect(a.memberships).toEqual([{ league_id: f.leagueId, role: "manager" }]);
+    expect(a.teams.length).toBeGreaterThanOrEqual(2);
+    expect(a.teams.find((t: { id: string }) => t.id === f.teamA).owner_name).toBe("alice");
+    expect(a.weeks[0]).toMatchObject({ week: 1, starts_on: "2026-11-09" });
+    const c = (await rpc(f.carol, `select my_context() c`)).rows[0].c;
+    expect([c.league, c.teams, c.memberships]).toEqual([null, [], []]);
+    await expect(rpc(null, `select my_context()`)).rejects.toThrow(/permission denied/);
+  });
+  it("season totals match the per-match points", async () => {
+    const a = (await client.query(`select player_id, points from v_player_season_points where league_id = $1 order by 1`, [f.leagueId])).rows;
+    const b = (await client.query(`select player_id, sum(points)::numeric(10,2)::text points from v_player_match_points where league_id = $1 group by 1 order by 1`, [f.leagueId])).rows;
+    expect(a.map((r) => [r.player_id, String(r.points)])).toEqual(b.map((r) => [r.player_id, r.points]));
+  });
+});
