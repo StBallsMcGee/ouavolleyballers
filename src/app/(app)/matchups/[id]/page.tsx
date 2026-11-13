@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireLeague } from "@/lib/data/context";
-import { getMatchesBetween, getMatchupScores, getTeamPlayerPoints, getUniversities, loadLineupHistory, type RosterPlayer } from "@/lib/data/queries";
+import { getMatchesBetween, getMatchupScores, getProjections, getTeamPlayerPoints, getUniversities, loadLineupHistory, type RosterPlayer } from "@/lib/data/queries";
 import { dayChips } from "@/lib/data/games";
-import { countedTotal, daysOfWeek, lineupMomentFor, playerDay } from "@/lib/data/days";
+import { countedTotal, daysOfWeek, lineupMomentFor, playerDay, projectedTotal } from "@/lib/data/days";
 import { slotGroup } from "@/lib/league/settings";
 import { formatDate, parseDay } from "@/lib/time";
 import { MatchupStatus, Notice } from "@/components/ui";
@@ -42,7 +42,11 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
   if (!m) notFound();
   const team = new Map(ctx.teams.map((t) => [t.id, t]));
   const imported = m.score_source === "imported";
-  const breaks = await weekBreakdowns(sb, [...homeRows, ...awayRows], unis);
+  const lineupIds = [...new Set([...homeHist(new Date().toISOString()), ...awayHist(new Date().toISOString())].map((p) => p.playerId))];
+  const [breaks, proj] = await Promise.all([
+    weekBreakdowns(sb, [...homeRows, ...awayRows], unis),
+    getProjections(sb, league.id, lineupIds),
+  ]);
 
   // Which day to open: the one asked for, else today, else (past weeks) the last day with games.
   const inWeek = (d: string | null) => !!d && d >= monday && d <= sunday;
@@ -58,9 +62,11 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
     photoUrl: p.photoUrl,
     code: code(p.universityId),
     pos: p.positionLabel ?? "–",
-    day: playerDay(breaks.get(p.playerId) ?? [], date, dayChips(p.universityId, matches, unis, date, today)),
+    day: playerDay(breaks.get(p.playerId) ?? [], date, dayChips(p.universityId, matches, unis, date, today), date >= today ? proj.get(p.playerId)?.perGame ?? null : null),
   });
   const universities = new Set<string>();
+  let homeProj = 0;
+  let awayProj = 0;
   const byDay: Record<string, MatchupDay> = {};
   for (const d of days) {
     const at = lineupMomentFor(d.date, today, league.timezone);
@@ -82,6 +88,10 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
       homeTotal: countedTotal(home.map((p) => p.day)),
       awayTotal: countedTotal(away.map((p) => p.day)),
     };
+    // Still to come: current starters' projections for games not played yet.
+    const starters = byDay[d.date]!.starters;
+    homeProj += projectedTotal(starters.flatMap((s) => (s.home ? [s.home.day] : [])));
+    awayProj += projectedTotal(starters.flatMap((s) => (s.away ? [s.away.day] : [])));
   }
   const marks = days
     .filter((d) => matches.some((x) => x.match_date === d.date && x.status !== "cancelled" && (universities.has(x.home_university_id) || universities.has(x.away_university_id))))
@@ -89,13 +99,15 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
   const prevHref = m.week > 1 ? `/matchups?week=${m.week - 1}` : null;
   const nextHref = ctx.weeks.some((w) => w.week === m.week + 1) ? `/matchups?week=${m.week + 1}` : null;
 
-  const ScoreSide = ({ teamId, score, align }: { teamId: string; score: number; align: "left" | "right" }) => {
+  const showProj = !imported && m.status !== "final" && m.status !== "void" && homeProj + awayProj > 0;
+  const ScoreSide = ({ teamId, score, align, projected }: { teamId: string; score: number; align: "left" | "right"; projected: number }) => {
     const won = m.winner_team_id === teamId;
     return (
       <Link href={`/teams/${teamId}`} className={`min-w-0 flex-1 ${align === "right" ? "text-right" : ""}`}>
         <div className={`truncate text-sm font-extrabold ${teamId === ctx.myTeam?.id ? "text-coral-600" : ""}`}>{team.get(teamId)?.name}</div>
         <div className="truncate text-[11px] text-gray-500">{team.get(teamId)?.manager}</div>
         <div className={`mt-1 text-3xl font-black tabular-nums ${m.status === "final" && !won && !m.is_tie ? "text-gray-400" : ""}`}>{score.toFixed(1)}</div>
+        {showProj ? <div className="text-xs font-semibold tabular-nums text-gray-500">Proj {(score + projected).toFixed(1)}</div> : null}
       </Link>
     );
   };
@@ -112,9 +124,9 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
           <MatchupStatus status={m.status} source={m.score_source} />
         </div>
         <div className="flex items-start gap-3">
-          <ScoreSide teamId={m.home_team_id} score={m.home_score} align="left" />
+          <ScoreSide teamId={m.home_team_id} score={m.home_score} align="left" projected={homeProj} />
           <span className="pt-6 text-xs font-bold text-gray-400">VS</span>
-          <ScoreSide teamId={m.away_team_id} score={m.away_score} align="right" />
+          <ScoreSide teamId={m.away_team_id} score={m.away_score} align="right" projected={awayProj} />
         </div>
       </div>
 

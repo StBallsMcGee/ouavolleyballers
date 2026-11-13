@@ -1,5 +1,5 @@
 import { requireLeague } from "@/lib/data/context";
-import { getOwnership, getSeasonPlayerPoints } from "@/lib/data/queries";
+import { getOwnership, getProjections, getSeasonPlayerPoints } from "@/lib/data/queries";
 import { listPlayers } from "@/lib/data/players";
 import { loadScheduleContext } from "@/lib/data/schedule-context";
 import { Card, Empty, PageHeader } from "@/components/ui";
@@ -13,18 +13,19 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
   const ctx = await requireLeague();
   const { supabase: sb, league } = ctx;
   const status = sp.status ?? "active";
-  const [sched, players, season, owner] = await Promise.all([
+  const [sched, players, season, owner, proj] = await Promise.all([
     loadScheduleContext(sb, ctx.weeks, ctx.currentWeek, ctx.today),
     listPlayers(sb, { q: sp.q, uni: sp.uni, pos: sp.pos, activeOnly: status !== "all" }),
     getSeasonPlayerPoints(sb, league.id),
     getOwnership(sb, league.id),
+    getProjections(sb, league.id),
   ]);
   const team = new Map(ctx.teams.map((t) => [t.id, t]));
   const rows = players
     .filter((p) => (status === "available" ? !owner.has(p.id) && !p.duplicate_of : status === "rostered" ? owner.has(p.id) : true))
     .filter((p) => (sp.week === "playing" ? sched.playsThisWeek(p.university_id) : true))
-    .map((p) => ({ ...p, pts: season.get(p.id)?.points ?? 0, gp: season.get(p.id)?.games ?? 0 }))
-    .sort((a, b) => b.pts - a.pts || a.display_name.localeCompare(b.display_name));
+    .map((p) => ({ ...p, pts: season.get(p.id)?.points ?? 0, gp: season.get(p.id)?.games ?? 0, proj: proj.get(p.id)?.perGame ?? null }))
+    .sort((a, b) => (sp.sort === "proj" ? (b.proj ?? -999) - (a.proj ?? -999) : 0) || b.pts - a.pts || a.display_name.localeCompare(b.display_name));
   return (
     <>
       <PageHeader title="Players" />
@@ -36,7 +37,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
               const o = owner.get(p.id);
               return {
                 id: p.id, name: p.display_name, photo: p.photo, code: sched.code(p.university_id), position: p.position_label,
-                games: sched.chipsFor(p.university_id), points: p.pts, gamesPlayed: p.gp,
+                games: sched.chipsFor(p.university_id), points: p.pts, gamesPlayed: p.gp, proj: p.proj,
                 owner: o ? { id: o, name: team.get(o)?.name ?? "", mine: o === ctx.myTeam?.id } : null,
                 flags: [...(p.duplicate_of ? ["Duplicate"] : []), ...(!p.active ? ["Inactive"] : [])],
               };

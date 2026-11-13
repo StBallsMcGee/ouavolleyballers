@@ -1,5 +1,5 @@
 import { requireLeague } from "@/lib/data/context";
-import { getMatchesBetween, getOwnership, getRoster, getSeasonPlayerPoints, lockedUniversities } from "@/lib/data/queries";
+import { getMatchesBetween, getOwnership, getProjections, getRoster, getSeasonPlayerPoints, lockedUniversities } from "@/lib/data/queries";
 import { listPlayers } from "@/lib/data/players";
 import { loadScheduleContext } from "@/lib/data/schedule-context";
 import { Card, Empty, Notice, PageHeader } from "@/components/ui";
@@ -13,11 +13,12 @@ export default async function FreeAgentsPage({ searchParams }: { searchParams: P
   const sp = await searchParams;
   const ctx = await requireLeague();
   const { supabase: sb, league, myTeam, today } = ctx;
-  const [sched, players, season, owner, roster, todays] = await Promise.all([
+  const [sched, players, season, owner, proj, roster, todays] = await Promise.all([
     loadScheduleContext(sb, ctx.weeks, ctx.currentWeek, today),
     listPlayers(sb, { q: sp.q, uni: sp.uni, pos: sp.pos, activeOnly: true }),
     getSeasonPlayerPoints(sb, league.id),
     getOwnership(sb, league.id),
+    getProjections(sb, league.id),
     myTeam ? getRoster(sb, myTeam.id) : Promise.resolve([]),
     getMatchesBetween(sb, today, today),
   ]);
@@ -25,8 +26,8 @@ export default async function FreeAgentsPage({ searchParams }: { searchParams: P
   const rows = players
     .filter((p) => !owner.has(p.id) && !p.duplicate_of)
     .filter((p) => (sp.week === "playing" ? sched.playsThisWeek(p.university_id) : true))
-    .map((p) => ({ ...p, pts: season.get(p.id)?.points ?? 0, gp: season.get(p.id)?.games ?? 0 }))
-    .sort((a, b) => b.pts - a.pts || a.display_name.localeCompare(b.display_name));
+    .map((p) => ({ ...p, pts: season.get(p.id)?.points ?? 0, gp: season.get(p.id)?.games ?? 0, proj: proj.get(p.id)?.perGame ?? null }))
+    .sort((a, b) => (sp.sort === "proj" ? (b.proj ?? -999) - (a.proj ?? -999) : 0) || b.pts - a.pts || a.display_name.localeCompare(b.display_name));
   const limit = league.settings.roster.TOTAL;
   const enabled = league.settings.freeAgency.enabled;
   const myRoster = roster.map((r) => ({ id: r.playerId, name: r.name, locked: r.universityId ? locked.has(r.universityId) : false }));
@@ -41,7 +42,7 @@ export default async function FreeAgentsPage({ searchParams }: { searchParams: P
             showOwner={false}
             items={rows.slice(0, 120).map((p) => ({
               id: p.id, name: p.display_name, photo: p.photo, code: sched.code(p.university_id), position: p.position_label,
-              games: sched.chipsFor(p.university_id), points: p.pts, gamesPlayed: p.gp,
+              games: sched.chipsFor(p.university_id), points: p.pts, gamesPlayed: p.gp, proj: p.proj,
               action: myTeam && enabled ? <AddPlayerButton teamId={myTeam.id} playerId={p.id} playerName={p.display_name} rosterFull={roster.length >= limit} roster={myRoster} /> : undefined,
             }))}
           />

@@ -287,3 +287,30 @@ export async function loadLineupHistory(sb: Sb, teamId: string): Promise<(atIso:
 export async function getLineupAt(sb: Sb, teamId: string, atIso: string): Promise<RosterPlayer[]> {
   return (await loadLineupHistory(sb, teamId))(atIso);
 }
+
+export interface Projection {
+  games: number;
+  avg: number | null;
+  last3: number | null;
+  best: number | null;
+  worst: number | null;
+  stddev: number | null;
+  prevGames: number;
+  prevAvg: number | null;
+  perGame: number | null;
+}
+const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+
+/** Saved projections (refreshed by every sync). Empty on a database without them yet. */
+export async function getProjections(sb: Sb, leagueId: string, playerIds?: readonly string[]): Promise<Map<string, Projection>> {
+  if (playerIds && playerIds.length === 0) return new Map();
+  const rows = await fetchAll<Record<string, unknown>>((from, to) => {
+    let q = sb.from("player_projections").select("player_id, games, avg_points, last3_avg, best, worst, stddev, prev_games, prev_avg, proj_per_game").eq("league_id", leagueId);
+    if (playerIds) q = q.in("player_id", [...playerIds]);
+    return q.range(from, to);
+  }).catch(() => [] as Record<string, unknown>[]);
+  return new Map(rows.map((r) => [r.player_id as string, {
+    games: Number(r.games), avg: num(r.avg_points), last3: num(r.last3_avg), best: num(r.best), worst: num(r.worst),
+    stddev: num(r.stddev), prevGames: Number(r.prev_games), prevAvg: num(r.prev_avg), perGame: num(r.proj_per_game),
+  }]));
+}

@@ -36,7 +36,11 @@ function Side({ p, align, rules, label, hidePoints }: { p: SidePlayer | null; al
         <div className="text-[11px]"><GameLine chips={p.day.games} compact /></div>
       </Link>
       <div className={`w-10 shrink-0 text-[14px] font-extrabold tabular-nums ${align === "right" ? "text-left" : "text-right"}`}>
-        {hidePoints || v === null ? <span className="text-gray-300">–</span> : (
+        {hidePoints ? <span className="text-gray-300">–</span> : v === null ? (
+          p.day.projected !== null ? (
+            <span className="block leading-tight" title="Projected points"><span className="text-[13px] font-bold text-gray-400">{p.day.projected.toFixed(1)}</span><span className="block text-[8px] font-bold uppercase tracking-wide text-gray-400">proj</span></span>
+          ) : <span className="text-gray-300">–</span>
+        ) : (
           <PointsButton value={v} name={p.name} photo={p.photoUrl} subtitle={label} rules={rules} games={p.day.breakdown}
             className={v < 0 ? "text-red-600" : !p.day.counted ? "text-gray-400" : ""} />
         )}

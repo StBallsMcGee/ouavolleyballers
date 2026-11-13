@@ -11,6 +11,8 @@ export interface PlayerListItem {
   games: GameLineChip[];
   points: number;
   gamesPlayed: number;
+  /** Projected points per game (null = no projection). */
+  proj?: number | null;
   owner?: { id: string; name: string; mine: boolean } | null;
   flags?: string[];
   action?: React.ReactNode;
@@ -39,6 +41,7 @@ export function PlayerList({ items, showOwner = true }: { items: PlayerListItem[
           <div className="w-14 shrink-0 text-right">
             <div className={`text-[15px] font-extrabold tabular-nums ${p.points < 0 ? "text-red-600" : ""}`}>{p.points.toFixed(1)}</div>
             <div className="text-[10px] text-gray-400">{p.gamesPlayed ? `${(p.points / p.gamesPlayed).toFixed(1)}/gm` : "0 GP"}</div>
+            {p.proj !== undefined && p.proj !== null ? <div className="text-[10px] font-semibold text-gray-500" title="Projected points per game">proj {p.proj.toFixed(1)}</div> : null}
           </div>
           {p.action ? <div className="shrink-0">{p.action}</div> : null}
         </li>

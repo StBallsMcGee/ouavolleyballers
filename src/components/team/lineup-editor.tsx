@@ -8,7 +8,7 @@ import { GameLine } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
 import { PointsButton } from "@/components/points-breakdown";
 import type { ScoringRule } from "@/lib/scoring/engine";
-import { countedTotal, type PlayerDay } from "@/lib/data/days";
+import { countedTotal, projectedTotal, type PlayerDay } from "@/lib/data/days";
 
 export interface EditorPlayer extends LineupPlayer {
   positionLabel: string | null;
@@ -19,7 +19,7 @@ export interface EditorPlayer extends LineupPlayer {
   byDay: Record<string, PlayerDay>;
 }
 
-const NO_DAY: PlayerDay = { points: null, counted: false, games: [], breakdown: [] };
+const NO_DAY: PlayerDay = { points: null, counted: false, games: [], breakdown: [], projected: null };
 
 const fmt = (v: number) => v.toFixed(1);
 
@@ -116,7 +116,11 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
               <div className="mt-0.5 text-[12px] leading-snug"><GameLine chips={d.games} compact /></div>
             </div>
             <div className="w-12 shrink-0 text-right">
-              {d.points === null ? <span className="text-[15px] font-extrabold text-gray-300">–</span> : (
+              {d.points === null ? (
+                d.projected !== null ? (
+                  <span className="block leading-tight" title="Projected points"><span className="text-[14px] font-bold tabular-nums text-gray-400">{d.projected.toFixed(1)}</span><span className="block text-[9px] font-bold uppercase tracking-wide text-gray-400">proj</span></span>
+                ) : <span className="text-[15px] font-extrabold text-gray-300">–</span>
+              ) : (
                 <PointsButton
                   value={d.points}
                   name={ep.name}
@@ -138,6 +142,8 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
   };
 
   const dayTotal = countedTotal(players.map((p) => p.byDay[day] ?? NO_DAY));
+  // Projection for the rest of the day: players in the lineup whose games haven't been played.
+  const dayProj = projectedTotal(slots.map((s) => occupant(s)).flatMap((p) => (p ? [byId.get(p.playerId)?.byDay[day] ?? NO_DAY] : [])));
 
   if (isPast && players.length === 0) {
     return (
@@ -160,7 +166,7 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
       <section className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
         <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-gray-500">
           <span>Starters</span>
-          <span>{dayLabel} · {fmt(dayTotal)}</span>
+          <span>{dayLabel} · {fmt(dayTotal)}{dayProj > 0 ? <span className="font-bold normal-case text-gray-400"> · proj {fmt(dayTotal + dayProj)}</span> : null}</span>
         </div>
         <ul className="divide-y divide-gray-100">{slots.map((s) => row(s, occupant(s)))}</ul>
       </section>
