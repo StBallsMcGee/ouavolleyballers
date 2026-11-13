@@ -17,6 +17,8 @@ export interface PlayerDay {
   counted: boolean; // true when the points went to the fantasy team (she was in the lineup)
   games: GameLineChip[];
   breakdown: BreakdownGame[];
+  /** Projected points for games that day that haven't been played yet (null if none). */
+  projected: number | null;
 }
 
 /** The Monday of the Monday–Sunday week containing the date. */
@@ -65,11 +67,18 @@ export function lineupMomentFor(date: string, today: string, tz: string): string
 }
 
 /** One player's day: points from that day's games only, and the game line for that day. */
-export function playerDay(breakdown: readonly BreakdownGame[], date: string, games: GameLineChip[]): PlayerDay {
+export function playerDay(breakdown: readonly BreakdownGame[], date: string, games: GameLineChip[], projPerGame: number | null = null): PlayerDay {
   const that = breakdown.filter((g) => g.date === date);
-  if (that.length === 0) return { points: null, counted: false, games, breakdown: [] };
+  const upcoming = games.filter((g) => g.tone === "today" || g.tone === "upcoming" || g.tone === "live").length;
+  const projected = that.length === 0 && upcoming > 0 && projPerGame !== null ? Math.round(projPerGame * upcoming * 10) / 10 : null;
+  if (that.length === 0) return { points: null, counted: false, games, breakdown: [], projected };
   const points = Math.round(that.reduce((a, g) => a + g.points, 0) * 100) / 100;
-  return { points, counted: that.some((g) => g.counted), games, breakdown: that };
+  return { points, counted: that.some((g) => g.counted), games, breakdown: that, projected: null };
+}
+
+/** Projected points still to come that day for these players (lineup players only). */
+export function projectedTotal(days: readonly PlayerDay[]): number {
+  return Math.round(days.reduce((a, d) => a + (d.projected ?? 0), 0) * 10) / 10;
 }
 
 /** Points that went to the team that day (only lineup players count). */

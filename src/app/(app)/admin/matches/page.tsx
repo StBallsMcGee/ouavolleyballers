@@ -28,6 +28,7 @@ export default async function AdminMatchesPage({ searchParams }: { searchParams:
                   <span className="shrink-0 text-xs text-gray-500">{formatDate(m.match_date)} · {m.lock_source === "fallback" ? "default lock" : m.lock_source === "admin" ? "set by admin" : "start time"}</span>
                 </div>
                 <MatchRowEditor id={m.id} lockAt={m.lock_at} counts={m.counts_for_fantasy} status={m.status} />
+                {m.match_date <= ctx.today ? <a href={`/admin/matches/${m.id}/stats`} className="link text-xs">{m.stats_available ? "Edit stats" : "Enter stats by hand"} ›</a> : null}
               </li>
             ))}
           </ul>

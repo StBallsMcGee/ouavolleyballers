@@ -3,7 +3,7 @@ import type { University } from "@/lib/data/queries";
 /** Search box plus a collapsible "Filters" panel. Plain GET form: works without JavaScript. */
 export function PlayerFilters({ unis, sp, showStatus = true }: { unis: University[]; sp: Record<string, string | undefined>; showStatus?: boolean }) {
   const oua = unis.filter((u) => u.short_name && u.short_name.length <= 4);
-  const active = [sp.pos, sp.uni, sp.week, showStatus && sp.status && sp.status !== "active" ? sp.status : undefined].filter(Boolean).length;
+  const active = [sp.pos, sp.uni, sp.week, sp.sort, showStatus && sp.status && sp.status !== "active" ? sp.status : undefined].filter(Boolean).length;
   return (
     <form className="border-b border-gray-200 bg-white px-4 py-3 sm:mb-3 sm:rounded-xl sm:border" method="get">
       <div className="flex gap-2">
@@ -24,6 +24,10 @@ export function PlayerFilters({ unis, sp, showStatus = true }: { unis: Universit
           <select name="week" defaultValue={sp.week ?? ""} className="input">
             <option value="">Any schedule</option>
             <option value="playing">Plays this week</option>
+          </select>
+          <select name="sort" defaultValue={sp.sort ?? ""} className="input">
+            <option value="">Sort: season points</option>
+            <option value="proj">Sort: projected</option>
           </select>
           {showStatus ? (
             <select name="status" defaultValue={sp.status ?? "active"} className="input">

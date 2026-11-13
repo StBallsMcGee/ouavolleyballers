@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireLeague } from "@/lib/data/context";
-import { getMatchesBetween, getMatchupScores, getRoster, getSeasonPlayerPoints, getStandings, getTeamPlayerPoints, getUniversities, loadLineupHistory, lockedUniversities, type RosterPlayer } from "@/lib/data/queries";
+import { getMatchesBetween, getMatchupScores, getRoster, getSeasonPlayerPoints, getProjections, getStandings, getTeamPlayerPoints, getUniversities, loadLineupHistory, lockedUniversities, type RosterPlayer } from "@/lib/data/queries";
 import { dayChips } from "@/lib/data/games";
 import { rulesForWeek, weekBreakdowns } from "@/lib/data/breakdowns";
 import { daysOfWeek, lineupMomentFor, playerDay, weekContaining, weekLinks } from "@/lib/data/days";
@@ -44,9 +44,10 @@ export async function TeamView({ teamId, editable, day: requested, path }: { tea
   ]);
   const pastLineups = new Map(pastDays.map((d) => [d, history ? history(lineupMomentFor(d, today, league.timezone)) : []]));
   const allIds = [...new Set([...roster, ...[...pastLineups.values()].flat()].map((p) => p.playerId))];
-  const [breakdowns, season] = await Promise.all([
+  const [breakdowns, season, proj] = await Promise.all([
     weekBreakdowns(sb, weekPts, unis),
     getSeasonPlayerPoints(sb, league.id, allIds),
+    getProjections(sb, league.id, allIds),
   ]);
 
   const todays = matches.filter((m) => m.match_date === today && m.status !== "cancelled" && m.status !== "postponed");
@@ -64,7 +65,7 @@ export async function TeamView({ teamId, editable, day: requested, path }: { tea
     photoUrl: r.photoUrl,
     universityCode: r.universityId ? unis.get(r.universityId)?.short_name ?? unis.get(r.universityId)?.name ?? "?" : "?",
     seasonPoints: season.get(r.playerId)?.points ?? 0,
-    byDay: Object.fromEntries(days.map((d) => [d.date, playerDay(breakdowns.get(r.playerId) ?? [], d.date, dayChips(r.universityId, weekMatches, unis, d.date, today))])),
+    byDay: Object.fromEntries(days.map((d) => [d.date, playerDay(breakdowns.get(r.playerId) ?? [], d.date, dayChips(r.universityId, weekMatches, unis, d.date, today), proj.get(r.playerId)?.perGame ?? null)])),
   });
   const current = roster.map((r) => toEditor(r, true));
   const past = Object.fromEntries([...pastLineups].map(([d, l]) => [d, l.map((r) => toEditor(r, false))]));

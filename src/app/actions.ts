@@ -407,3 +407,34 @@ export async function refreshFromUsportvb(apply: boolean): Promise<{ ok: boolean
     return { ok: false, error: e instanceof Error ? e.message : "Import failed." };
   }
 }
+
+/* ---------------------------------------------------------------- Admin: typed-in box scores */
+
+const statRowSchema = z.object({
+  player_id: uuid,
+  remove: z.boolean().optional(),
+  kills: z.number().int().min(0).max(300).optional(),
+  attack_errors: z.number().int().min(0).max(300).optional(),
+  attack_attempts: z.number().int().min(0).max(300).optional(),
+  assists: z.number().int().min(0).max(300).optional(),
+  service_aces: z.number().int().min(0).max(300).optional(),
+  service_errors: z.number().int().min(0).max(300).optional(),
+  digs: z.number().int().min(0).max(300).optional(),
+  solo_blocks: z.number().int().min(0).max(300).optional(),
+  block_assists: z.number().int().min(0).max(300).optional(),
+  sets_played: z.number().int().min(0).max(5).nullable().optional(),
+});
+
+/** Admin: save a game's stats typed in by hand (when no source has the box score). */
+export async function adminSaveMatchStats(matchId: string, rows: unknown[]): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+    const parsed = z.array(statRowSchema).max(60).parse(rows);
+    if (parsed.length === 0) return { ok: false, error: "Nothing to save." };
+    const n = (await rpc("admin_set_match_stats_and_refresh", { p_match: uuid.parse(matchId), p_rows: parsed })) as number;
+    refresh("/team", "/matchups", "/standings", "/players", `/matches/${matchId}`, "/admin/matches");
+    return { ok: true, message: `Saved ${n} player line${n === 1 ? "" : "s"}. Points, matchups and standings are updated.` };
+  } catch (e) {
+    return fail(e);
+  }
+}
