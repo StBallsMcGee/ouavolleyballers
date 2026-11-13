@@ -20,30 +20,28 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const ctx = await requireLeague();
   const { supabase: sb, league, slots, today } = ctx;
-  const { data: row } = await sb.from("matchups").select("week").eq("id", id).maybeSingle();
+  const { data: row } = await sb.from("matchups").select("week, home_team_id, away_team_id").eq("id", id).maybeSingle();
   if (!row) notFound();
   const weekInfo = ctx.weeks.find((w) => w.week === row.week);
   const days = daysOfWeek(weekInfo?.starts_on ?? today);
   const monday = days[0]!.date;
   const sunday = days[6]!.date;
 
-  const [scores, unis, matches, rules] = await Promise.all([
+  // Everything at once: scores, schedule, rules, both teams' points and lineup histories.
+  const [scores, unis, matches, rules, homeRows, awayRows, homeHist, awayHist] = await Promise.all([
     getMatchupScores(sb, league.id, row.week),
     getUniversities(sb),
     getMatchesBetween(sb, monday, sunday),
     rulesForWeek(sb, league.id, row.week),
+    getTeamPlayerPoints(sb, league.id, { teamId: row.home_team_id, week: row.week }),
+    getTeamPlayerPoints(sb, league.id, { teamId: row.away_team_id, week: row.week }),
+    loadLineupHistory(sb, row.home_team_id),
+    loadLineupHistory(sb, row.away_team_id),
   ]);
   const m = scores.find((x) => x.id === id);
   if (!m) notFound();
   const team = new Map(ctx.teams.map((t) => [t.id, t]));
   const imported = m.score_source === "imported";
-
-  const [homeRows, awayRows, homeHist, awayHist] = await Promise.all([
-    getTeamPlayerPoints(sb, league.id, { teamId: m.home_team_id, week: m.week }),
-    getTeamPlayerPoints(sb, league.id, { teamId: m.away_team_id, week: m.week }),
-    loadLineupHistory(sb, m.home_team_id),
-    loadLineupHistory(sb, m.away_team_id),
-  ]);
   const breaks = await weekBreakdowns(sb, [...homeRows, ...awayRows], unis);
 
   // Which day to open: the one asked for, else today, else (past weeks) the last day with games.

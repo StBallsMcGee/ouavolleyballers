@@ -48,8 +48,26 @@ export async function runSync(opts: {
     ]);
     result.schedule = schedule;
     result.boxScores = boxScores;
+    // Move weeks to in-progress/final after everything above, and even if the statistics source
+    // was down: finishing a week must never depend on one source being up.
+    try {
+      result.matchupsUpdated += await refreshMatchups(opts.pool ?? getPool());
+    } catch (e) {
+      result.warnings.push(`Could not update matchup statuses: ${(e as Error).message}`);
+    }
   }
   return result;
+}
+
+/** Moves matchups to in-progress / final for every running league. Safe to run any time. */
+export async function refreshMatchups(pool: pg.Pool): Promise<number> {
+  const leagues = await pool.query<{ id: string }>(`select id from public.leagues where status in ('setup', 'active')`);
+  let n = 0;
+  for (const l of leagues.rows) {
+    const r = await pool.query<{ n: number }>(`select public.refresh_matchup_statuses($1) as n`, [l.id]);
+    n += r.rows[0]?.n ?? 0;
+  }
+  return n;
 }
 
 /**

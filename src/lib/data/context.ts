@@ -58,16 +58,20 @@ export const getContext = cache(async () => {
   const user = verifiedUser(h.get("x-sideout-verified-user")) ?? (await supabase.auth.getUser()).data.user;
   if (!user) redirect("/login");
 
-  const [{ data: profile }, { data: memberships }] = await Promise.all([
-    supabase.from("profiles").select("id, email, display_name, is_site_admin").eq("id", user.id).maybeSingle(),
-    supabase.from("league_members").select("league_id, role").eq("user_id", user.id),
-  ]);
-
-  let leagueId = memberships?.[0]?.league_id as string | undefined;
-  if (!leagueId && profile?.is_site_admin) {
-    const { data: first } = await supabase.from("leagues").select("id").order("created_at").limit(1).maybeSingle();
-    leagueId = first?.id;
-  }
+  // One round trip (database function my_context); the step-by-step queries below are the
+  // fallback for a database that hasn't had that function added yet.
+  type Raw = {
+    profile: { id: string; email: string; display_name: string; is_site_admin: boolean } | null;
+    memberships: { league_id: string; role: string }[];
+    league: (Omit<LeagueRow, "settings"> & { settings: unknown }) | null;
+    teams: (Omit<TeamWithManager, "manager"> & { owner_name?: string | null })[];
+    weeks: WeekRow[];
+  };
+  let raw: Raw | null = null;
+  const rpc = await supabase.rpc("my_context");
+  if (!rpc.error && rpc.data) raw = rpc.data as Raw;
+  else raw = await loadContextStepByStep(supabase, user.id);
+  const { profile, memberships } = raw;
 
   const empty = {
     supabase,
@@ -83,32 +87,16 @@ export const getContext = cache(async () => {
     today: localDate(),
     currentWeek: null as number | null,
   };
-  if (!leagueId) return empty;
-
-  const [{ data: leagueRaw }, { data: teams }, { data: weeks }] = await Promise.all([
-    supabase.from("leagues").select("id, name, season_label, status, timezone, settings").eq("id", leagueId).single(),
-    supabase
-      .from("fantasy_teams")
-      .select("id, name, owner_user_id, manager_display_name, active")
-      .eq("league_id", leagueId)
-      .eq("active", true)
-      .order("name"),
-    supabase.from("matchup_weeks").select("week, starts_on, ends_on, is_playoff").eq("league_id", leagueId).order("week"),
-  ]);
+  const leagueRaw = raw.league;
   if (!leagueRaw) return empty;
   const league: LeagueRow = { ...leagueRaw, settings: parseSettings(leagueRaw.settings) };
-  const role = (memberships?.find((m) => m.league_id === leagueId)?.role as "admin" | "manager" | undefined) ?? null;
+  const role = (memberships.find((m) => m.league_id === league.id)?.role as "admin" | "manager" | undefined) ?? null;
   const isAdmin = role === "admin" || !!profile?.is_site_admin;
-
-  const ownerIds = (teams ?? []).map((t) => t.owner_user_id).filter(Boolean) as string[];
-  const { data: owners } = ownerIds.length
-    ? await supabase.from("profiles").select("id, display_name").in("id", ownerIds)
-    : { data: [] as Array<{ id: string; display_name: string }> };
-  const ownerName = new Map((owners ?? []).map((o) => [o.id as string, o.display_name as string]));
-  const teamsWithManagers: TeamWithManager[] = (teams ?? []).map((t) => ({
+  const teamsWithManagers: TeamWithManager[] = raw.teams.map(({ owner_name, ...t }) => ({
     ...t,
-    manager: (t.owner_user_id && ownerName.get(t.owner_user_id)) || t.manager_display_name || "Unclaimed",
+    manager: owner_name || t.manager_display_name || "Unclaimed",
   }));
+  const weeks = raw.weeks;
   const today = localDate(new Date(), league.timezone);
 
   return {
@@ -118,10 +106,10 @@ export const getContext = cache(async () => {
     isAdmin,
     myTeam: teamsWithManagers.find((t) => t.owner_user_id === user.id) ?? null,
     teams: teamsWithManagers,
-    weeks: (weeks ?? []) as WeekRow[],
+    weeks,
     slots: startingSlots(league.settings.roster),
     today,
-    currentWeek: currentWeekFor((weeks ?? []) as WeekRow[], today),
+    currentWeek: currentWeekFor(weeks, today),
   };
 });
 
@@ -135,4 +123,33 @@ export async function requireAdmin() {
   const ctx = await requireLeague();
   if (!ctx.isAdmin) redirect("/");
   return ctx;
+}
+
+/** The same information as my_context(), fetched step by step (older databases). */
+async function loadContextStepByStep(supabase: Awaited<ReturnType<typeof supabaseServer>>, userId: string) {
+  const [{ data: profile }, { data: memberships }] = await Promise.all([
+    supabase.from("profiles").select("id, email, display_name, is_site_admin").eq("id", userId).maybeSingle(),
+    supabase.from("league_members").select("league_id, role").eq("user_id", userId),
+  ]);
+  let leagueId = memberships?.[0]?.league_id as string | undefined;
+  if (!leagueId && profile?.is_site_admin) {
+    const { data: first } = await supabase.from("leagues").select("id").order("created_at").limit(1).maybeSingle();
+    leagueId = first?.id;
+  }
+  const base = { profile: profile ?? null, memberships: memberships ?? [], league: null, teams: [], weeks: [] };
+  if (!leagueId) return base;
+  const [{ data: league }, { data: teams }, { data: weeks }] = await Promise.all([
+    supabase.from("leagues").select("id, name, season_label, status, timezone, settings").eq("id", leagueId).single(),
+    supabase.from("fantasy_teams").select("id, name, owner_user_id, manager_display_name, active").eq("league_id", leagueId).eq("active", true).order("name"),
+    supabase.from("matchup_weeks").select("week, starts_on, ends_on, is_playoff").eq("league_id", leagueId).order("week"),
+  ]);
+  const ownerIds = (teams ?? []).map((t) => t.owner_user_id).filter(Boolean) as string[];
+  const { data: owners } = ownerIds.length ? await supabase.from("profiles").select("id, display_name").in("id", ownerIds) : { data: [] as { id: string; display_name: string }[] };
+  const ownerName = new Map((owners ?? []).map((o) => [o.id as string, o.display_name as string]));
+  return {
+    ...base,
+    league,
+    teams: (teams ?? []).map((t) => ({ ...t, owner_name: t.owner_user_id ? ownerName.get(t.owner_user_id) ?? null : null })),
+    weeks: (weeks ?? []) as WeekRow[],
+  };
 }

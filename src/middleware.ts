@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_COOKIE_OPTIONS } from "@/lib/supabase/cookies";
 
 // API routes listed here check their own secret (CRON_SECRET) instead of a login session.
-const PUBLIC_PATHS = ["/login", "/auth", "/join", "/api/cron", "/api/admin/import", "/api/admin/profiles"];
+const PUBLIC_PATHS = ["/login", "/auth", "/join", "/api/cron", "/api/admin/import", "/api/admin/profiles", "/api/admin/status"];
 
 /**
  * Carries the user this middleware just verified to the page, so the page doesn't ask the login
@@ -44,9 +44,12 @@ export async function middleware(request: NextRequest) {
   let signedIn = false;
   let verified: { id: string; email: string | null } | null = null;
   try {
-    const { data, error } = await supabase.auth.getUser();
-    signedIn = !!data.user;
-    if (data.user) verified = { id: data.user.id, email: data.user.email ?? null };
+    // getClaims checks the sign-in token's signature locally when the project uses signing
+    // keys (no network call), and only asks the login service when it has to.
+    const { data, error } = await supabase.auth.getClaims();
+    const claims = data?.claims;
+    signedIn = !!claims?.sub;
+    if (claims?.sub) verified = { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null };
     if (!signedIn && hasAuthCookie && error && !isDefinitelySignedOut(error)) signedIn = true;
   } catch {
     signedIn = hasAuthCookie;

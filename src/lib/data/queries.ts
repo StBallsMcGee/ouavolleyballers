@@ -43,11 +43,14 @@ export interface MatchupScore {
   winner_team_id: string | null;
   is_tie: boolean;
 }
-export async function getMatchupScores(sb: Sb, leagueId: string, week?: number): Promise<MatchupScore[]> {
-  let q = sb.from("v_matchup_scores").select("*").eq("league_id", leagueId).order("week");
-  if (week !== undefined) q = q.eq("week", week);
-  const { data } = await q;
+/** Every matchup's score in the league, loaded once per page even when several parts ask. */
+const allMatchupScores = cache(async (sb: Sb, leagueId: string): Promise<MatchupScore[]> => {
+  const { data } = await sb.from("v_matchup_scores").select("*").eq("league_id", leagueId).order("week");
   return (data ?? []).map((m) => ({ ...m, home_score: Number(m.home_score), away_score: Number(m.away_score) })) as MatchupScore[];
+});
+export async function getMatchupScores(sb: Sb, leagueId: string, week?: number): Promise<MatchupScore[]> {
+  const all = await allMatchupScores(sb, leagueId);
+  return week === undefined ? all : all.filter((m) => m.week === week);
 }
 
 export async function getStandings(sb: Sb, leagueId: string, teamIds: string[]): Promise<StandingRow[]> {
@@ -171,6 +174,13 @@ export async function getTeamPlayerPoints(sb: Sb, leagueId: string, filter: { te
 /** Season fantasy points per player (league scoring, all weeks so far). */
 export async function getSeasonPlayerPoints(sb: Sb, leagueId: string, playerIds?: readonly string[]): Promise<Map<string, { points: number; games: number }>> {
   if (playerIds && playerIds.length === 0) return new Map();
+  const totals = await fetchAll<{ player_id: string; points: number; games: number }>((from, to) => {
+    let q = sb.from("v_player_season_points").select("player_id, points, games").eq("league_id", leagueId);
+    if (playerIds) q = q.in("player_id", [...playerIds]);
+    return q.range(from, to);
+  }).catch(() => null);
+  if (totals) return new Map(totals.map((r) => [r.player_id, { points: Number(r.points), games: Number(r.games) }]));
+  // Older databases without the season view: add up match by match.
   const rows = await fetchAll<{ player_id: string; points: number }>((from, to) => {
     let q = sb.from("v_player_match_points").select("player_id, points").eq("league_id", leagueId);
     if (playerIds) q = q.in("player_id", [...playerIds]);
