@@ -120,10 +120,10 @@ select cron.schedule('sideout-sync-daytime', '7 14,18 * * *', $$
 $$);
 ```
 
-**Live scoring** (every 3 minutes; it does nothing, not even a request to OUA, unless a game is on):
+**Live scoring** (every minute; it does nothing, not even a request to OUA, unless a game is on):
 
 ```sql
-select cron.schedule('sideout-live', '*/3 * * * *', $$
+select cron.schedule('sideout-live', '* * * * *', $$
   select net.http_get(
     url := 'https://YOUR-SITE/api/cron/live',
     headers := jsonb_build_object('Authorization', 'Bearer ' ||
