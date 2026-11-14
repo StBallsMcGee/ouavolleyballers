@@ -331,3 +331,22 @@ export function plannedSlots(plans: readonly LineupPlan[], date: string): Map<st
   const plan = [...plans].filter((p) => p.date <= date).pop();
   return plan ? new Map(plan.lineup.map((e) => [e.player_id, e.slot])) : null;
 }
+
+/**
+ * Points per player on the most recent day of play before today (the last day with stats). The
+ * day only changes overnight, so anything ranked by it updates once a day.
+ */
+export async function getLastPlayDayPoints(sb: Sb, leagueId: string, today: string, playerIds: readonly string[]): Promise<{ date: string | null; points: Map<string, number> }> {
+  const points = new Map<string, number>();
+  if (playerIds.length === 0) return { date: null, points };
+  const { data: last } = await sb.from("matches").select("match_date").lt("match_date", today).eq("stats_available", true).eq("counts_for_fantasy", true)
+    .order("match_date", { ascending: false }).limit(1);
+  const date = (last?.[0]?.match_date as string | undefined) ?? null;
+  if (!date) return { date, points };
+  const { data: ms } = await sb.from("matches").select("id").eq("match_date", date);
+  const ids = (ms ?? []).map((m) => m.id as string);
+  if (ids.length === 0) return { date, points };
+  const { data: rows } = await sb.from("v_player_match_points").select("player_id, points").eq("league_id", leagueId).in("match_id", ids).in("player_id", [...playerIds]);
+  for (const r of rows ?? []) points.set(r.player_id as string, Math.round(((points.get(r.player_id as string) ?? 0) + Number(r.points)) * 100) / 100);
+  return { date, points };
+}
