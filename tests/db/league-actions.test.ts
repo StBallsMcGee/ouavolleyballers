@@ -128,6 +128,24 @@ describe("free agency (waiver claims)", () => {
     await rpc(f.bob, `select cancel_waiver_claim($1)`, [id]);
     expect((await client.query(`select status from waiver_claims where id = $1`, [id])).rows[0].status).toBe("cancelled");
   });
+  it("claim_player: added at once if her game hasn't started; claimed for midnight if it has, or if others claimed first", async () => {
+    const mk = async (k: string) => (await client.query(`insert into players (first_name, last_name, display_name, university_id, conference, gender, positions, source_system, source_id) values ($1,'T',$1||' T',$2,'OUA','womens','{OH}','test',$1) returning id`, [k, f.uniZ])).rows[0].id as string;
+    const free = await mk("im1");
+    expect((await rpc(f.bob, `select claim_player($1, $2, null) r`, [f.teamB, free])).rows[0].r).toBe("added");
+    expect((await lineupOf(f.teamB))[free]).toBe("BENCH");
+    // A Z player whose game today has started: locked, so the claim waits for midnight.
+    const today = (await client.query(`select (now() at time zone 'America/Toronto')::date::text d`)).rows[0].d;
+    const m = await addMatch(client, f, { date: today, lockAt: new Date(Date.now() - 3600_000).toISOString(), a: f.uniZ, b: f.uniY, status: "live" });
+    const busy = await mk("im2");
+    expect((await rpc(f.bob, `select claim_player($1, $2, null) r`, [f.teamB, busy])).rows[0].r).toBe("claimed");
+    expect((await lineupOf(f.teamB))[busy]).toBeUndefined();
+    await client.query(`delete from matches where id = $1`, [m]);
+    // Unlocked now, but Bob's claim is pending: Alice's claim joins the queue instead of jumping it.
+    expect((await rpc(f.alice, `select claim_player($1, $2, $3) r`, [f.teamA, busy, f.players.ohB])).rows[0].r).toBe("claimed");
+    expect((await lineupOf(f.teamA))[f.players.ohB!]).toBe("BENCH");
+    await client.query(`update waiver_claims set status = 'cancelled' where player_id = $1`, [busy]);
+    await rpc(f.admin, `select add_drop($1, null, $2)`, [f.teamB, free]);
+  });
   it("respects the free agency switch", async () => {
     await client.query(`update leagues set settings = jsonb_set(settings, '{freeAgency,enabled}', 'false') where id = $1`, [f.leagueId]);
     await expect(rpc(f.bob, `select submit_waiver_claim($1, $2, null)`, [f.teamB, f.players.fa1])).rejects.toThrow(/closed/);

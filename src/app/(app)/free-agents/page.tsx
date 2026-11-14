@@ -48,7 +48,7 @@ export default async function FreeAgentsPage({ searchParams }: { searchParams: P
     <>
       <PageHeader title="Free agents" subtitle={myTeam ? `Your roster ${roster.length}/${limit}` : undefined} />
       {!enabled ? <div className="mb-3"><Notice tone="amber">Free agency is currently closed by the league administrator.</Notice></div> : (
-        <div className="mb-3"><Notice tone="slate">Free agents are <b>claimed</b>. Claims are decided at midnight; if several teams claim the same player, the team lowest in the standings gets her.</Notice></div>
+        <div className="mb-3"><Notice tone="slate"><b>Add</b> a free agent whose game today hasn&apos;t started and she joins your bench right away. Once her game has started she can only be <b>claimed</b>: claims are decided at midnight, and if several teams claim the same player the team lowest in the standings gets her.</Notice></div>
       )}
       {claims.length ? <Card flush title="Your waiver claims" className="mb-3"><WaiverClaims claims={claims} /></Card> : null}
       <PlayerFilters unis={[...sched.unis.values()]} sp={sp} showStatus={false} />
@@ -59,7 +59,7 @@ export default async function FreeAgentsPage({ searchParams }: { searchParams: P
             items={rows.slice(0, 120).map((p) => ({
               id: p.id, name: p.display_name, photo: p.photo, code: sched.code(p.university_id), position: p.position_label,
               games: sched.chipsFor(p.university_id), points: p.pts, gamesPlayed: p.gp, proj: p.proj,
-              action: myTeam && enabled ? <AddPlayerButton teamId={myTeam.id} playerId={p.id} playerName={p.display_name} rosterFull={roster.length >= limit} roster={myRoster} claimed={claimed.has(p.id)} /> : undefined,
+              action: myTeam && enabled ? <AddPlayerButton teamId={myTeam.id} playerId={p.id} playerName={p.display_name} rosterFull={roster.length >= limit} roster={myRoster} claimed={claimed.has(p.id)} locked={!!p.university_id && locked.has(p.university_id)} /> : undefined,
             }))}
           />
         )}
