@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { requireLeague } from "@/lib/data/context";
 import { getMatchesBetween, getMatchupScores, getRoster, getSeasonPlayerPoints, getProjections, getStandings, getTeamPlayerPoints, getUniversities, loadLineupHistory, lockedUniversities, type RosterPlayer } from "@/lib/data/queries";
-import { dayChips } from "@/lib/data/games";
+import { anyGameLive, dayChips } from "@/lib/data/games";
+import { LiveRefresh } from "@/components/live-refresh";
 import { rulesForWeek, weekBreakdowns } from "@/lib/data/breakdowns";
 import { daysOfWeek, lineupMomentFor, playerDay, weekContaining, weekLinks } from "@/lib/data/days";
 import { Avatar, MatchupStatus } from "@/components/ui";
@@ -102,6 +103,7 @@ export async function TeamView({ teamId, editable, day: requested, path }: { tea
           </Link>
         ) : null}
       </div>
+      <LiveRefresh active={anyGameLive(todays)} />
       <div className="mt-3">
         <TeamDays
           teamId={teamId}

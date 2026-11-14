@@ -15,7 +15,7 @@ import type pg from "pg";
 import { getPool } from "@/lib/db/pg";
 import { localDate, addDays } from "@/lib/time";
 import { nameKey, SIDEARM_SCHOOLS } from "@/lib/sources/sidearm";
-import { captionMatches, parseSidearmBoxScore, parseSidearmSchedule, type BoxPlayerLine } from "@/lib/sources/sidearm-boxscore";
+import { captionMatches, parseSidearmBoxScore, parseSidearmSchedule, type BoxPlayerLine, type BoxScore } from "@/lib/sources/sidearm-boxscore";
 
 export interface BoxScoreSyncResult {
   status: "succeeded" | "failed" | "skipped";
@@ -28,9 +28,9 @@ export interface BoxScoreSyncResult {
   error?: string;
 }
 
-type FetchText = (url: string) => Promise<string>;
+export type FetchText = (url: string) => Promise<string>;
 
-function defaultFetch(): FetchText {
+export function defaultFetch(): FetchText {
   const ua = process.env.SOURCE_USER_AGENT ?? "SideoutFantasy/1.0 (private OUA fantasy league; box scores)";
   return async (url) => {
     const ctrl = new AbortController();
@@ -54,7 +54,7 @@ function statHash(p: BoxPlayerLine): string {
   return createHash("sha256").update(JSON.stringify([line, p.sets])).digest("hex").slice(0, 24);
 }
 
-interface Candidate {
+export interface Candidate {
   id: string;
   match_date: string;
   home_university_id: string;
@@ -85,18 +85,7 @@ export async function runBoxScoreSync(opts: { pool?: pg.Pool; fetchText?: FetchT
     const tz = lg?.timezone ?? "America/Toronto";
     const today = localDate(new Date(), tz);
     const seasonStartYear = Number(today.slice(5, 7)) >= 8 ? Number(today.slice(0, 4)) : Number(today.slice(0, 4)) - 1;
-    const candidates = (await pool.query<Candidate>(
-      `select m.id, m.match_date::text, m.home_university_id, m.away_university_id,
-              uh.source_id as home_source, ua.source_id as away_source,
-              uh.name as home_name, uh.short_name as home_short, ua.name as away_name, ua.short_name as away_short
-       from public.matches m
-       join public.universities uh on uh.id = m.home_university_id
-       join public.universities ua on ua.id = m.away_university_id
-       where m.match_date between $1::date and $2::date
-         and m.counts_for_fantasy and m.status not in ('cancelled', 'postponed')
-         and coalesce(m.start_time, m.lock_at) + interval '2 hours' < now()
-         and not exists (select 1 from public.player_match_statistics s where s.match_id = m.id)`,
-      [addDays(today, -(opts.lookbackDays ?? 10)), today])).rows;
+    const candidates = await findCandidates(pool, today, opts.lookbackDays ?? 10);
     result.candidates = candidates.length;
     if (candidates.length === 0) return await finish({ ...result, status: "skipped" });
 
@@ -147,7 +136,7 @@ export async function runBoxScoreSync(opts: { pool?: pg.Pool; fetchText?: FetchT
           result.requests++;
           const html = await fetchText(ready.url);
           const game = games.find((g) => g.id === ready.match_id)!;
-          const inserted = await loadBoxScore(pool, game, html, result.warnings);
+          const inserted = await loadBoxScore(pool, game, parseSidearmBoxScore(html), result.warnings);
           await pool.query(`update public.box_score_links set fetched_at = now(), status = $3, detail = $4 where match_id = $1 and school_site = $2`,
             [game.id, site, inserted === null ? "error" : "loaded", inserted === null ? "Could not match the box score to this game" : `${inserted} player lines`]);
           if (inserted !== null) {
@@ -181,8 +170,23 @@ export async function runBoxScoreSync(opts: { pool?: pg.Pool; fetchText?: FetchT
 }
 
 /** Records one box score's player lines. Returns lines inserted, or null if it didn't fit the game. */
-async function loadBoxScore(pool: pg.Pool, game: Candidate, html: string, warnings: string[]): Promise<number | null> {
-  const box = parseSidearmBoxScore(html);
+export async function loadBoxScore(
+  pool: pg.Pool,
+  game: Candidate,
+  box: BoxScore,
+  warnings: string[],
+  opts: {
+    source?: string;
+    teamMatches?: typeof captionMatches;
+    /** Existing lines from these sources are overwritten (e.g. live numbers during a game). */
+    replaceSources?: string[];
+    /** "live" while the game is on; otherwise the game is marked final. */
+    matchStatus?: "live" | "final";
+  } = {},
+): Promise<number | null> {
+  const source = opts.source ?? "school-boxscore";
+  const replace = opts.replaceSources ?? [];
+  const matches = opts.teamMatches ?? captionMatches;
   const label = `${game.match_date} ${game.home_name} v ${game.away_name}`;
   if (box.date && box.date !== game.match_date) {
     warnings.push(`${label}: box score is dated ${box.date}; ignored.`);
@@ -196,8 +200,8 @@ async function loadBoxScore(pool: pg.Pool, game: Candidate, html: string, warnin
   const away = { id: game.away_university_id, name: game.away_name, short_name: game.away_short };
   let assignment: Array<typeof home> | null = null;
   const [a, b] = box.teams as [BoxTeam, BoxTeam];
-  if (captionMatches(a.caption, home) || captionMatches(b.caption, away)) assignment = [home, away];
-  else if (captionMatches(a.caption, away) || captionMatches(b.caption, home)) assignment = [away, home];
+  if (matches(a.caption, home) || matches(b.caption, away)) assignment = [home, away];
+  else if (matches(a.caption, away) || matches(b.caption, home)) assignment = [away, home];
   if (!assignment) {
     warnings.push(`${label}: teams "${a.caption}" / "${b.caption}" not recognised; ignored.`);
     return null;
@@ -222,17 +226,24 @@ async function loadBoxScore(pool: pg.Pool, game: Candidate, html: string, warnin
         const r = await client.query(
           `insert into public.player_match_statistics (player_id, match_id, university_id, kills, attack_errors, attack_attempts, assists,
              service_aces, service_errors, digs, solo_blocks, block_assists, sets_played, source_system, source_hash, source_updated_at)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'school-boxscore', $14, now())
-           on conflict (player_id, match_id) do nothing`,
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $15, $14, now())
+           on conflict (player_id, match_id) do update set
+             university_id = excluded.university_id, kills = excluded.kills, attack_errors = excluded.attack_errors,
+             attack_attempts = excluded.attack_attempts, assists = excluded.assists, service_aces = excluded.service_aces,
+             service_errors = excluded.service_errors, digs = excluded.digs, solo_blocks = excluded.solo_blocks,
+             block_assists = excluded.block_assists, sets_played = excluded.sets_played, source_system = excluded.source_system,
+             source_hash = excluded.source_hash, source_updated_at = now(), updated_at = now()
+           where player_match_statistics.source_system = any($16::text[])
+             and (player_match_statistics.source_hash <> excluded.source_hash or player_match_statistics.source_system <> excluded.source_system)`,
           [o.id, game.id, uni.id, p.kills, p.attackErrors, p.attackAttempts, p.assists, p.serviceAces, p.serviceErrors, p.digs,
-           p.soloBlocks, p.blockAssists, p.sets, statHash(p)]);
+           p.soloBlocks, p.blockAssists, p.sets, statHash(p), source, replace]);
         inserted += r.rowCount ?? 0;
       }
     }
     await client.query(
       `update public.matches set stats_available = true, last_updated_at = now(),
-         status = case when status in ('scheduled', 'live') then 'final'::public.match_status else status end
-       where id = $1`, [game.id]);
+         status = case when status in ('scheduled', 'live') then $2::public.match_status else status end
+       where id = $1`, [game.id, opts.matchStatus ?? "final"]);
     await client.query("commit");
     return inserted;
   } catch (e) {
@@ -244,3 +255,20 @@ async function loadBoxScore(pool: pg.Pool, game: Candidate, html: string, warnin
 }
 
 type BoxTeam = ReturnType<typeof parseSidearmBoxScore>["teams"][number];
+
+/** Recent finished games that count and still have no statistics from any source. */
+export async function findCandidates(pool: pg.Pool, today: string, lookbackDays: number): Promise<Candidate[]> {
+  return (await pool.query<Candidate>(
+    `select m.id, m.match_date::text, m.home_university_id, m.away_university_id,
+            uh.source_id as home_source, ua.source_id as away_source,
+            uh.name as home_name, uh.short_name as home_short, ua.name as away_name, ua.short_name as away_short
+     from public.matches m
+     join public.universities uh on uh.id = m.home_university_id
+     join public.universities ua on ua.id = m.away_university_id
+     where m.match_date between $1::date and $2::date
+       and m.counts_for_fantasy and m.status not in ('cancelled', 'postponed')
+       and coalesce(m.start_time, m.lock_at) + interval '2 hours' < now()
+       and not exists (select 1 from public.player_match_statistics s where s.match_id = m.id)
+     order by m.match_date`,
+    [addDays(today, -lookbackDays), today])).rows;
+}

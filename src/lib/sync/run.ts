@@ -26,6 +26,7 @@ export interface SyncResult {
   error?: string;
   schedule?: { status: "succeeded" | "failed" | "skipped"; result?: ScheduleWriteResult; error?: string };
   boxScores?: import("@/lib/ingest/boxscores").BoxScoreSyncResult;
+  ouaBoxScores?: import("@/lib/ingest/boxscores").BoxScoreSyncResult;
 }
 
 export async function runSync(opts: {
@@ -44,10 +45,16 @@ export async function runSync(opts: {
     // run side by side to keep the whole sync well inside the hosting time limit.
     const [schedule, boxScores] = await Promise.all([
       runScheduleSync(opts),
-      opts.feed ? Promise.resolve(undefined) : import("@/lib/ingest/boxscores").then((m) => m.runBoxScoreSync({ pool: opts.pool })),
+      // School websites first, then the OUA website for whatever is still missing.
+      opts.feed ? Promise.resolve(undefined) : (async () => {
+        const school = await (await import("@/lib/ingest/boxscores")).runBoxScoreSync({ pool: opts.pool });
+        const oua = await (await import("@/lib/ingest/oua-boxscores")).runOuaBoxScoreSync({ pool: opts.pool }).catch(() => undefined);
+        return { school, oua };
+      })(),
     ]);
     result.schedule = schedule;
-    result.boxScores = boxScores;
+    result.boxScores = boxScores?.school;
+    result.ouaBoxScores = boxScores?.oua;
     // Move weeks to in-progress/final after everything above, and even if the statistics source
     // was down: finishing a week must never depend on one source being up.
     try {

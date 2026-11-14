@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireLeague } from "@/lib/data/context";
 import { getMatchesBetween, getMatchupScores, getProjections, getTeamPlayerPoints, getUniversities, loadLineupHistory, type RosterPlayer } from "@/lib/data/queries";
-import { dayChips } from "@/lib/data/games";
+import { anyGameLive, dayChips } from "@/lib/data/games";
+import { LiveRefresh } from "@/components/live-refresh";
 import { countedTotal, daysOfWeek, lineupMomentFor, playerDay, projectedTotal } from "@/lib/data/days";
 import { slotGroup } from "@/lib/league/settings";
 import { formatDate, parseDay } from "@/lib/time";
@@ -130,6 +131,7 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
         </div>
       </div>
 
+      <LiveRefresh active={!imported && anyGameLive(matches.filter((x) => x.match_date === today))} />
       <div className="mt-3 space-y-3">
         {imported ? (
           <Notice>{m.status === "void" ? "No contest: this week was played on USportVB with no result." : "Final score recorded on USportVB; player points weren't tracked here."}</Notice>

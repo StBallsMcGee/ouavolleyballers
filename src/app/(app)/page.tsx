@@ -6,6 +6,8 @@ import { Card, Empty, MatchupStatus, Notice } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
 import { OUA_TV_URL, ouaTvUrl } from "@/lib/oua-tv";
 import { LEAGUE_TZ } from "@/lib/time";
+import { anyGameLive } from "@/lib/data/games";
+import { LiveRefresh } from "@/components/live-refresh";
 
 export default async function Dashboard() {
   const ctx = await requireLeague();
@@ -53,6 +55,7 @@ export default async function Dashboard() {
         </p>
       </div>
 
+      <LiveRefresh active={anyGameLive(todaysGames)} />
       <div className="space-y-3">
         {league.status === "setup" ? <Notice tone="amber">Preview: the league switches over from USportVB soon.</Notice> : null}
         {offers && offers.length > 0 ? (
