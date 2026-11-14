@@ -165,9 +165,10 @@ describe("trades", () => {
     expect((await lineupOf(f.teamA))[f.players.m2!]).toBe("BENCH");
     expect((await client.query(`select status from trades where id = $1`, [other])).rows[0].status).toBe("failed");
   });
-  it("rejects trades that would break the roster limit", async () => {
-    // Alpha has 4 (limit 4). Receiving 2 for 1 would make 5.
-    await expect(rpc(f.alice, `select propose_trade($1, $2, $3, $4)`, [f.teamA, f.teamB, [f.players.m1], [f.players.oh2, f.players.ohB]])).rejects.toThrow(/roster limit/);
+  it("allows offers that would take a team over the roster limit (see trades-over-limit test)", async () => {
+    // Alpha has 4 (limit 4). Receiving 2 for 1 would make 5: allowed now; the offer is withdrawn here.
+    const id = (await rpc(f.alice, `select propose_trade($1, $2, $3, $4) id`, [f.teamA, f.teamB, [f.players.m1], [f.players.oh2, f.players.ohB]])).rows[0].id;
+    await rpc(f.alice, `select cancel_trade($1)`, [id]);
   });
   it("commissioner review mode: admin approves or vetoes", async () => {
     await client.query(`update leagues set settings = jsonb_set(settings, '{trades,review}', '"commissioner"') where id = $1`, [f.leagueId]);

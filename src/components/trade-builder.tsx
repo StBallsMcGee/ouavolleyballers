@@ -53,11 +53,11 @@ export function TradeBuilder({ myTeamId, teams, rosters, initialTeam, limit }: {
         <div className="card space-y-3 p-4">
           <label className="label" htmlFor="msg">Message (optional)</label>
           <textarea id="msg" className="input" rows={2} maxLength={500} value={message} onChange={(e) => setMessage(e.target.value)} />
-          {over ? <p className="text-sm text-amber-700">A roster would go over {limit} players. Send fewer players, or drop someone first.</p> : null}
+          {over ? <p className="text-sm text-amber-700">This takes {myAfter > limit && theirAfter > limit ? "both rosters" : myAfter > limit ? "your roster" : "their roster"} over {limit} players. That&apos;s allowed, but the team over the limit can&apos;t change its lineup or add players until it drops back to {limit}.</p> : null}
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           <button
             className="btn-primary"
-            disabled={pending || over || give.length + get.length === 0}
+            disabled={pending || give.length + get.length === 0}
             onClick={() => start(async () => {
               const r = await proposeTrade({ fromTeam: myTeamId, toTeam: other, give, receive: get, message });
               if (r.ok) router.push("/trades");
