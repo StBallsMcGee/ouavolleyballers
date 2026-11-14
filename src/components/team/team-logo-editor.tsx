@@ -34,7 +34,7 @@ export function TeamLogoEditor({ team, size = 56, editable }: { team: TeamLike; 
     <div className="relative shrink-0">
       <button type="button" onClick={() => input.current?.click()} className="relative block rounded-full" aria-label="Change team picture" disabled={pending}>
         <TeamAvatar team={team} size={size} ring />
-        <span className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full bg-gold-400 text-[12px] text-brand-950 shadow ring-2 ring-white" aria-hidden>{pending ? "…" : "📷"}</span>
+        <span className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full bg-gold-400 text-[12px] text-brand-950 shadow ring-2 ring-surface" aria-hidden>{pending ? "…" : "📷"}</span>
       </button>
       <input
         ref={input}
@@ -51,7 +51,7 @@ export function TeamLogoEditor({ team, size = 56, editable }: { team: TeamLike; 
       {team.logo_v ? (
         <button type="button" className="mt-1 block w-full text-center text-[10px] font-semibold text-brand-200 underline" onClick={() => confirm("Remove the team picture?") && save(null)} disabled={pending}>Remove</button>
       ) : null}
-      {error ? <p className="absolute left-0 top-full z-10 mt-1 w-48 rounded bg-white p-1.5 text-[11px] text-red-600 shadow">{error}</p> : null}
+      {error ? <p className="absolute left-0 top-full z-10 mt-1 w-48 rounded bg-surface p-1.5 text-[11px] text-red-600 shadow">{error}</p> : null}
     </div>
   );
 }

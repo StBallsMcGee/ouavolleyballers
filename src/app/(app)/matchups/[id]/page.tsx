@@ -117,7 +117,7 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
 
   return (
     <>
-      <div className="bg-gradient-to-br from-brand-950 via-brand-900 to-brand-700 px-4 pb-4 pt-3 text-white shadow-sm sm:mt-4 sm:rounded-xl">
+      <div className="relative mx-3 mt-1 overflow-hidden rounded-3xl bg-gradient-to-br from-[#a28eff] via-[#7f86ff] to-[#4f74ea] px-4 pb-5 pt-3 text-white shadow-xl shadow-black/40 sm:mx-0 sm:mt-4">
         <div className="mb-3 flex items-center justify-between gap-2 text-[11px] font-bold uppercase tracking-wide text-brand-200">
           <span className="flex items-center gap-2">
             {m.week > 1 ? <Link href={`/matchups?week=${m.week - 1}`} className="text-brand-300" aria-label="Previous week">‹</Link> : null}

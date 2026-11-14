@@ -123,7 +123,7 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
     const d = ep?.byDay[day] ?? NO_DAY;
     const isMover = !!p && p.playerId === moving;
     return (
-      <li key={p ? p.playerId : slot} className={`flex items-center gap-3 px-3 py-2.5 transition-colors duration-200 ${isMover ? "bg-brand-50" : ""}`}>
+      <li key={p ? p.playerId : slot} className={`flex items-center gap-3 px-3 py-2.5 transition-colors duration-200 ${isMover ? "bg-brand-950/50" : ""}`}>
         <span className={`w-8 shrink-0 text-center text-[11px] font-extrabold ${slot === BENCH ? "text-gray-400" : "text-gray-700"}`}>{slot === BENCH ? "BN" : slotGroup(slot)}</span>
         {ep ? (
           <>
@@ -170,7 +170,7 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
 
   if (isPast && players.length === 0) {
     return (
-      <p className="mx-4 rounded-xl border border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-500 sm:mx-0">
+      <p className="mx-4 rounded-xl border border-gray-200 bg-surface px-4 py-6 text-center text-sm text-gray-500 sm:mx-0">
         No lineup was recorded here for {dayLabel}. Days before the league moved to Sideout were played on USportVB.
       </p>
     );
@@ -180,7 +180,7 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
     <div className="space-y-3 pb-16">
       {editable && (moving || isToday) ? (
         <div className="flex items-center gap-2 px-4 sm:px-0">
-          {moving ? <span className="min-w-0 animate-fade-in truncate text-xs font-semibold text-brand-700">Tap HERE to move {byId.get(moving)?.name}</span> : <button className="btn-secondary min-h-[34px] px-3 py-1 text-xs" onClick={autofill} disabled={pending}>Start active players</button>}
+          {moving ? <span className="min-w-0 animate-fade-in truncate text-xs font-semibold text-brand-300">Tap HERE to move {byId.get(moving)?.name}</span> : <button className="btn-secondary min-h-[34px] px-3 py-1 text-xs" onClick={autofill} disabled={pending}>Start active players</button>}
         </div>
       ) : null}
       {isPast ? <p className="px-4 text-xs text-gray-500 sm:px-0">The lineup as it stood at the end of {dayLabel}.</p> : !isToday && editable ? <p className="px-4 text-xs text-gray-500 sm:px-0">Lineup changes take effect right away and carry forward to {dayLabel}.</p> : null}
@@ -190,16 +190,16 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
         </p>
       ) : null}
 
-      <section className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
-        <div className="flex items-center justify-between border-b border-brand-100 bg-brand-50 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-brand-800">
+      <section className="mx-3 rounded-2xl bg-surface shadow-lg shadow-black/20 sm:mx-0">
+        <div className="flex items-center justify-between border-b border-brand-900 bg-brand-950/50 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-brand-200">
           <span>Starters</span>
           <span>{dayLabel} · {fmt(dayTotal)}{dayProj > 0 ? <span className="font-bold normal-case text-gray-400"> · proj {fmt(dayTotal + dayProj)}</span> : null}</span>
         </div>
         <ul className="divide-y divide-gray-100">{slots.map((s) => row(s, occupant(s)))}</ul>
       </section>
 
-      <section className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
-        <div className="flex items-center justify-between border-b border-brand-100 bg-brand-50 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-brand-800">
+      <section className="mx-3 rounded-2xl bg-surface shadow-lg shadow-black/20 sm:mx-0">
+        <div className="flex items-center justify-between border-b border-brand-900 bg-brand-950/50 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-brand-200">
           <span>Bench · {players.length}/{rosterLimit} roster</span>
           {editable && moving && canDrop(BENCH) ? <button className="animate-pop rounded-full bg-brand-500 px-3 py-1 text-[11px] font-extrabold text-white" onClick={() => moveTo(BENCH)}>MOVE TO BENCH</button> : null}
         </div>

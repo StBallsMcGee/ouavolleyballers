@@ -61,7 +61,7 @@ export function StatEntryForm({ matchId, teams }: { matchId: string; teams: { na
   return (
     <div className="space-y-3 pb-24">
       {teams.map((t) => (
-        <section key={t.name} className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
+        <section key={t.name} className="mx-3 rounded-2xl bg-surface shadow-lg shadow-black/20 sm:mx-0">
           <h2 className="border-b border-gray-100 px-4 py-2.5 text-[13px] font-extrabold uppercase tracking-wide text-gray-800">{t.name}</h2>
           {t.players.length === 0 ? <p className="px-4 py-3 text-sm text-gray-500">No players on file for this team.</p> : null}
           <ul className="divide-y divide-gray-100">
@@ -104,7 +104,7 @@ export function StatEntryForm({ matchId, teams }: { matchId: string; teams: { na
           </ul>
         </section>
       ))}
-      <div className="fixed inset-x-0 bottom-[calc(58px+env(safe-area-inset-bottom))] z-30 border-t border-gray-200 bg-white/95 px-4 py-2.5 backdrop-blur lg:bottom-0">
+      <div className="fixed inset-x-0 bottom-[calc(58px+env(safe-area-inset-bottom))] z-30 border-t border-gray-200 bg-surface/95 px-4 py-2.5 backdrop-blur lg:bottom-0">
         <div className="mx-auto flex max-w-5xl items-center gap-2">
           <div className="min-w-0 flex-1 text-xs">
             {msg ? <span className={`font-semibold ${msg.ok ? "text-emerald-700" : "text-red-600"}`}>{msg.text}</span> : <span className="text-gray-600">{changed.length ? `${changed.length} player${changed.length > 1 ? "s" : ""} changed` : "Tap a player to enter her numbers"}</span>}

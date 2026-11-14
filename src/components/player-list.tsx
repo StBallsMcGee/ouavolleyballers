@@ -33,7 +33,7 @@ export function PlayerList({ items, showOwner = true }: { items: PlayerListItem[
             <div className="truncate text-[12px] text-gray-500">
               <span className="font-semibold text-gray-700">{p.code}</span> · {p.position ?? "–"}
               {showOwner ? (
-                p.owner ? <> · <Link href={`/teams/${p.owner.id}`} className={p.owner.mine ? "font-semibold text-brand-600" : "hover:underline"}>{p.owner.name}</Link></> : <> · <span className="font-semibold text-emerald-700">FA</span></>
+                p.owner ? <> · <Link href={`/teams/${p.owner.id}`} className={p.owner.mine ? "font-semibold text-brand-300" : "hover:underline"}>{p.owner.name}</Link></> : <> · <span className="font-semibold text-emerald-700">FA</span></>
               ) : null}
             </div>
             <div className="mt-0.5 text-[12px] leading-snug"><GameLine chips={p.games} compact /></div>

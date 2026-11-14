@@ -24,7 +24,7 @@ export function TradeBuilder({ myTeamId, teams, rosters, initialTeam, limit }: {
     <ul className="max-h-96 space-y-1 overflow-y-auto">
       {players.map((p) => (
         <li key={p.id}>
-          <label className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm ${selected.includes(p.id) ? "bg-brand-50" : "hover:bg-gray-50"}`}>
+          <label className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm ${selected.includes(p.id) ? "bg-brand-950/50" : "hover:bg-gray-50"}`}>
             <input type="checkbox" checked={selected.includes(p.id)} onChange={() => toggle(selected, set, p.id)} className="accent-brand-500" />
             <span className="flex-1">{p.name} <span className="text-xs text-gray-500">{p.pos}</span></span>
             <span className="font-mono text-xs text-gray-500">{p.pts.toFixed(1)}</span>

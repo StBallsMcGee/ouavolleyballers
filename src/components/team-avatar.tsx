@@ -18,7 +18,7 @@ export function TeamAvatar({ team, size = 40, ring = false }: { team: TeamLike |
       width={size}
       height={size}
       loading="lazy"
-      className={`shrink-0 rounded-full bg-white object-cover ${ring ? "ring-2 ring-gold-400" : ""}`}
+      className={`shrink-0 rounded-full bg-surface object-cover ${ring ? "ring-2 ring-gold-400" : ""}`}
       style={{ width: size, height: size }}
     />
   );

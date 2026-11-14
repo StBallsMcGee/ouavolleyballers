@@ -38,7 +38,7 @@ export function useDaySwitch(days: readonly DayTab[], initial: string) {
   return { day, select, ref };
 }
 
-const arrow = "grid h-9 w-9 shrink-0 place-items-center rounded-full text-xl font-bold text-brand-600 transition active:scale-90 active:bg-brand-50";
+const arrow = "grid h-9 w-9 shrink-0 place-items-center rounded-full text-xl font-bold text-gold-300 transition active:scale-90 active:bg-white/5";
 
 export function DayStrip({
   days, day, today, onSelect, prevHref, nextHref, marks,
@@ -62,10 +62,10 @@ export function DayStrip({
     return <span className={`${arrow} text-gray-300`} aria-hidden>{dir < 0 ? "‹" : "›"}</span>;
   };
   return (
-    <div className="border-b border-gray-200 bg-white sm:rounded-xl sm:border">
+    <div className="mx-3 rounded-2xl bg-surface/95 shadow-lg shadow-black/30 backdrop-blur sm:mx-0">
       <div className="flex items-center justify-between px-2 pt-1">
         {step(-1, prevHref, "Previous day")}
-        <span key={day} className="animate-pop text-sm font-bold text-brand-600">{cur ? (day === today ? `Today (${cur.label})` : cur.label) : day}</span>
+        <span key={day} className="animate-pop text-sm font-bold text-gold-300">{cur ? (day === today ? `Today (${cur.label})` : cur.label) : day}</span>
         {step(1, nextHref, "Next day")}
       </div>
       <div className="grid grid-cols-7 gap-1 px-2 pb-2 pt-1" role="tablist" aria-label="Days">
@@ -78,11 +78,11 @@ export function DayStrip({
               role="tab"
               aria-selected={sel}
               onClick={() => onSelect(d.date)}
-              className={`relative flex flex-col items-center rounded-lg py-1 transition duration-200 active:scale-95 ${sel ? "scale-105 bg-brand-800 text-white shadow" : "text-gray-600 hover:bg-gray-100"}`}
+              className={`relative flex flex-col items-center rounded-xl py-1 transition duration-200 active:scale-95 ${sel ? "tile-gold scale-105 shadow-lg shadow-gold-500/20" : "text-gray-600 hover:bg-gray-100"}`}
             >
-              <span className={`text-[10px] font-bold uppercase ${sel ? "text-gold-200" : d.date === today ? "text-brand-600" : "text-gray-400"}`}>{d.date === today ? "Today" : d.weekday}</span>
+              <span className={`text-[10px] font-bold uppercase ${sel ? "text-charcoal/70" : d.date === today ? "text-gold-300" : "text-gray-400"}`}>{d.date === today ? "Today" : d.weekday}</span>
               <span className="text-[15px] font-extrabold leading-tight">{d.dayNum}</span>
-              <span className={`mt-0.5 h-1 w-1 rounded-full ${marked.has(d.date) ? (sel ? "bg-gold-400" : "bg-gold-500") : "bg-transparent"}`} />
+              <span className={`mt-0.5 h-1 w-1 rounded-full ${marked.has(d.date) ? (sel ? "bg-charcoal" : "bg-gold-400") : "bg-transparent"}`} />
             </button>
           );
         })}

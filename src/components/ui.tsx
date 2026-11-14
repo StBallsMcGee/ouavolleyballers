@@ -16,10 +16,10 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 /** White card. On phones it runs edge to edge, like a native app list. */
 export function Card({ title, action, children, className = "", flush = false }: { title?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode; className?: string; flush?: boolean }) {
   return (
-    <section className={`border-y border-gray-200 bg-white sm:rounded-xl sm:border sm:shadow-sm ${className}`}>
+    <section className={`mx-3 rounded-2xl bg-surface shadow-lg shadow-black/20 sm:mx-0 sm:shadow-sm ${className}`}>
       {title || action ? (
         <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-2.5">
-          {title ? <h2 className="flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-wide text-brand-900"><span className="inline-block h-3.5 w-1 rounded-full bg-gold-400" aria-hidden />{title}</h2> : <span />}
+          {title ? <h2 className="flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-wide text-gray-900"><span className="inline-block h-3.5 w-1 rounded-full bg-gold-400" aria-hidden />{title}</h2> : <span />}
           {action}
         </div>
       ) : null}
@@ -30,12 +30,12 @@ export function Card({ title, action, children, className = "", flush = false }:
 
 const tones = {
   slate: "bg-gray-100 text-gray-600",
-  coral: "bg-brand-50 text-brand-700",
+  coral: "bg-brand-950/50 text-brand-300",
   mint: "bg-emerald-50 text-emerald-700",
   amber: "bg-amber-50 text-amber-700",
   red: "bg-red-50 text-red-700",
   blue: "bg-sky-50 text-sky-700",
-  dark: "bg-gray-900 text-white",
+  dark: "bg-brand-800 text-white",
 } as const;
 
 export function Badge({ children, tone = "slate" }: { children: React.ReactNode; tone?: keyof typeof tones }) {
@@ -78,7 +78,7 @@ export function Freshness({ label = "Updated", at }: { label?: string; at: strin
 
 export function TeamLink({ id, name, mine }: { id: string; name: string; mine?: boolean }) {
   return (
-    <Link href={`/teams/${id}`} className={`font-semibold hover:underline ${mine ? "text-brand-600" : "text-gray-900"}`}>
+    <Link href={`/teams/${id}`} className={`font-semibold hover:underline ${mine ? "text-brand-300" : "text-gray-900"}`}>
       {name}
     </Link>
   );
@@ -89,7 +89,7 @@ export function PositionTag({ label }: { label: string | null }) {
 }
 
 export function Notice({ tone = "slate", children }: { tone?: "slate" | "amber" | "red" | "mint"; children: React.ReactNode }) {
-  const c = { slate: "border-brand-100 bg-brand-50 text-brand-900", amber: "border-amber-200 bg-amber-50 text-amber-900", red: "border-red-200 bg-red-50 text-red-900", mint: "border-emerald-200 bg-emerald-50 text-emerald-900" }[tone];
+  const c = { slate: "border-brand-900 bg-brand-950/50 text-gray-900", amber: "border-amber-200 bg-amber-50 text-amber-900", red: "border-red-200 bg-red-50 text-red-900", mint: "border-emerald-200 bg-emerald-50 text-emerald-900" }[tone];
   return <div className={`mx-4 rounded-lg border px-3 py-2.5 text-sm sm:mx-0 ${c}`}>{children}</div>;
 }
 
@@ -97,8 +97,9 @@ const AVATAR_COLORS = ["bg-sky-100 text-sky-800", "bg-emerald-100 text-emerald-8
 
 /** Initials circle (we don't have player photos). Colour is stable per name. */
 export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
-  const parts = name.trim().split(/\s+/);
-  const initials = ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1]![0] : "")).toUpperCase();
+  // Whole characters (an emoji is one character, not two halves).
+  const parts = name.trim().split(/\s+/).map((w) => Array.from(w));
+  const initials = ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1]![0] ?? "" : "")).toUpperCase();
   let h = 0;
   for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return (
