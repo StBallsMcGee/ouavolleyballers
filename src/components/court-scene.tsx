@@ -4,7 +4,8 @@ import { PlayerPhoto } from "@/components/player-photo";
 import { TeamAvatar, type TeamLike } from "@/components/team-avatar";
 import type { CourtPlayer, CourtRole } from "@/lib/data/court";
 
-// Where each role stands on the left half (x, y in % of the card); the right half is mirrored.
+// Where each role stands on the left half (x, y in % of the court); the right half is mirrored.
+// The ball's rally path in globals.css (@keyframes vb-ball) touches just above these spots.
 // Front row by the net: outside, middle, outside. Back row: outside, libero, setter.
 const SPOTS: Record<string, [number, number]> = {
   "OH-0": [38, 24], "M-0": [41, 50], "OH-1": [38, 76],
@@ -65,17 +66,17 @@ export function CourtScene({
           <div
             key={`${p.id}-${k}`}
             className="vb-player absolute -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${x}%`, top: `${y}%`, animationName: `vb-drift-${(k % 3) + 1}`, animationDuration: `${2.4 + ((k * 7) % 10) / 10}s`, animationDelay: `-${(k * 0.37) % 2}s` }}
+            style={{ left: `${x}%`, top: `${y}%`, animationName: `vb-drift-${(k % 3) + 1}`, animationDuration: `${3.8 + ((k * 7) % 10) / 6}s`, animationDelay: `-${(k * 0.37) % 2}s` }}
             title={`${p.name} · ${roleLabel[p.role]}`}
           >
             <span className="block rounded-full ring-2 ring-white shadow-md shadow-black/30">
-              <PlayerPhoto name={p.name} photo={p.photo} size={30} />
+              <PlayerPhoto name={p.name} photo={p.photo} size={36} />
             </span>
             <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded bg-charcoal/80 px-1 text-[7px] font-extrabold leading-tight text-white">{p.role}</span>
           </div>
         ))}
         {/* The ball, flying over the net */}
-        <span className="vb-ball absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-gold-200 to-gold-500 shadow-[0_0_10px_rgba(249,194,46,0.8)] ring-1 ring-brand-700" aria-hidden />
+        <span className="vb-ball absolute z-10 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-gold-200 to-gold-500 shadow-[0_0_10px_rgba(249,194,46,0.8)] ring-1 ring-brand-700" aria-hidden />
       </div>
     </Link>
   );

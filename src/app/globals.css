@@ -55,11 +55,19 @@ details[open] > :not(summary) { animation: grow .2s cubic-bezier(.2,.8,.2,1) bot
 @keyframes vb-drift-1 { 0% { transform: translate(-50%, -50%); } 50% { transform: translate(calc(-50% + 7px), calc(-50% - 6px)); } 100% { transform: translate(calc(-50% - 5px), calc(-50% + 5px)); } }
 @keyframes vb-drift-2 { 0% { transform: translate(calc(-50% + 4px), -50%); } 50% { transform: translate(calc(-50% - 6px), calc(-50% + 6px)); } 100% { transform: translate(calc(-50% + 3px), calc(-50% - 7px)); } }
 @keyframes vb-drift-3 { 0% { transform: translate(-50%, calc(-50% + 5px)); } 50% { transform: translate(calc(-50% + 5px), calc(-50% + 1px)); } 100% { transform: translate(calc(-50% - 7px), calc(-50% - 4px)); } }
-.vb-ball { animation: vb-ball 3.2s ease-in-out infinite; }
+/* The ball follows a rally between the players' spots (see SPOTS in court-scene.tsx), touching
+   just above each player: pass → set → attack over the net, then the other side does the same. */
+.vb-ball { animation: vb-ball 8s infinite; }
 @keyframes vb-ball {
-  0%   { left: 22%; top: 70%; }
-  22%  { left: 40%; top: 30%; }
-  50%  { left: 75%; top: 38%; }
-  72%  { left: 60%; top: 72%; }
-  100% { left: 22%; top: 70%; }
+  0%   { left: 13%; top: 38%; animation-timing-function: ease-out; }   /* left libero passes */
+  11%  { left: 17%; top: 64%; animation-timing-function: ease-out; }   /* to the setter */
+  22%  { left: 38%; top: 12%; animation-timing-function: ease-in; }    /* set to the outside hitter */
+  27%  { left: 50%; top: 4%;  animation-timing-function: ease-out; }   /* attack over the net */
+  35%  { left: 84%; top: 12%; animation-timing-function: ease-out; }   /* dug on the right */
+  46%  { left: 87%; top: 38%; animation-timing-function: ease-out; }   /* to their libero */
+  57%  { left: 83%; top: 64%; animation-timing-function: ease-out; }   /* to their setter */
+  68%  { left: 62%; top: 64%; animation-timing-function: ease-in; }    /* set to their hitter */
+  74%  { left: 50%; top: 30%; animation-timing-function: ease-out; }   /* over the net */
+  84%  { left: 16%; top: 12%; animation-timing-function: ease-in-out; }/* dug on the left */
+  100% { left: 13%; top: 38%; }
 }
