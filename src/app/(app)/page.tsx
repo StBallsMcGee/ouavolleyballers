@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireLeague } from "@/lib/data/context";
-import { getMatchesBetween, getMatchupScores, getOwnership, getStandings, getUniversities } from "@/lib/data/queries";
+import { fetchAll, getMatchesBetween, getMatchupScores, getOwnership, getStandings, getUniversities } from "@/lib/data/queries";
 import { addDays, formatDate } from "@/lib/time";
 import { Card, Empty, MatchupStatus, Notice } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
@@ -11,6 +11,7 @@ import { anyGameLive } from "@/lib/data/games";
 import { LiveRefresh } from "@/components/live-refresh";
 
 const TILES = ["tile-violet", "tile-green", "tile-orange", "tile-blue", "tile-pink", "tile-teal"];
+const WATCH_TILES = ["tile-teal", "tile-violet", "tile-orange", "tile-green", "tile-blue"];
 
 export default async function Dashboard() {
   const ctx = await requireLeague();
@@ -27,10 +28,20 @@ export default async function Dashboard() {
     myTeam ? sb.from("trades").select("id").eq("receiving_team_id", myTeam.id).eq("status", "proposed") : Promise.resolve({ data: [] }),
   ]);
 
-  const recentIds = recentMatches.map((m) => m.id);
-  const { data: perf } = recentIds.length
-    ? await sb.from("v_player_match_points").select("player_id, match_id, points").eq("league_id", league.id).in("match_id", recentIds).order("points", { ascending: false }).limit(5)
-    : { data: [] };
+  // Top performers: points scored in this matchup week only (all of a player's games this week).
+  const weekLines = currentWeek
+    ? await fetchAll<{ player_id: string; points: number }>((from, to) =>
+        sb.from("v_player_match_points").select("player_id, points").eq("league_id", league.id).eq("week", currentWeek).range(from, to))
+    : [];
+  const weekTotals = new Map<string, { points: number; games: number }>();
+  for (const r of weekLines) {
+    const t = weekTotals.get(r.player_id) ?? { points: 0, games: 0 };
+    t.points = Math.round((t.points + Number(r.points)) * 100) / 100;
+    t.games++;
+    weekTotals.set(r.player_id, t);
+  }
+  const perf = [...weekTotals.entries()].sort((x, y) => y[1].points - x[1].points).slice(0, 5)
+    .map(([player_id, t]) => ({ player_id, points: t.points, games: t.games }));
   const perfIds = (perf ?? []).map((p) => p.player_id);
   const [{ data: perfPlayers }, { data: perfPhotos }] = perfIds.length
     ? await Promise.all([
@@ -89,32 +100,6 @@ export default async function Dashboard() {
           </Link>
         ) : null}
 
-        <section className="mx-3 rounded-2xl bg-surface shadow-lg shadow-black/20 sm:mx-0">
-          <div className="flex items-center justify-between gap-2 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" /></span>
-              <span className="text-[13px] font-extrabold uppercase tracking-wide">Watch live</span>
-            </div>
-            <a href={OUA_TV_URL} target="_blank" rel="noopener noreferrer" className="btn-primary min-h-[34px] px-4 py-1 text-xs">OUA.TV ↗</a>
-          </div>
-          {todaysGames.length ? (
-            <ul className="divide-y divide-gray-100 border-t border-gray-100">
-              {todaysGames.map((g) => (
-                <li key={g.id} className="flex items-center gap-3 px-4 py-2">
-                  <Link href={`/matches/${g.id}`} className="min-w-0 flex-1 truncate text-sm font-semibold">
-                    {code(g.away_university_id)} @ {code(g.home_university_id)}
-                    <span className="ml-2 text-xs font-normal text-gray-500">{g.status === "live" ? "LIVE" : g.status === "final" ? "Final" : g.start_time ? timeFmt.format(new Date(g.start_time)) : "Today"}</span>
-                  </Link>
-                  {g.status !== "final" ? (
-                    <a href={ouaTvUrl(unis.get(g.home_university_id)?.name)} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-full border border-gray-300 px-3 py-1 text-xs font-bold">▶ Watch</a>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="border-t border-gray-100 px-4 py-2 text-xs text-gray-500">No OUA women&apos;s games today. Replays and other games are on OUA.TV.</p>
-          )}
-        </section>
 
 
         {others.length ? (
@@ -166,15 +151,16 @@ export default async function Dashboard() {
           </ol>
         </Card>
 
-        <Card flush title="Top performers · last 5 days">
-          {(perf ?? []).length === 0 ? <Empty>No stats in the last 5 days.</Empty> : (
+        <Card flush title={currentWeek ? `Top performers · Week ${currentWeek}` : "Top performers"}>
+          {perf.length === 0 ? <Empty>No points scored yet this matchup week.</Empty> : (
             <ul className="divide-y divide-gray-100">
-              {(perf ?? []).map((p) => {
+              {perf.map((p, i) => {
                 const pl = playerById.get(p.player_id);
                 const owner = ownership.get(p.player_id);
                 return (
-                  <li key={`${p.player_id}${p.match_id}`}>
+                  <li key={p.player_id}>
                     <Link href={`/players/${p.player_id}`} className="flex items-center gap-3 px-4 py-2.5 active:bg-gray-50">
+                      <span className={`w-4 shrink-0 text-center text-xs font-black ${i === 0 ? "text-gold-400" : "text-gray-400"}`}>{i + 1}</span>
                       <PlayerPhoto name={pl?.display_name ?? "?"} photo={photoOf.get(p.player_id)} size={36} />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-bold">{pl?.display_name}</div>
@@ -182,7 +168,10 @@ export default async function Dashboard() {
                           {pl?.university_id ? unis.get(pl.university_id)?.short_name : ""} · {owner ? <span className={owner === myTeam?.id ? "font-semibold text-brand-300" : ""}>{team.get(owner)?.name}</span> : <span className="font-semibold text-emerald-700">Free agent</span>}
                         </div>
                       </div>
-                      <span className="shrink-0 text-base font-extrabold tabular-nums">{Number(p.points).toFixed(1)}</span>
+                      <span className="shrink-0 text-right">
+                        <span className="block text-base font-extrabold tabular-nums">{p.points.toFixed(1)}</span>
+                        <span className="block text-[10px] text-gray-500">{p.games} game{p.games === 1 ? "" : "s"}</span>
+                      </span>
                     </Link>
                   </li>
                 );
@@ -190,6 +179,52 @@ export default async function Dashboard() {
             </ul>
           )}
         </Card>
+
+        {/* Watch live: today's games as cards, each opening OUA.TV. */}
+        <section>
+          <div className="flex items-center justify-between px-4 pb-2 pt-1 sm:px-0">
+            <h2 className="flex items-center gap-2 text-lg font-extrabold tracking-tight">
+              <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" /></span>
+              Watch live
+            </h2>
+            <a href={OUA_TV_URL} target="_blank" rel="noopener noreferrer" className="rounded-full bg-gradient-to-r from-gold-300 to-orange-400 px-3.5 py-1.5 text-[11px] font-extrabold text-charcoal shadow-lg shadow-orange-500/20">OUA.TV ↗</a>
+          </div>
+          {todaysGames.length ? (
+            <div className="-mb-2 flex snap-x gap-3 overflow-x-auto px-3 pb-3 sm:px-0 [scrollbar-width:none]" data-noswipe>
+              {todaysGames.map((g, i) => {
+                const live = g.status === "live";
+                const final = g.status === "final";
+                return (
+                  <div key={g.id} className={`${live ? "tile-pink" : final ? "bg-surface-3 text-gray-900" : WATCH_TILES[i % WATCH_TILES.length]} relative flex w-40 shrink-0 snap-start flex-col rounded-2xl p-3 shadow-lg shadow-black/30`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${final ? "bg-white/10" : "bg-white/35"}`}>
+                        {live ? "● Live" : final ? "Final" : g.start_time ? timeFmt.format(new Date(g.start_time)) : "Today"}
+                      </span>
+                    </div>
+                    <Link href={`/matches/${g.id}`} className="my-3 flex items-center justify-center gap-2 text-center">
+                      <span className="text-xl font-black tracking-tight">{code(g.away_university_id)}</span>
+                      <span className="text-xs font-black opacity-60">@</span>
+                      <span className="text-xl font-black tracking-tight">{code(g.home_university_id)}</span>
+                    </Link>
+                    {final ? (
+                      <Link href={`/matches/${g.id}`} className="rounded-full bg-white/10 py-1.5 text-center text-[11px] font-extrabold">Box score</Link>
+                    ) : (
+                      <a href={ouaTvUrl(unis.get(g.home_university_id)?.name)} target="_blank" rel="noopener noreferrer" className="rounded-full bg-charcoal/85 py-1.5 text-center text-[11px] font-extrabold text-white">▶ Watch</a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <a href={OUA_TV_URL} target="_blank" rel="noopener noreferrer" className="mx-3 flex items-center gap-3 rounded-2xl bg-surface p-3 shadow-lg shadow-black/20 sm:mx-0">
+              <span className="tile-teal grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-xl font-black shadow-md">▶</span>
+              <span className="min-w-0">
+                <span className="block font-extrabold">No OUA games today</span>
+                <span className="block text-xs text-gray-500">Replays and other sports are on OUA.TV.</span>
+              </span>
+            </a>
+          )}
+        </section>
       </div>
     </>
   );

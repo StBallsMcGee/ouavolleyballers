@@ -314,3 +314,20 @@ export async function getProjections(sb: Sb, leagueId: string, playerIds?: reado
     stddev: num(r.stddev), prevGames: Number(r.prev_games), prevAvg: num(r.prev_avg), perGame: num(r.proj_per_game),
   }]));
 }
+
+export interface LineupPlan {
+  date: string;
+  lineup: Array<{ player_id: string; slot: string }>;
+}
+/** A team's lineups set for days after today (empty on a database without plans yet). */
+export async function getLineupPlans(sb: Sb, teamId: string, after: string): Promise<LineupPlan[]> {
+  const { data, error } = await sb.from("lineup_plans").select("plan_date, lineup").eq("fantasy_team_id", teamId).gt("plan_date", after).order("plan_date");
+  if (error) return [];
+  return (data ?? []).map((p) => ({ date: String(p.plan_date), lineup: (p.lineup ?? []) as LineupPlan["lineup"] }));
+}
+
+/** The lineup in force on a future day: the latest plan on or before it, else the current one. */
+export function plannedSlots(plans: readonly LineupPlan[], date: string): Map<string, string> | null {
+  const plan = [...plans].filter((p) => p.date <= date).pop();
+  return plan ? new Map(plan.lineup.map((e) => [e.player_id, e.slot])) : null;
+}

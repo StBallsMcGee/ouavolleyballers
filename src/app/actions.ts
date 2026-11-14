@@ -45,6 +45,18 @@ export async function saveLineup(teamId: string, lineup: Array<{ player_id: stri
   }
 }
 
+/** Save the lineup for a later day (applied when that day starts, whoever is locked today). */
+export async function saveLineupPlan(teamId: string, date: string, lineup: Array<{ player_id: string; slot: string }>): Promise<ActionResult> {
+  try {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: "Invalid day." };
+    await rpc("save_lineup_plan", { p_team: uuid.parse(teamId), p_date: date, p_lineup: lineupSchema.parse(lineup) });
+    refresh("/team", `/teams/${teamId}`, "/matchups");
+    return { ok: true, message: "Lineup saved." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 export async function addDrop(teamId: string, addPlayerId: string | null, dropPlayerId: string | null): Promise<ActionResult> {
   try {
     await rpc("add_drop", {

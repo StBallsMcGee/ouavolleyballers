@@ -72,6 +72,8 @@ export async function processDueWaivers(pool: pg.Pool): Promise<number> {
     `select distinct league_id from public.waiver_claims where status = 'pending' and process_after <= now()`).catch(() => ({ rows: [] as { league_id: string }[] }));
   let n = 0;
   for (const l of due.rows) n += (await pool.query<{ n: number }>(`select public.process_waivers($1) as n`, [l.league_id])).rows[0]?.n ?? 0;
+  // Then lineups planned for the day that just started (new waiver players start on the bench).
+  await pool.query(`select public.apply_due_lineup_plans()`).catch(() => undefined);
   return n;
 }
 

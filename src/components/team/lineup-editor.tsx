@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { addDrop, saveLineup } from "@/app/actions";
+import { addDrop, saveLineup, saveLineupPlan } from "@/app/actions";
 import { autofillLineup, validateLineup, type LineupPlayer } from "@/lib/lineup/lineup";
 import { BENCH, isEligibleForSlot, slotGroup } from "@/lib/league/settings";
 import { GameLine } from "@/components/ui";
@@ -23,9 +23,11 @@ const NO_DAY: PlayerDay = { points: null, counted: false, games: [], breakdown: 
 
 const fmt = (v: number) => v.toFixed(1);
 
-export function LineupEditor({ teamId, players, slots, editable, rosterLimit, rules, day, dayLabel, weekLabel, isToday, isPast }: {
+export function LineupEditor({ teamId, players, slots, editable, rosterLimit, rules, day, dayLabel, weekLabel, isToday, isPast, planDate, hasOwnPlan = false }: {
   teamId: string; players: EditorPlayer[]; slots: string[]; editable: boolean; rosterLimit: number; rules: ScoringRule[];
   day: string; dayLabel: string; weekLabel: string; isToday: boolean; isPast: boolean;
+  /** Set for a later day: changes are saved as that day's planned lineup. */
+  planDate?: string; hasOwnPlan?: boolean;
 }) {
   const original = useMemo(() => new Map(players.map((p) => [p.playerId, p.slot])), [players]);
   const [slotOf, setSlotOf] = useState<Map<string, string>>(original);
@@ -68,7 +70,7 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
   function autofill() {
     const filled = autofillLineup(current, slots);
     setMoving(null);
-    persist(new Map(filled.map((p) => [p.playerId, p.slot])), "Players with games today moved in and saved");
+    persist(new Map(filled.map((p) => [p.playerId, p.slot])), planDate ? `Players with games on ${dayLabel} moved in and saved` : "Players with games today moved in and saved");
   }
 
   /** Every move saves straight away; if the server refuses it, the lineup goes back. */
@@ -84,7 +86,8 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
     setSaving(true);
     setMsg(null);
     start(async () => {
-      const r = await saveLineup(teamId, lineup.map((p) => ({ player_id: p.playerId, slot: p.slot })));
+      const entries = lineup.map((p) => ({ player_id: p.playerId, slot: p.slot }));
+      const r = planDate ? await saveLineupPlan(teamId, planDate, entries) : await saveLineup(teamId, entries);
       setSaving(false);
       if (!r.ok) {
         setSlotOf(before);
@@ -178,12 +181,12 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
 
   return (
     <div className="space-y-3 pb-16">
-      {editable && (moving || isToday) ? (
+      {editable && (moving || isToday || planDate) ? (
         <div className="flex items-center gap-2 px-4 sm:px-0">
           {moving ? <span className="min-w-0 animate-fade-in truncate text-xs font-semibold text-brand-300">Tap HERE to move {byId.get(moving)?.name}</span> : <button className="btn-secondary min-h-[34px] px-3 py-1 text-xs" onClick={autofill} disabled={pending}>Start active players</button>}
         </div>
       ) : null}
-      {isPast ? <p className="px-4 text-xs text-gray-500 sm:px-0">The lineup as it stood at the end of {dayLabel}.</p> : !isToday && editable ? <p className="px-4 text-xs text-gray-500 sm:px-0">Lineup changes take effect right away and carry forward to {dayLabel}.</p> : null}
+      {isPast ? <p className="px-4 text-xs text-gray-500 sm:px-0">The lineup as it stood at the end of {dayLabel}.</p> : planDate && editable ? <p className="px-4 text-xs text-gray-500 sm:px-0">{hasOwnPlan ? "Your lineup for" : "Set your lineup for"} {dayLabel}. It takes over when that day starts and carries forward to later days; today&apos;s locked players don&apos;t affect it.</p> : null}
       {saving || msg ? (
         <p className={`animate-fade-in px-4 text-sm font-semibold sm:px-0 ${saving ? "text-gray-500" : msg?.ok ? "text-emerald-700" : "text-red-600"}`} role="status">
           {saving ? "Saving…" : msg?.ok ? `✓ ${msg.text}` : msg?.text}

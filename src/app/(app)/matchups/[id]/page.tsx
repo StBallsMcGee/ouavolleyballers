@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireLeague } from "@/lib/data/context";
-import { getMatchesBetween, getMatchupScores, getProjections, getTeamPlayerPoints, getUniversities, loadLineupHistory, type RosterPlayer } from "@/lib/data/queries";
+import { getLineupPlans, getMatchesBetween, getMatchupScores, getProjections, getTeamPlayerPoints, getUniversities, loadLineupHistory, plannedSlots, type RosterPlayer } from "@/lib/data/queries";
 import { anyGameLive, dayChips } from "@/lib/data/games";
 import { LiveRefresh } from "@/components/live-refresh";
 import { countedTotal, daysOfWeek, lineupMomentFor, playerDay, projectedTotal } from "@/lib/data/days";
@@ -30,7 +30,7 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
   const sunday = days[6]!.date;
 
   // Everything at once: scores, schedule, rules, both teams' points and lineup histories.
-  const [scores, unis, matches, rules, homeRows, awayRows, homeHist, awayHist] = await Promise.all([
+  const [scores, unis, matches, rules, homeRows, awayRows, homeHist, awayHist, homePlans, awayPlans] = await Promise.all([
     getMatchupScores(sb, league.id, row.week),
     getUniversities(sb),
     getMatchesBetween(sb, monday, sunday),
@@ -39,6 +39,8 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
     getTeamPlayerPoints(sb, league.id, { teamId: row.away_team_id, week: row.week }),
     loadLineupHistory(sb, row.home_team_id),
     loadLineupHistory(sb, row.away_team_id),
+    getLineupPlans(sb, row.home_team_id, today),
+    getLineupPlans(sb, row.away_team_id, today),
   ]);
   const m = scores.find((x) => x.id === id);
   if (!m) notFound();
@@ -72,8 +74,13 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
   const byDay: Record<string, MatchupDay> = {};
   for (const d of days) {
     const at = lineupMomentFor(d.date, today, league.timezone);
-    const homeL = homeHist(at);
-    const awayL = awayHist(at);
+    // Later days show each team's planned lineup for that day (if they set one).
+    const withPlan = (l: RosterPlayer[], plans: typeof homePlans) => {
+      const plan = d.date > today ? plannedSlots(plans, d.date) : null;
+      return plan ? l.map((p) => ({ ...p, slot: plan.get(p.playerId) ?? "BENCH" })) : l;
+    };
+    const homeL = withPlan(homeHist(at), homePlans);
+    const awayL = withPlan(awayHist(at), awayPlans);
     const home = homeL.map((p) => side(p, d.date));
     const away = awayL.map((p) => side(p, d.date));
     for (const p of [...homeL, ...awayL]) if (p.universityId) universities.add(p.universityId);

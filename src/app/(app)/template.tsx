@@ -1,4 +1,6 @@
-/** Each page rises gently into place when you move between screens. */
+import { SlideIn } from "@/components/slide-in";
+
+/** Each page animates in when you move between screens (from the side after a swipe). */
 export default function Template({ children }: { children: React.ReactNode }) {
-  return <div className="animate-page-in">{children}</div>;
+  return <SlideIn>{children}</SlideIn>;
 }
