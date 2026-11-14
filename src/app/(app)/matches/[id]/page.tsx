@@ -44,7 +44,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-bold">{p.display_name} <span className="font-normal text-gray-500">{p.position_label}</span></div>
                           <div className="truncate text-xs text-gray-600">{statSummary(Object.fromEntries(CORE_STAT_KEYS.map((k) => [k, s[k] as number])))}</div>
-                          <div className="truncate text-xs">{o ? <span className={o === ctx.myTeam?.id ? "font-semibold text-coral-600" : "text-gray-500"}>{team.get(o)?.name}</span> : <span className="font-semibold text-emerald-700">Free agent</span>}</div>
+                          <div className="truncate text-xs">{o ? <span className={o === ctx.myTeam?.id ? "font-semibold text-brand-600" : "text-gray-500"}>{team.get(o)?.name}</span> : <span className="font-semibold text-emerald-700">Free agent</span>}</div>
                         </div>
                         <div className="shrink-0 text-base"><Points value={pointsOf.get(s.player_id) ?? null} /></div>
                       </Link>

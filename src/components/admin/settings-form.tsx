@@ -32,11 +32,11 @@ export function SettingsForm({ name, status, settings }: { name: string; status:
       <section className="card grid gap-4 p-4 sm:grid-cols-2">
         <div>
           <h3 className="mb-3 font-bold">Free agency</h3>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-coral-500" checked={s.freeAgency.enabled} onChange={(e) => setS({ ...s, freeAgency: { enabled: e.target.checked } })} /> Managers can add and drop free agents</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-brand-500" checked={s.freeAgency.enabled} onChange={(e) => setS({ ...s, freeAgency: { enabled: e.target.checked } })} /> Managers can add and drop free agents</label>
         </div>
         <div>
           <h3 className="mb-3 font-bold">Trades</h3>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-coral-500" checked={s.trades.enabled} onChange={(e) => setS({ ...s, trades: { ...s.trades, enabled: e.target.checked } })} /> Trading is open</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-brand-500" checked={s.trades.enabled} onChange={(e) => setS({ ...s, trades: { ...s.trades, enabled: e.target.checked } })} /> Trading is open</label>
           <label className="label mt-3">When a trade is accepted</label>
           <select className="input" value={s.trades.review} onChange={(e) => setS({ ...s, trades: { ...s.trades, review: e.target.value as "none" | "commissioner" } })}>
             <option value="none">Process immediately</option>
@@ -56,7 +56,7 @@ export function SettingsForm({ name, status, settings }: { name: string; status:
         </div>
         <div>
           <h3 className="mb-3 font-bold">Playoffs</h3>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-coral-500" checked={s.playoffs.enabled} onChange={(e) => setS({ ...s, playoffs: { ...s.playoffs, enabled: e.target.checked } })} /> This league has playoffs</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-brand-500" checked={s.playoffs.enabled} onChange={(e) => setS({ ...s, playoffs: { ...s.playoffs, enabled: e.target.checked } })} /> This league has playoffs</label>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div><label className="label">Playoff teams</label><input type="number" min={2} max={16} className="input" value={s.playoffs.teams} onChange={(e) => setS({ ...s, playoffs: { ...s.playoffs, teams: num(e.target.value) } })} /></div>
             <div><label className="label">First playoff week</label><input type="number" min={1} className="input" value={s.playoffs.startWeek} onChange={(e) => setS({ ...s, playoffs: { ...s.playoffs, startWeek: num(e.target.value) } })} /></div>

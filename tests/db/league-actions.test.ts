@@ -73,31 +73,64 @@ describe("lineups", () => {
   });
 });
 
-describe("free agency", () => {
-  it("adds a free agent to the bench", async () => {
-    await rpc(f.alice, `select add_drop($1, $2, null)`, [f.teamA, f.players.fa1]);
+// Claims are decided at midnight; tests make them due now and run the nightly step.
+const runWaivers = async () => {
+  await client.query(`update waiver_claims set process_after = now() - interval '1 second' where status = 'pending'`);
+  return (await client.query(`select process_waivers($1) n`, [f.leagueId])).rows[0].n as number;
+};
+
+describe("free agency (waiver claims)", () => {
+  it("a claim waits until midnight, then the player joins the bench", async () => {
+    await rpc(f.alice, `select submit_waiver_claim($1, $2, null)`, [f.teamA, f.players.fa1]);
+    expect((await client.query(`select process_waivers($1) n`, [f.leagueId])).rows[0].n).toBe(0); // not midnight yet
+    expect((await lineupOf(f.teamA))[f.players.fa1!]).toBeUndefined();
+    const due = (await client.query(`select process_after > now() ok from waiver_claims`)).rows[0].ok;
+    expect(due).toBe(true);
+    expect(await runWaivers()).toBe(1);
     expect((await lineupOf(f.teamA))[f.players.fa1!]).toBe("BENCH");
     const tx = await client.query(`select count(*)::int n from transactions where type = 'add' and player_id = $1`, [f.players.fa1]);
     expect(tx.rows[0].n).toBe(1);
   });
-  it("cannot add beyond the roster limit without dropping", async () => {
+  it("managers can't add directly any more; admins still can", async () => {
+    await expect(rpc(f.bob, `select add_drop($1, $2, null)`, [f.teamB, f.players.oh1])).rejects.toThrow(/waiver claim/);
+  });
+  it("a full roster needs a player to drop; the drop happens only if the claim wins", async () => {
     const extra = (await client.query(`insert into players (first_name, last_name, display_name, university_id, conference, gender, positions, source_system, source_id) values ('fa2','T','fa2 T',$1,'OUA','womens','{M}','test','fa2') returning id`, [f.uniZ])).rows[0].id;
-    await expect(rpc(f.alice, `select add_drop($1, $2, null)`, [f.teamA, extra])).rejects.toThrow(/roster is full/);
-    await rpc(f.alice, `select add_drop($1, $2, $3)`, [f.teamA, extra, f.players.fa1]);
+    await expect(rpc(f.alice, `select submit_waiver_claim($1, $2, null)`, [f.teamA, extra])).rejects.toThrow(/roster is full/);
+    await rpc(f.alice, `select submit_waiver_claim($1, $2, $3)`, [f.teamA, extra, f.players.fa1]);
+    expect((await lineupOf(f.teamA))[f.players.fa1!]).toBe("BENCH"); // still here until midnight
+    await runWaivers();
     const owned = await client.query(`select count(*)::int n from roster_assignments where fantasy_team_id = $1 and released_at is null`, [f.teamA]);
     expect(owned.rows[0].n).toBe(4);
+    expect((await lineupOf(f.teamA))[extra]).toBe("BENCH");
   });
-  it("cannot take a player owned by another team, or a duplicate record", async () => {
-    await expect(rpc(f.alice, `select add_drop($1, $2, $3)`, [f.teamA, f.players.oh2, f.players.ohB])).rejects.toThrow(/already on a team/);
-    await expect(rpc(f.bob, `select add_drop($1, $2, null)`, [f.teamB, f.players.dup1])).rejects.toThrow(/duplicate/);
+  it("cannot claim a player owned by another team, or a duplicate record", async () => {
+    await expect(rpc(f.alice, `select submit_waiver_claim($1, $2, $3)`, [f.teamA, f.players.oh2, f.players.ohB])).rejects.toThrow(/already on a team/);
+    await expect(rpc(f.bob, `select submit_waiver_claim($1, $2, null)`, [f.teamB, f.players.dup1])).rejects.toThrow(/duplicate/);
   });
-  it("failed actions change nothing", async () => {
-    const owned = await client.query(`select count(*)::int n from roster_assignments where fantasy_team_id = $1 and released_at is null`, [f.teamA]);
-    expect(owned.rows[0].n).toBe(4); // the ohB drop in the failed call above was rolled back
+  it("two claims on one player: the team lower in the standings wins, then the earlier claim", async () => {
+    const p = (await client.query(`insert into players (first_name, last_name, display_name, university_id, conference, gender, positions, source_system, source_id) values ('fa3','T','fa3 T',$1,'OUA','womens','{OH}','test','fa3') returning id`, [f.uniZ])).rows[0].id;
+    await rpc(f.bob, `select submit_waiver_claim($1, $2, null)`, [f.teamB, p]);
+    await rpc(f.alice, `select submit_waiver_claim($1, $2, $3)`, [f.teamA, p, f.players.ohB]);
+    await runWaivers();
+    const res = (await client.query(`select fantasy_team_id = $2 as bob, status from waiver_claims where player_id = $1 order by created_at`, [p, f.teamB])).rows;
+    expect(res).toEqual([{ bob: true, status: "won" }, { bob: false, status: "lost" }]);
+    expect((await lineupOf(f.teamA))[f.players.ohB!]).toBe("BENCH"); // Alice's drop didn't happen
+    await client.query(`select 1`);
+    // Give the player back to free agency for the tests below.
+    await rpc(f.admin, `select add_drop($1, null, $2)`, [f.teamB, p]);
+  });
+  it("claims are private to the team; they can be cancelled", async () => {
+    const id = (await rpc(f.bob, `select submit_waiver_claim($1, $2, null) id`, [f.teamB, f.players.fa1])).rows[0].id;
+    expect((await rpc(f.alice, `select count(*)::int n from waiver_claims where id = $1`, [id])).rows[0].n).toBe(0);
+    expect((await rpc(f.bob, `select count(*)::int n from waiver_claims where id = $1`, [id])).rows[0].n).toBe(1);
+    await expect(rpc(f.alice, `select cancel_waiver_claim($1)`, [id])).rejects.toThrow(/own team/);
+    await rpc(f.bob, `select cancel_waiver_claim($1)`, [id]);
+    expect((await client.query(`select status from waiver_claims where id = $1`, [id])).rows[0].status).toBe("cancelled");
   });
   it("respects the free agency switch", async () => {
     await client.query(`update leagues set settings = jsonb_set(settings, '{freeAgency,enabled}', 'false') where id = $1`, [f.leagueId]);
-    await expect(rpc(f.bob, `select add_drop($1, $2, null)`, [f.teamB, f.players.fa1])).rejects.toThrow(/closed/);
+    await expect(rpc(f.bob, `select submit_waiver_claim($1, $2, null)`, [f.teamB, f.players.fa1])).rejects.toThrow(/closed/);
     await client.query(`update leagues set settings = jsonb_set(settings, '{freeAgency,enabled}', 'true') where id = $1`, [f.leagueId]);
   });
 });
@@ -170,5 +203,20 @@ describe("page context in one call", () => {
     const a = (await client.query(`select player_id, points from v_player_season_points where league_id = $1 order by 1`, [f.leagueId])).rows;
     const b = (await client.query(`select player_id, sum(points)::numeric(10,2)::text points from v_player_match_points where league_id = $1 group by 1 order by 1`, [f.leagueId])).rows;
     expect(a.map((r) => [r.player_id, String(r.points)])).toEqual(b.map((r) => [r.player_id, r.points]));
+  });
+});
+
+describe("team pictures", () => {
+  const img = "data:image/jpeg;base64," + Buffer.from("fake-jpeg-bytes").toString("base64");
+  it("the manager sets a picture; league members can see it; others can't change it", async () => {
+    await rpc(f.alice, `select set_team_logo($1, $2)`, [f.teamA, img]);
+    expect((await rpc(f.bob, `select image from team_logos where fantasy_team_id = $1`, [f.teamA])).rows[0].image).toBe(img);
+    expect((await rpc(f.carol, `select count(*)::int n from team_logos`)).rows[0].n).toBe(0);
+    await expect(rpc(f.bob, `select set_team_logo($1, $2)`, [f.teamA, img])).rejects.toThrow(/own team/);
+    await expect(rpc(f.alice, `select set_team_logo($1, 'javascript:alert(1)')`, [f.teamA])).rejects.toThrow(/could not be used/);
+    const ctx = (await rpc(f.alice, `select my_context() c`)).rows[0].c;
+    expect(ctx.teams.find((t: { id: string }) => t.id === f.teamA).logo_v).toBeGreaterThan(0);
+    await rpc(f.alice, `select set_team_logo($1, null)`, [f.teamA]);
+    expect((await client.query(`select count(*)::int n from team_logos`)).rows[0].n).toBe(0);
   });
 });

@@ -49,7 +49,7 @@ export default async function AdminMatchupsPage({ searchParams }: { searchParams
       <PageHeader title="Matchups & playoffs" subtitle="Matchups become final automatically the day after their week ends, once every match has finished. You can override that here." />
       <AdminNav current="/admin/matchups" />
       <div className="mb-3 flex flex-wrap gap-1.5 px-4 sm:px-0">
-        {ctx.weeks.map((w) => <a key={w.week} href={`/admin/matchups?week=${w.week}`} className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold ${w.week === week ? "bg-coral-500 text-white" : "bg-gray-100 text-gray-700"}`}>W{w.week}</a>)}
+        {ctx.weeks.map((w) => <a key={w.week} href={`/admin/matchups?week=${w.week}`} className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold ${w.week === week ? "bg-brand-500 text-white" : "bg-gray-100 text-gray-700"}`}>W{w.week}</a>)}
       </div>
       <Card title={`Week ${week}`} flush>
         {thisWeek.length === 0 ? <Empty>No matchups this week.</Empty> : (

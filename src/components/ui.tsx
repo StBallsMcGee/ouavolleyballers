@@ -19,7 +19,7 @@ export function Card({ title, action, children, className = "", flush = false }:
     <section className={`border-y border-gray-200 bg-white sm:rounded-xl sm:border sm:shadow-sm ${className}`}>
       {title || action ? (
         <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-2.5">
-          {title ? <h2 className="text-[13px] font-extrabold uppercase tracking-wide text-gray-800">{title}</h2> : <span />}
+          {title ? <h2 className="flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-wide text-brand-900"><span className="inline-block h-3.5 w-1 rounded-full bg-gold-400" aria-hidden />{title}</h2> : <span />}
           {action}
         </div>
       ) : null}
@@ -30,7 +30,7 @@ export function Card({ title, action, children, className = "", flush = false }:
 
 const tones = {
   slate: "bg-gray-100 text-gray-600",
-  coral: "bg-coral-50 text-coral-700",
+  coral: "bg-brand-50 text-brand-700",
   mint: "bg-emerald-50 text-emerald-700",
   amber: "bg-amber-50 text-amber-700",
   red: "bg-red-50 text-red-700",
@@ -78,7 +78,7 @@ export function Freshness({ label = "Updated", at }: { label?: string; at: strin
 
 export function TeamLink({ id, name, mine }: { id: string; name: string; mine?: boolean }) {
   return (
-    <Link href={`/teams/${id}`} className={`font-semibold hover:underline ${mine ? "text-coral-600" : "text-gray-900"}`}>
+    <Link href={`/teams/${id}`} className={`font-semibold hover:underline ${mine ? "text-brand-600" : "text-gray-900"}`}>
       {name}
     </Link>
   );
@@ -89,7 +89,7 @@ export function PositionTag({ label }: { label: string | null }) {
 }
 
 export function Notice({ tone = "slate", children }: { tone?: "slate" | "amber" | "red" | "mint"; children: React.ReactNode }) {
-  const c = { slate: "border-gray-200 bg-gray-50 text-gray-700", amber: "border-amber-200 bg-amber-50 text-amber-900", red: "border-red-200 bg-red-50 text-red-900", mint: "border-emerald-200 bg-emerald-50 text-emerald-900" }[tone];
+  const c = { slate: "border-brand-100 bg-brand-50 text-brand-900", amber: "border-amber-200 bg-amber-50 text-amber-900", red: "border-red-200 bg-red-50 text-red-900", mint: "border-emerald-200 bg-emerald-50 text-emerald-900" }[tone];
   return <div className={`mx-4 rounded-lg border px-3 py-2.5 text-sm sm:mx-0 ${c}`}>{children}</div>;
 }
 

@@ -29,7 +29,7 @@ export function ScoringEditor({ initial, currentWeek, teams }: { initial: Rule[]
           <tbody>
             {rules.map((r, i) => (
               <tr key={r.stat_key}>
-                <td><input type="checkbox" className="accent-coral-500" checked={r.active} onChange={(e) => update(i, { active: e.target.checked })} /></td>
+                <td><input type="checkbox" className="accent-brand-500" checked={r.active} onChange={(e) => update(i, { active: e.target.checked })} /></td>
                 <td><input className="input min-w-0 py-1" value={r.label} onChange={(e) => update(i, { label: e.target.value })} /><div className="mt-0.5 font-mono text-[11px] text-gray-500">{r.stat_key}</div></td>
                 <td><input type="number" step="0.05" className="input py-1 text-right font-mono" value={r.points} onChange={(e) => update(i, { points: Number(e.target.value) })} /></td>
               </tr>
@@ -47,7 +47,7 @@ export function ScoringEditor({ initial, currentWeek, teams }: { initial: Rule[]
           ["history", "Recalculate the whole season from week 1 — standings may change"],
           ["custom", "From a specific week"],
         ].map(([v, text]) => (
-          <label key={v} className="flex items-start gap-2 text-sm"><input type="radio" name="mode" className="mt-1 accent-coral-500" checked={mode === v} onChange={() => setMode(v as typeof mode)} />{text}</label>
+          <label key={v} className="flex items-start gap-2 text-sm"><input type="radio" name="mode" className="mt-1 accent-brand-500" checked={mode === v} onChange={() => setMode(v as typeof mode)} />{text}</label>
         ))}
         {mode === "custom" ? <input type="number" min={1} className="input w-32" value={custom} onChange={(e) => setCustom(Math.max(1, Number(e.target.value)))} /> : null}
         <div><label className="label">Note (why the change was made)</label><input className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>

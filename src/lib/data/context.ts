@@ -27,6 +27,8 @@ export interface TeamWithManager {
   manager_display_name: string | null;
   active: boolean;
   manager: string;
+  /** When the team's picture last changed (null = no picture). */
+  logo_v: number | null;
 }
 
 /** The week containing today; during breaks, the next week to start; after the season, the last. */
@@ -64,7 +66,7 @@ export const getContext = cache(async () => {
     profile: { id: string; email: string; display_name: string; is_site_admin: boolean } | null;
     memberships: { league_id: string; role: string }[];
     league: (Omit<LeagueRow, "settings"> & { settings: unknown }) | null;
-    teams: (Omit<TeamWithManager, "manager"> & { owner_name?: string | null })[];
+    teams: (Omit<TeamWithManager, "manager" | "logo_v"> & { owner_name?: string | null; logo_v?: number | null })[];
     weeks: WeekRow[];
   };
   let raw: Raw | null = null;
@@ -94,6 +96,7 @@ export const getContext = cache(async () => {
   const isAdmin = role === "admin" || !!profile?.is_site_admin;
   const teamsWithManagers: TeamWithManager[] = raw.teams.map(({ owner_name, ...t }) => ({
     ...t,
+    logo_v: (t as { logo_v?: number | null }).logo_v ?? null,
     manager: owner_name || t.manager_display_name || "Unclaimed",
   }));
   const weeks = raw.weeks;

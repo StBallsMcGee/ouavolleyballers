@@ -438,3 +438,42 @@ export async function adminSaveMatchStats(matchId: string, rows: unknown[]): Pro
     return fail(e);
   }
 }
+
+/* ---------------------------------------------------------------- Waiver claims */
+
+/** Claim a free agent (optionally naming a player to drop). Claims are decided at midnight. */
+export async function submitWaiverClaim(teamId: string, addPlayerId: string, dropPlayerId: string | null): Promise<ActionResult> {
+  try {
+    await rpc("submit_waiver_claim", { p_team: uuid.parse(teamId), p_add: uuid.parse(addPlayerId), p_drop: dropPlayerId ? uuid.parse(dropPlayerId) : null });
+    refresh("/free-agents", "/team", "/players");
+    return { ok: true, message: "Claim placed. It's decided at midnight." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function cancelWaiverClaim(claimId: string): Promise<ActionResult> {
+  try {
+    await rpc("cancel_waiver_claim", { p_claim: uuid.parse(claimId) });
+    refresh("/free-agents", "/team");
+    return { ok: true, message: "Claim cancelled." };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/* ---------------------------------------------------------------- Team pictures */
+
+/** Set (or remove, with null) a team's picture: a small image already resized in the browser. */
+export async function setTeamLogo(teamId: string, image: string | null): Promise<ActionResult> {
+  try {
+    if (image !== null && (image.length > 400_000 || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(image))) {
+      return { ok: false, error: "That image could not be used. Try a JPG or PNG." };
+    }
+    await rpc("set_team_logo", { p_team: uuid.parse(teamId), p_image: image });
+    revalidatePath("/", "layout");
+    return { ok: true, message: image ? "Team picture updated." : "Team picture removed." };
+  } catch (e) {
+    return fail(e);
+  }
+}

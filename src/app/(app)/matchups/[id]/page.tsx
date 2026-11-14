@@ -8,6 +8,7 @@ import { countedTotal, daysOfWeek, lineupMomentFor, playerDay, projectedTotal } 
 import { slotGroup } from "@/lib/league/settings";
 import { formatDate, parseDay } from "@/lib/time";
 import { MatchupStatus, Notice } from "@/components/ui";
+import { TeamAvatar } from "@/components/team-avatar";
 import { MatchupDays, type MatchupDay, type SidePlayer } from "@/components/matchup-days";
 import { rulesForWeek, weekBreakdowns } from "@/lib/data/breakdowns";
 
@@ -104,29 +105,30 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
   const ScoreSide = ({ teamId, score, align, projected }: { teamId: string; score: number; align: "left" | "right"; projected: number }) => {
     const won = m.winner_team_id === teamId;
     return (
-      <Link href={`/teams/${teamId}`} className={`min-w-0 flex-1 ${align === "right" ? "text-right" : ""}`}>
-        <div className={`truncate text-sm font-extrabold ${teamId === ctx.myTeam?.id ? "text-coral-600" : ""}`}>{team.get(teamId)?.name}</div>
-        <div className="truncate text-[11px] text-gray-500">{team.get(teamId)?.manager}</div>
-        <div className={`mt-1 text-3xl font-black tabular-nums ${m.status === "final" && !won && !m.is_tie ? "text-gray-400" : ""}`}>{score.toFixed(1)}</div>
-        {showProj ? <div className="text-xs font-semibold tabular-nums text-gray-500">Proj {(score + projected).toFixed(1)}</div> : null}
+      <Link href={`/teams/${teamId}`} className={`flex min-w-0 flex-1 flex-col ${align === "right" ? "items-end text-right" : "items-start"}`}>
+        <TeamAvatar team={team.get(teamId)} size={40} ring={teamId === ctx.myTeam?.id} />
+        <div className={`mt-1.5 w-full truncate text-sm font-extrabold ${teamId === ctx.myTeam?.id ? "text-gold-300" : ""}`}>{team.get(teamId)?.name}</div>
+        <div className="w-full truncate text-[11px] text-brand-200">{team.get(teamId)?.manager}</div>
+        <div className={`mt-1 text-3xl font-black tabular-nums ${m.status === "final" && !won && !m.is_tie ? "text-brand-300" : won ? "text-gold-300" : ""}`}>{score.toFixed(1)}</div>
+        {showProj ? <div className="text-xs font-semibold tabular-nums text-brand-100">Proj {(score + projected).toFixed(1)}</div> : null}
       </Link>
     );
   };
 
   return (
     <>
-      <div className="border-b border-gray-200 bg-white px-4 pb-4 pt-3 sm:mt-4 sm:rounded-xl sm:border">
-        <div className="mb-2 flex items-center justify-between gap-2 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+      <div className="bg-gradient-to-br from-brand-950 via-brand-900 to-brand-700 px-4 pb-4 pt-3 text-white shadow-sm sm:mt-4 sm:rounded-xl">
+        <div className="mb-3 flex items-center justify-between gap-2 text-[11px] font-bold uppercase tracking-wide text-brand-200">
           <span className="flex items-center gap-2">
-            {m.week > 1 ? <Link href={`/matchups?week=${m.week - 1}`} className="text-gray-400" aria-label="Previous week">‹</Link> : null}
+            {m.week > 1 ? <Link href={`/matchups?week=${m.week - 1}`} className="text-brand-300" aria-label="Previous week">‹</Link> : null}
             Week {m.week}{weekInfo ? ` · ${formatDate(weekInfo.starts_on, { month: "short", day: "numeric" })}–${formatDate(weekInfo.ends_on, { month: "short", day: "numeric" })}` : ""}
-            <Link href={`/matchups?week=${m.week + 1}`} className="text-gray-400" aria-label="Next week">›</Link>
+            <Link href={`/matchups?week=${m.week + 1}`} className="text-brand-300" aria-label="Next week">›</Link>
           </span>
           <MatchupStatus status={m.status} source={m.score_source} />
         </div>
         <div className="flex items-start gap-3">
           <ScoreSide teamId={m.home_team_id} score={m.home_score} align="left" projected={homeProj} />
-          <span className="pt-6 text-xs font-bold text-gray-400">VS</span>
+          <span className="pt-14 text-xs font-black text-gold-400">VS</span>
           <ScoreSide teamId={m.away_team_id} score={m.away_score} align="right" projected={awayProj} />
         </div>
       </div>

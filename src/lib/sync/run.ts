@@ -66,8 +66,18 @@ export async function runSync(opts: {
   return result;
 }
 
+/** Decides waiver claims that are due (after midnight). Cheap when there are none. */
+export async function processDueWaivers(pool: pg.Pool): Promise<number> {
+  const due = await pool.query<{ league_id: string }>(
+    `select distinct league_id from public.waiver_claims where status = 'pending' and process_after <= now()`).catch(() => ({ rows: [] as { league_id: string }[] }));
+  let n = 0;
+  for (const l of due.rows) n += (await pool.query<{ n: number }>(`select public.process_waivers($1) as n`, [l.league_id])).rows[0]?.n ?? 0;
+  return n;
+}
+
 /** Moves matchups to in-progress / final for every running league. Safe to run any time. */
 export async function refreshMatchups(pool: pg.Pool): Promise<number> {
+  await processDueWaivers(pool).catch(() => undefined);
   const leagues = await pool.query<{ id: string }>(`select id from public.leagues where status in ('setup', 'active')`);
   let n = 0;
   for (const l of leagues.rows) {

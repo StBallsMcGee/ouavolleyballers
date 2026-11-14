@@ -1,6 +1,7 @@
 import { requireLeague } from "@/lib/data/context";
 import { getMatchupScores, getStandings } from "@/lib/data/queries";
 import { Card, PageHeader, TeamLink } from "@/components/ui";
+import { TeamAvatar } from "@/components/team-avatar";
 
 export const metadata = { title: "Standings" };
 
@@ -35,11 +36,16 @@ export default async function StandingsPage() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.map((r) => (
-              <tr key={r.teamId} className={r.teamId === myTeam?.id ? "bg-coral-50" : ""}>
-                <td className="py-2.5 pl-3 text-xs font-bold text-gray-400">{r.rank}</td>
+              <tr key={r.teamId} className={r.teamId === myTeam?.id ? "bg-brand-50" : ""}>
+                <td className={`py-2.5 pl-3 text-xs font-black ${r.rank === 1 ? "text-gold-600" : r.rank <= 4 ? "text-brand-700" : "text-gray-400"}`}>{r.rank}</td>
                 <td className="py-2.5 pr-2">
-                  <div className="truncate"><TeamLink id={r.teamId} name={team.get(r.teamId)?.name ?? ""} mine={r.teamId === myTeam?.id} /></div>
-                  <div className="truncate text-xs text-gray-500">{team.get(r.teamId)?.manager}</div>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <TeamAvatar team={team.get(r.teamId)} size={28} />
+                    <div className="min-w-0">
+                      <div className="truncate"><TeamLink id={r.teamId} name={team.get(r.teamId)?.name ?? ""} mine={r.teamId === myTeam?.id} /></div>
+                      <div className="truncate text-xs text-gray-500">{team.get(r.teamId)?.manager}</div>
+                    </div>
+                  </div>
                 </td>
                 <td className="py-2.5 text-center font-mono text-xs font-semibold">{r.wins}-{r.losses}{r.ties ? `-${r.ties}` : ""}</td>
                 <td className="py-2.5 pr-3 text-right font-mono text-xs">{r.pointsFor.toFixed(1)}</td>

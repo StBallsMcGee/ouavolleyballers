@@ -50,7 +50,7 @@ export default async function AdminTeamsPage() {
                   <div className="shrink-0">{t.owner_user_id ? <Badge tone="mint">Claimed</Badge> : i ? <Badge tone="amber">Invited</Badge> : <Badge>Not invited</Badge>}</div>
                 </div>
                 <details className="group">
-                  <summary className="cursor-pointer list-none text-xs font-bold text-coral-600">{t.owner_user_id ? "Manage" : i ? `Invited: ${i.email} · change` : "Invite manager"} <span className="inline-block transition group-open:rotate-90">›</span></summary>
+                  <summary className="cursor-pointer list-none text-xs font-bold text-brand-600">{t.owner_user_id ? "Manage" : i ? `Invited: ${i.email} · change` : "Invite manager"} <span className="inline-block transition group-open:rotate-90">›</span></summary>
                   <div className="mt-2 space-y-2">
                     {t.owner_user_id ? <TeamOwnerButtons teamId={t.id} ownerId={t.owner_user_id} isAdmin={role.get(t.owner_user_id) === "admin"} /> : null}
                     <InviteForm teamId={t.id} email={i?.email ?? ""} name={i?.display_name ?? t.manager_display_name ?? ""} claimed={!!t.owner_user_id} />

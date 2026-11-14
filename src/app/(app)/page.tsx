@@ -4,6 +4,7 @@ import { getMatchesBetween, getMatchupScores, getOwnership, getStandings, getUni
 import { addDays, formatDate } from "@/lib/time";
 import { Card, Empty, MatchupStatus, Notice } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
+import { TeamAvatar } from "@/components/team-avatar";
 import { OUA_TV_URL, ouaTvUrl } from "@/lib/oua-tv";
 import { LEAGUE_TZ } from "@/lib/time";
 import { anyGameLive } from "@/lib/data/games";
@@ -90,19 +91,20 @@ export default async function Dashboard() {
         </section>
 
         {mine && myTeam ? (
-          <Link href={`/matchups/${mine.id}`} className="block border-y border-gray-200 bg-white px-4 py-4 active:bg-gray-50 sm:rounded-xl sm:border">
+          <Link href={`/matchups/${mine.id}`} className="block bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600 px-4 py-4 text-white shadow-md active:opacity-95 sm:rounded-xl">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-extrabold uppercase tracking-wide text-gray-500">Your matchup</span>
+              <span className="text-[11px] font-extrabold uppercase tracking-wide text-gold-300">Your matchup</span>
               <MatchupStatus status={mine.status} source={mine.score_source} />
             </div>
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
               {[mine.home_team_id, mine.away_team_id].map((id, i) => (
-                <div key={id} className={`min-w-0 ${i === 1 ? "order-3 text-right" : ""}`}>
-                  <div className={`truncate text-sm font-bold ${id === myTeam.id ? "text-coral-600" : ""}`}>{team.get(id)?.name}</div>
+                <div key={id} className={`flex min-w-0 flex-col ${i === 1 ? "order-3 items-end text-right" : "items-start"}`}>
+                  <TeamAvatar team={team.get(id)} size={36} ring={id === myTeam.id} />
+                  <div className={`mt-1 w-full truncate text-sm font-bold ${id === myTeam.id ? "text-gold-300" : "text-brand-100"}`}>{team.get(id)?.name}</div>
                   <div className="text-3xl font-black tabular-nums">{(i === 0 ? mine.home_score : mine.away_score).toFixed(1)}</div>
                 </div>
               ))}
-              <span className="order-2 text-xs font-bold text-gray-400">vs</span>
+              <span className="order-2 text-xs font-black text-gold-400">VS</span>
             </div>
           </Link>
         ) : null}
@@ -131,8 +133,9 @@ export default async function Dashboard() {
             {standings.slice(0, 5).map((s) => (
               <li key={s.teamId}>
                 <Link href={`/teams/${s.teamId}`} className="flex items-center gap-3 px-4 py-2.5 text-sm active:bg-gray-50">
-                  <span className="w-4 shrink-0 text-right text-xs font-bold text-gray-400">{s.rank}</span>
-                  <span className={`min-w-0 flex-1 truncate ${s.teamId === myTeam?.id ? "font-bold text-coral-600" : "font-semibold"}`}>{team.get(s.teamId)?.name}</span>
+                  <span className={`w-4 shrink-0 text-right text-xs font-black ${s.rank === 1 ? "text-gold-600" : "text-gray-400"}`}>{s.rank}</span>
+                  <TeamAvatar team={team.get(s.teamId)} size={26} />
+                  <span className={`min-w-0 flex-1 truncate ${s.teamId === myTeam?.id ? "font-bold text-brand-600" : "font-semibold"}`}>{team.get(s.teamId)?.name}</span>
                   <span className="shrink-0 font-mono text-xs text-gray-500">{s.wins}-{s.losses}{s.ties ? `-${s.ties}` : ""}</span>
                 </Link>
               </li>
@@ -153,7 +156,7 @@ export default async function Dashboard() {
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-bold">{pl?.display_name}</div>
                         <div className="truncate text-xs text-gray-500">
-                          {pl?.university_id ? unis.get(pl.university_id)?.short_name : ""} · {owner ? <span className={owner === myTeam?.id ? "font-semibold text-coral-600" : ""}>{team.get(owner)?.name}</span> : <span className="font-semibold text-emerald-700">Free agent</span>}
+                          {pl?.university_id ? unis.get(pl.university_id)?.short_name : ""} · {owner ? <span className={owner === myTeam?.id ? "font-semibold text-brand-600" : ""}>{team.get(owner)?.name}</span> : <span className="font-semibold text-emerald-700">Free agent</span>}
                         </div>
                       </div>
                       <span className="shrink-0 text-base font-extrabold tabular-nums">{Number(p.points).toFixed(1)}</span>

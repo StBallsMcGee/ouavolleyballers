@@ -75,7 +75,7 @@ export function MatchupDays({
       </div>
       <div ref={ref} className="space-y-3">
         <section className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-gray-100 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-gray-500">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-brand-100 bg-brand-50 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-brand-800">
             <span className="tabular-nums text-gray-900">{imported || !d ? "–" : d.homeTotal.toFixed(1)}</span>
             <span>{day < today ? `${label} lineups` : day === today ? "Today" : label}</span>
             <span className="text-right tabular-nums text-gray-900">{imported || !d ? "–" : d.awayTotal.toFixed(1)}</span>
@@ -95,7 +95,7 @@ export function MatchupDays({
         </section>
         {d && benchRows > 0 ? (
           <section className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
-            <div className="border-b border-gray-100 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-gray-500">Bench · doesn&apos;t count</div>
+            <div className="border-b border-brand-100 bg-brand-50 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-brand-800">Bench · doesn&apos;t count</div>
             <ul className="divide-y divide-gray-100">
               {Array.from({ length: benchRows }, (_, i) => (
                 <li key={i} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-2 py-2 opacity-80">

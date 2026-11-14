@@ -7,7 +7,7 @@
   color-scheme: light;
 }
 
-html, body { background: #f2f4f7; }
+html, body { background: #eef2f9; }
 /* Phones: the page never scrolls sideways. Content is designed to fit; this is the safety net. */
 html, body { max-width: 100%; overflow-x: clip; }
 body { @apply text-gray-900 antialiased; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
@@ -16,17 +16,17 @@ img, svg, video { max-width: 100%; }
 @layer components {
   .card { @apply mx-4 rounded-xl border border-gray-200 bg-white shadow-sm sm:mx-0; }
   .btn { @apply inline-flex min-h-[40px] items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-primary { @apply btn bg-coral-500 text-white hover:bg-coral-600; }
+  .btn-primary { @apply btn bg-brand-500 text-white hover:bg-brand-600; }
   .btn-secondary { @apply btn border border-gray-300 bg-white text-gray-900 hover:bg-gray-50; }
   .btn-ghost { @apply btn text-gray-600 hover:bg-gray-100; }
   .btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700; }
-  .input { @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 placeholder:text-gray-400 focus:border-coral-500 focus:outline-none focus:ring-2 focus:ring-coral-100 sm:text-sm; }
+  .input { @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 sm:text-sm; }
   .label { @apply mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500; }
   .table { @apply w-full text-left text-sm; }
   .table th { @apply whitespace-nowrap border-b border-gray-200 bg-gray-50 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-gray-500; }
   .table td { @apply whitespace-nowrap px-3 py-2.5; }
   .table tbody tr { @apply border-t border-gray-100; }
-  .link { @apply font-semibold text-coral-600 hover:underline; }
+  .link { @apply font-semibold text-brand-600 hover:underline; }
   .section-title { @apply px-4 pb-1 pt-4 text-[11px] font-extrabold uppercase tracking-wider text-gray-500 sm:px-0; }
 }
 

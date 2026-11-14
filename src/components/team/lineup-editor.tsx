@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { addDrop, saveLineup } from "@/app/actions";
 import { autofillLineup, validateLineup, type LineupPlayer } from "@/lib/lineup/lineup";
 import { BENCH, isEligibleForSlot, slotGroup } from "@/lib/league/settings";
@@ -32,10 +32,15 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
   const [moving, setMoving] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
+  const [saving, setSaving] = useState(false);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // When fresh numbers arrive from the server (live refresh, after a save), follow them.
+  useEffect(() => {
+    if (!saving) setSlotOf(original);
+  }, [original]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (savedTimer.current) clearTimeout(savedTimer.current); }, []);
   const byId = new Map(players.map((p) => [p.playerId, p]));
   const current: LineupPlayer[] = players.map((p) => ({ ...p, slot: slotOf.get(p.playerId) ?? BENCH }));
-  const problems = validateLineup(current, original, slots);
-  const dirty = players.some((p) => slotOf.get(p.playerId) !== original.get(p.playerId));
   const occupant = (slot: string) => current.find((p) => p.slot === slot);
   const bench = current.filter((p) => p.slot === BENCH).sort((a, b) => (byId.get(b.playerId)?.seasonPoints ?? 0) - (byId.get(a.playerId)?.seasonPoints ?? 0));
   const mover = moving ? current.find((p) => p.playerId === moving) : undefined;
@@ -56,27 +61,44 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
     next.set(mover.playerId, slot);
     // The displaced starter takes the mover's old slot if she can play it, otherwise the bench.
     if (occ) next.set(occ.playerId, from !== BENCH && isEligibleForSlot(occ.positions, from) ? from : BENCH);
-    setSlotOf(next);
     setMoving(null);
-    setMsg(null);
+    persist(next, "Saved");
   }
 
   function autofill() {
     const filled = autofillLineup(current, slots);
-    setSlotOf(new Map(filled.map((p) => [p.playerId, p.slot])));
     setMoving(null);
-    setMsg({ ok: true, text: "Players with games today moved into your lineup. Review, then save." });
+    persist(new Map(filled.map((p) => [p.playerId, p.slot])), "Players with games today moved in and saved");
   }
 
-  function save() {
+  /** Every move saves straight away; if the server refuses it, the lineup goes back. */
+  function persist(next: Map<string, string>, okText: string) {
+    const before = slotOf;
+    const lineup: LineupPlayer[] = players.map((p) => ({ ...p, slot: next.get(p.playerId) ?? BENCH }));
+    const problems = validateLineup(lineup, original, slots);
+    if (problems.length) {
+      setMsg({ ok: false, text: problems[0]!.message });
+      return;
+    }
+    setSlotOf(next);
+    setSaving(true);
+    setMsg(null);
     start(async () => {
-      const r = await saveLineup(teamId, current.map((p) => ({ player_id: p.playerId, slot: p.slot })));
-      setMsg(r.ok ? { ok: true, text: r.message ?? "Saved." } : { ok: false, text: r.error });
+      const r = await saveLineup(teamId, lineup.map((p) => ({ player_id: p.playerId, slot: p.slot })));
+      setSaving(false);
+      if (!r.ok) {
+        setSlotOf(before);
+        setMsg({ ok: false, text: r.error });
+        return;
+      }
+      setMsg({ ok: true, text: okText });
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => setMsg((m) => (m?.ok ? null : m)), 2500);
     });
   }
 
   function drop(p: EditorPlayer) {
-    if (!confirm(`Drop ${p.name}? She becomes a free agent immediately and any team can pick her up.`)) return;
+    if (!confirm(`Drop ${p.name}? She becomes a free agent right away; any team can claim her (claims are decided at midnight).`)) return;
     start(async () => {
       const r = await addDrop(teamId, null, p.playerId);
       setMsg(r.ok ? { ok: true, text: r.message ?? "Dropped." } : { ok: false, text: r.error });
@@ -87,7 +109,7 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
     if (!editable) return null;
     if (moving) {
       if (p && p.playerId === moving) return <button className="w-16 rounded-full border border-gray-300 py-1.5 text-[11px] font-extrabold text-gray-600" onClick={() => setMoving(null)}>CANCEL</button>;
-      if (canDrop(slot)) return <button className="w-16 animate-pop rounded-full bg-coral-500 py-1.5 text-[11px] font-extrabold text-white" onClick={() => moveTo(slot)}>HERE</button>;
+      if (canDrop(slot)) return <button className="w-16 animate-pop rounded-full bg-brand-500 py-1.5 text-[11px] font-extrabold text-white" onClick={() => moveTo(slot)}>HERE</button>;
       return <span className="block w-16" />;
     }
     if (!p) return <span className="block w-16" />;
@@ -100,7 +122,7 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
     const d = ep?.byDay[day] ?? NO_DAY;
     const isMover = !!p && p.playerId === moving;
     return (
-      <li key={p ? p.playerId : slot} className={`flex items-center gap-3 px-3 py-2.5 transition-colors duration-200 ${isMover ? "bg-coral-50" : ""}`}>
+      <li key={p ? p.playerId : slot} className={`flex items-center gap-3 px-3 py-2.5 transition-colors duration-200 ${isMover ? "bg-brand-50" : ""}`}>
         <span className={`w-8 shrink-0 text-center text-[11px] font-extrabold ${slot === BENCH ? "text-gray-400" : "text-gray-700"}`}>{slot === BENCH ? "BN" : slotGroup(slot)}</span>
         {ep ? (
           <>
@@ -157,14 +179,18 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
     <div className="space-y-3 pb-16">
       {editable && (moving || isToday) ? (
         <div className="flex items-center gap-2 px-4 sm:px-0">
-          {moving ? <span className="min-w-0 animate-fade-in truncate text-xs font-semibold text-coral-700">Tap HERE to move {byId.get(moving)?.name}</span> : <button className="btn-secondary min-h-[34px] px-3 py-1 text-xs" onClick={autofill} disabled={pending}>Start active players</button>}
+          {moving ? <span className="min-w-0 animate-fade-in truncate text-xs font-semibold text-brand-700">Tap HERE to move {byId.get(moving)?.name}</span> : <button className="btn-secondary min-h-[34px] px-3 py-1 text-xs" onClick={autofill} disabled={pending}>Start active players</button>}
         </div>
       ) : null}
       {isPast ? <p className="px-4 text-xs text-gray-500 sm:px-0">The lineup as it stood at the end of {dayLabel}.</p> : !isToday && editable ? <p className="px-4 text-xs text-gray-500 sm:px-0">Lineup changes take effect right away and carry forward to {dayLabel}.</p> : null}
-      {msg && !dirty ? <p className={`px-4 text-sm sm:px-0 ${msg.ok ? "text-emerald-700" : "text-red-600"}`} role="status">{msg.text}</p> : null}
+      {saving || msg ? (
+        <p className={`animate-fade-in px-4 text-sm font-semibold sm:px-0 ${saving ? "text-gray-500" : msg?.ok ? "text-emerald-700" : "text-red-600"}`} role="status">
+          {saving ? "Saving…" : msg?.ok ? `✓ ${msg.text}` : msg?.text}
+        </p>
+      ) : null}
 
       <section className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
-        <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-gray-500">
+        <div className="flex items-center justify-between border-b border-brand-100 bg-brand-50 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-brand-800">
           <span>Starters</span>
           <span>{dayLabel} · {fmt(dayTotal)}{dayProj > 0 ? <span className="font-bold normal-case text-gray-400"> · proj {fmt(dayTotal + dayProj)}</span> : null}</span>
         </div>
@@ -172,9 +198,9 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
       </section>
 
       <section className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
-        <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-gray-500">
+        <div className="flex items-center justify-between border-b border-brand-100 bg-brand-50 px-3 py-2 text-[11px] font-extrabold uppercase tracking-wide text-brand-800">
           <span>Bench · {players.length}/{rosterLimit} roster</span>
-          {editable && moving && canDrop(BENCH) ? <button className="animate-pop rounded-full bg-coral-500 px-3 py-1 text-[11px] font-extrabold text-white" onClick={() => moveTo(BENCH)}>MOVE TO BENCH</button> : null}
+          {editable && moving && canDrop(BENCH) ? <button className="animate-pop rounded-full bg-brand-500 px-3 py-1 text-[11px] font-extrabold text-white" onClick={() => moveTo(BENCH)}>MOVE TO BENCH</button> : null}
         </div>
         <ul className="divide-y divide-gray-100">
           {bench.length === 0 ? <li className="px-4 py-3 text-sm text-gray-400">Nobody on the bench.</li> : bench.map((p) => row(BENCH, p))}
@@ -186,17 +212,6 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
         ) : null}
       </section>
 
-      {editable && (dirty || pending) ? (
-        <div className="fixed inset-x-0 bottom-[calc(58px+env(safe-area-inset-bottom))] z-30 animate-slide-up border-t border-gray-200 bg-white/95 px-4 py-2.5 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur lg:bottom-0">
-          <div className="mx-auto flex max-w-5xl items-center gap-2">
-            <div className="min-w-0 flex-1 text-xs">
-              {problems.length ? <span className="font-semibold text-red-600">{problems[0]!.message}</span> : msg && !msg.ok ? <span className="font-semibold text-red-600">{msg.text}</span> : <span className="font-semibold text-gray-700">Unsaved lineup changes</span>}
-            </div>
-            <button className="btn-ghost min-h-[36px] px-3 py-1" onClick={() => { setSlotOf(original); setMoving(null); setMsg(null); }} disabled={pending}>Undo</button>
-            <button className="btn-primary min-h-[36px] px-5 py-1" onClick={save} disabled={problems.length > 0 || pending}>{pending ? "Saving…" : "Save"}</button>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

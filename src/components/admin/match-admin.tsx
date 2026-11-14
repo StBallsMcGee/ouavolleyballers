@@ -29,7 +29,7 @@ export function MatchRowEditor({ id, lockAt, counts, status }: { id: string; loc
       <select className="input w-28 py-1.5" value={st} onChange={(e) => setSt(e.target.value)}>
         {["scheduled", "live", "final", "postponed", "cancelled"].map((s) => <option key={s} value={s}>{s}</option>)}
       </select>
-      <label className="flex items-center gap-1 text-xs"><input type="checkbox" className="accent-coral-500" checked={c} onChange={(e) => setC(e.target.checked)} />counts</label>
+      <label className="flex items-center gap-1 text-xs"><input type="checkbox" className="accent-brand-500" checked={c} onChange={(e) => setC(e.target.checked)} />counts</label>
       <button className="btn-secondary px-2 py-1 text-xs" disabled={!dirty || pending} onClick={() => start(async () => { const r = await updateMatch(id, lock !== toLocalInput(lockAt) ? fromLocalInput(lock) : null, c !== counts ? c : null, st !== status ? st : null); setMsg({ ok: r.ok, text: r.ok ? "Saved" : r.error }); })}>Save</button>
       {msg ? <span className={`text-xs ${msg.ok ? "text-emerald-600" : "text-red-600"}`}>{msg.text}</span> : null}
     </span>

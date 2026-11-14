@@ -18,7 +18,7 @@ export default async function MatchupsPage({ searchParams }: { searchParams: Pro
       <PageHeader title="Matchups" subtitle={info ? `Week ${week}: ${formatDate(info.starts_on)} – ${formatDate(info.ends_on)}${info.is_playoff ? " · Playoffs" : ""}` : `Week ${week}`} />
       <div className="mb-3 flex flex-wrap gap-1.5 px-4 sm:px-0">
         {ctx.weeks.map((w) => (
-          <Link key={w.week} href={`/matchups?week=${w.week}`} className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold ${w.week === week ? "bg-coral-500 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+          <Link key={w.week} href={`/matchups?week=${w.week}`} className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold ${w.week === week ? "bg-brand-500 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
             W{w.week}{w.week === ctx.currentWeek ? " •" : ""}
           </Link>
         ))}
@@ -28,7 +28,7 @@ export default async function MatchupsPage({ searchParams }: { searchParams: Pro
           {matchups.map((m) => {
             const mine = m.home_team_id === ctx.myTeam?.id || m.away_team_id === ctx.myTeam?.id;
             return (
-              <Link key={m.id} href={`/matchups/${m.id}`} className={`card block p-4 hover:border-gray-300 ${mine ? "ring-1 ring-coral-500/50" : ""}`}>
+              <Link key={m.id} href={`/matchups/${m.id}`} className={`card block p-4 hover:border-gray-300 ${mine ? "ring-1 ring-brand-500/50" : ""}`}>
                 <div className="mb-2 flex items-center justify-between">
                   <MatchupStatus status={m.status} source={m.score_source} />
                   {m.playoff_round ? <Badge tone="amber">Playoff round {m.playoff_round}</Badge> : null}
