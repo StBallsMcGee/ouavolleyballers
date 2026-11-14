@@ -30,7 +30,7 @@ export function LiveRefresh({ active, everyMs = 60_000 }: { active: boolean; eve
   return (
     <div className="flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-bold text-red-600" role="status">
       <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" /></span>
-      LIVE · points update every few minutes{at ? ` · refreshed ${at.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}
+      LIVE · points update every minute{at ? ` · refreshed ${at.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}
     </div>
   );
 }

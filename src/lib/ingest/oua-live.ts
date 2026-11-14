@@ -1,7 +1,8 @@
 /**
  * Live scoring: while OUA games are on, read each game's individual stats from the OUA website
- * and update the players' stat lines, so fantasy points move during the game. Runs every few
- * minutes (see docs/DEPLOYMENT.md) and does nothing — no requests at all — when no game is on.
+ * and update the players' stat lines, so fantasy points move during the game. Runs every minute
+ * (see docs/DEPLOYMENT.md) and does nothing — no requests at all — when no game is on. With more
+ * games than fit in one run, the ones read longest ago go first, so every game keeps updating.
  *
  * Source: the game's box score page with ?view=individual, an ordinary page that robots.txt
  * allows (/sports/). The live-update feed under /action/ is disallowed and never used. Requests
@@ -59,6 +60,9 @@ export async function runOuaLiveSync(opts: { pool?: pg.Pool; fetchText?: FetchTe
   result.gamesOn = games.length;
   if (games.length === 0) return { ...result, status: "skipped" }; // quiet: no request, no log row
 
+  // A run can take ~50 s (10 s between requests); if the previous one is still going, skip.
+  const busy = await pool.query(`select 1 from public.sync_runs where job = 'oua-live' and status = 'running' and started_at > now() - interval '75 seconds' limit 1`);
+  if (busy.rowCount) return { ...result, status: "skipped", warnings: ["Previous live run still going."] };
   const run = await pool.query<{ id: string }>(`insert into public.sync_runs (job) values ('oua-live') returning id`);
   const finish = async (r: LiveSyncResult) => {
     await pool.query(
@@ -76,9 +80,11 @@ export async function runOuaLiveSync(opts: { pool?: pg.Pool; fetchText?: FetchTe
   };
 
   try {
-    const links = new Map((await pool.query<{ match_id: string; url: string }>(
-      `select match_id, url from public.box_score_links where school_site = $1 and match_id = any($2::uuid[])`,
-      [SITE, games.map((g) => g.id)])).rows.map((l) => [l.match_id, l.url]));
+    const linkRows = (await pool.query<{ match_id: string; url: string; fetched_at: string | null }>(
+      `select match_id, url, fetched_at from public.box_score_links where school_site = $1 and match_id = any($2::uuid[])`,
+      [SITE, games.map((g) => g.id)])).rows;
+    const links = new Map(linkRows.map((l) => [l.match_id, l.url]));
+    const lastRead = new Map(linkRows.map((l) => [l.match_id, l.fetched_at ? new Date(l.fetched_at).getTime() : 0]));
 
     // Today's game links come from the composite page (read only when a game has no link yet).
     if (games.some((g) => !links.has(g.id))) {
@@ -94,9 +100,11 @@ export async function runOuaLiveSync(opts: { pool?: pg.Pool; fetchText?: FetchTe
       }
     }
 
-    for (const g of games.filter((x) => links.has(x.id)).slice(0, opts.maxGames ?? 4)) {
+    const queue = games.filter((x) => links.has(x.id)).sort((a, b) => (lastRead.get(a.id) ?? 0) - (lastRead.get(b.id) ?? 0));
+    for (const g of queue.slice(0, opts.maxGames ?? 5)) {
       try {
         const html = await politeFetch(ouaIndividualStatsUrl(links.get(g.id)!));
+        await pool.query(`update public.box_score_links set fetched_at = now() where match_id = $1 and school_site = $2`, [g.id, SITE]);
         const state = parseOuaGameState(html);
         if (state === "pre") continue;
         const saved = await loadBoxScore(pool, g, parseOuaBoxScore(html), result.warnings, {

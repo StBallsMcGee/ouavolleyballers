@@ -10,6 +10,7 @@ import { formatDate, parseDay } from "@/lib/time";
 import { MatchupStatus, Notice } from "@/components/ui";
 import { TeamAvatar } from "@/components/team-avatar";
 import { CourtLines } from "@/components/court";
+import { ScoreTicker } from "@/components/score-ticker";
 import { MatchupDays, type MatchupDay, type SidePlayer } from "@/components/matchup-days";
 import { rulesForWeek, weekBreakdowns } from "@/lib/data/breakdowns";
 
@@ -117,7 +118,9 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
         <TeamAvatar team={team.get(teamId)} size={40} ring={teamId === ctx.myTeam?.id} />
         <div className={`mt-1.5 w-full truncate text-sm font-extrabold ${teamId === ctx.myTeam?.id ? "text-gold-300" : ""}`}>{team.get(teamId)?.name}</div>
         <div className="w-full truncate text-[11px] text-brand-200">{team.get(teamId)?.manager}</div>
-        <div className={`mt-1 text-3xl font-black tabular-nums ${m.status === "final" && !won && !m.is_tie ? "text-brand-300" : won ? "text-gold-300" : ""}`}>{score.toFixed(1)}</div>
+        <div className={`mt-1 text-3xl font-black tabular-nums ${m.status === "final" && !won && !m.is_tie ? "text-brand-300" : won ? "text-gold-300" : ""}`}>
+          <ScoreTicker value={score} storageKey={`${m.id}:${teamId}`} />
+        </div>
         {showProj ? <div className="text-xs font-semibold tabular-nums text-brand-100">Proj {(score + projected).toFixed(1)}</div> : null}
       </Link>
     );
@@ -143,7 +146,7 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
         </div>
       </div>
 
-      <LiveRefresh active={!imported && anyGameLive(matches.filter((x) => x.match_date === today))} />
+      <LiveRefresh everyMs={30_000} active={!imported && anyGameLive(matches.filter((x) => x.match_date === today))} />
       <div className="mt-3 space-y-3">
         {imported ? (
           <Notice>{m.status === "void" ? "No contest: this week was played on USportVB with no result." : "Final score recorded on USportVB; player points weren't tracked here."}</Notice>
