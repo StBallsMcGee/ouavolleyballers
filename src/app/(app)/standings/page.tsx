@@ -2,6 +2,7 @@ import { requireLeague } from "@/lib/data/context";
 import { getMatchupScores, getStandings } from "@/lib/data/queries";
 import { Card, PageHeader } from "@/components/ui";
 import { StandingsTable } from "@/components/standings-table";
+import { leaguePlayoffOdds } from "@/lib/standings/odds";
 
 export const metadata = { title: "Standings" };
 
@@ -25,9 +26,9 @@ export default async function StandingsPage() {
     <>
       <PageHeader title="Standings" />
       <Card flush>
-        <StandingsTable rows={rows} teams={team} myTeamId={myTeam?.id} form={form} />
+        <StandingsTable rows={rows} teams={team} myTeamId={myTeam?.id} form={form} odds={league.settings.playoffs.enabled ? leaguePlayoffOdds({ matchups: all, standings: rows, weeks: ctx.weeks, startWeek: league.settings.playoffs.startWeek, spots: 8, today: ctx.today }) : undefined} />
       </Card>
-      <p className="px-4 py-3 text-xs text-gray-500 sm:px-0">Ranked by win % (ties count half), then points for. Squares show each team&apos;s last five results; the bar compares points for.</p>
+      <p className="px-4 py-3 text-xs text-gray-500 sm:px-0">Ranked by win % (ties count half), then points for. Squares show each team&apos;s last five results; the bar compares points for. Playoffs: each team&apos;s chance of finishing in the top 8, from simulating the rest of the regular season 4,000 times using every team&apos;s scoring so far.</p>
     </>
   );
 }

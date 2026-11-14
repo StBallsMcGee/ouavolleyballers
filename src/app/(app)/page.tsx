@@ -6,6 +6,7 @@ import { CourtScene } from "@/components/court-scene";
 import { TradesHome } from "@/components/trades-home";
 import { PlayoffBanner } from "@/components/playoff-banner";
 import { StandingsTable } from "@/components/standings-table";
+import { leaguePlayoffOdds } from "@/lib/standings/odds";
 import { addDays, formatDate } from "@/lib/time";
 import { Card, Empty, Notice } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
@@ -62,6 +63,11 @@ export default async function Dashboard() {
   const playerById = new Map((perfPlayers ?? []).map((p) => [p.id, p]));
   const photoOf = new Map((perfPhotos ?? []).map((p) => [p.player_id, p.photo_url]));
 
+  // Playoff odds for the standings (simulated from each team's scores so far).
+  const po = league.settings.playoffs;
+  const odds = po.enabled
+    ? leaguePlayoffOdds({ matchups: await getMatchupScores(sb, league.id), standings, weeks: ctx.weeks, startWeek: po.startWeek, spots: 8, today })
+    : null;
   const mine = myTeam ? matchups.find((m) => m.home_team_id === myTeam.id || m.away_team_id === myTeam.id) : undefined;
   // The court picture: six players from each side of your matchup.
   const courtPlayers = new Map<string, CourtPlayer[]>();
@@ -163,7 +169,7 @@ export default async function Dashboard() {
         />
 
         <Card flush title="Standings" action={<Link href="/standings" className="link text-xs">Full table</Link>}>
-          <StandingsTable rows={standings.slice(0, 5)} teams={team} myTeamId={myTeam?.id} />
+          <StandingsTable rows={standings.slice(0, 5)} teams={team} myTeamId={myTeam?.id} odds={odds ?? undefined} />
         </Card>
 
         <Card flush title={currentWeek ? `Top performers · Week ${currentWeek}` : "Top performers"}>
