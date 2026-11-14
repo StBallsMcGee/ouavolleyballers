@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { VolleyballLogo } from "@/components/logo";
 
 const TABS = [
   { href: "/", label: "Home", icon: "M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z" },
@@ -51,25 +52,24 @@ export function Nav({ leagueName, isAdmin, userName }: { leagueName: string; isA
   return (
     <>
       <header className="sticky top-0 z-30 bg-charcoal/85 text-white backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
-          <Link href="/" className="flex min-w-0 items-center gap-2.5">
-            <span className="grid h-9 w-9 shrink-0 rotate-45 place-items-center rounded-xl bg-gradient-to-br from-gold-300 to-gold-500 shadow-lg shadow-gold-500/25">
-              <span className="-rotate-45 text-sm font-black text-charcoal">S</span>
-            </span>
-            <span className="min-w-0 leading-tight">
-              <span className="block text-[16px] font-extrabold tracking-tight">Sideout</span>
-              <span className="block truncate text-[11px] font-medium text-gray-500">{leagueName}</span>
+        <div className="mx-auto grid h-14 max-w-5xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4">
+          <span aria-hidden />
+          <Link href="/" className="flex min-w-0 items-center justify-center gap-2.5">
+            <VolleyballLogo size={34} className="shrink-0 drop-shadow-[0_2px_8px_rgba(249,194,46,0.35)]" />
+            <span className="min-w-0 text-center leading-tight">
+              <span className="block text-[17px] font-extrabold tracking-tight">Sideout</span>
+              <span className="block max-w-[11rem] truncate text-[11px] font-medium text-gray-500">{leagueName}</span>
             </span>
           </Link>
-          <nav className="ml-6 hidden items-center gap-1 lg:flex">
-            {[...TABS, ...more].map((l) => (
-              <Link key={l.href} href={l.href} onClick={() => setTapped(l.href)} className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${isActive(shown, l.href) ? "bg-gold-400 text-charcoal" : "text-gray-600 hover:bg-white/5"}`}>
-                {l.label}
-              </Link>
-            ))}
-          </nav>
-          <span className="ml-auto hidden text-xs text-gray-500 xl:block">{userName}</span>
+          <span className="hidden justify-self-end truncate text-xs text-gray-500 xl:block">{userName}</span>
         </div>
+        <nav className="mx-auto hidden max-w-5xl flex-wrap items-center justify-center gap-1 px-4 pb-2 lg:flex">
+          {[...TABS, ...more].map((l) => (
+            <Link key={l.href} href={l.href} onClick={() => setTapped(l.href)} className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${isActive(shown, l.href) ? "bg-gold-400 text-charcoal" : "text-gray-600 hover:bg-white/5"}`}>
+              {l.label}
+            </Link>
+          ))}
+        </nav>
       </header>
 
       {/* Phone: bottom tab bar, with Matchup as the raised gold button in the middle. */}

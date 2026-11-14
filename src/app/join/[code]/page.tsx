@@ -1,3 +1,4 @@
+import { VolleyballLogo } from "@/components/logo";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
 import { JoinPickTeam, JoinSignup } from "./join-forms";
@@ -61,7 +62,7 @@ export default async function JoinPage({ params }: { params: Promise<{ code: str
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,#2a2f55_0%,#131419_60%)] px-4 py-10">
       <div className="mx-auto w-full max-w-sm animate-page-in">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 grid h-12 w-12 rotate-45 place-items-center rounded-2xl bg-gradient-to-br from-gold-300 to-orange-400 shadow-lg shadow-orange-500/30"><span className="-rotate-45 text-xl font-black text-charcoal">S</span></div>
+          <VolleyballLogo size={60} className="mx-auto mb-3 drop-shadow-[0_6px_24px_rgba(249,194,46,0.35)]" />
           <p className="text-sm font-bold text-gray-500">Sideout</p>
         </div>
         <div className="space-y-4 rounded-2xl border border-gray-200 bg-surface p-5 shadow-sm">{body}</div>
