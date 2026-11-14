@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireLeague } from "@/lib/data/context";
-import { getMatchesBetween, getMatchupScores, getRoster, getSeasonPlayerPoints, getProjections, getStandings, getTeamPlayerPoints, getUniversities, loadLineupHistory, lockedUniversities, type RosterPlayer } from "@/lib/data/queries";
+import { getMatchesBetween, getMatchupScores, getRoster, getSeasonPlayerPoints, getLineupPlans, getProjections, getStandings, plannedSlots, getTeamPlayerPoints, getUniversities, loadLineupHistory, lockedUniversities, type RosterPlayer } from "@/lib/data/queries";
 import { anyGameLive, dayChips } from "@/lib/data/games";
 import { LiveRefresh } from "@/components/live-refresh";
 import { rulesForWeek, weekBreakdowns } from "@/lib/data/breakdowns";
@@ -34,7 +34,7 @@ export async function TeamView({ teamId, editable, day: requested, path }: { tea
   const week = weekContaining(weeks, day);
   const pastDays = days.filter((d) => d.date < today).map((d) => d.date);
 
-  const [roster, history, unis, matches, weekPts, standings, matchups, rules] = await Promise.all([
+  const [roster, history, unis, matches, weekPts, standings, matchups, rules, plans] = await Promise.all([
     getRoster(sb, teamId),
     pastDays.length ? loadLineupHistory(sb, teamId) : Promise.resolve(null),
     getUniversities(sb),
@@ -43,6 +43,7 @@ export async function TeamView({ teamId, editable, day: requested, path }: { tea
     getStandings(sb, league.id, teams.map((t) => t.id)),
     week ? getMatchupScores(sb, league.id, week.week) : Promise.resolve([]),
     week ? rulesForWeek(sb, league.id, week.week) : Promise.resolve([]),
+    getLineupPlans(sb, teamId, today),
   ]);
   const pastLineups = new Map(pastDays.map((d) => [d, history ? history(lineupMomentFor(d, today, league.timezone)) : []]));
   const allIds = [...new Set([...roster, ...[...pastLineups.values()].flat()].map((p) => p.playerId))];
@@ -70,6 +71,18 @@ export async function TeamView({ teamId, editable, day: requested, path }: { tea
     byDay: Object.fromEntries(days.map((d) => [d.date, playerDay(breakdowns.get(r.playerId) ?? [], d.date, dayChips(r.universityId, weekMatches, unis, d.date, today), proj.get(r.playerId)?.perGame ?? null)])),
   });
   const current = roster.map((r) => toEditor(r, true));
+  // Later days: the lineup planned for that day (or the current one), nobody locked, and
+  // "plays today" meaning a game on that day.
+  const future = Object.fromEntries(days.filter((d) => d.date > today).map((d) => {
+    const plan = plannedSlots(plans, d.date);
+    const playing = new Set(weekMatches.filter((m) => m.match_date === d.date && m.status !== "cancelled" && m.status !== "postponed").flatMap((m) => [m.home_university_id, m.away_university_id]));
+    return [d.date, roster.map((r) => ({
+      ...toEditor(r, false),
+      slot: plan ? plan.get(r.playerId) ?? "BENCH" : r.slot,
+      playsToday: !!r.universityId && playing.has(r.universityId),
+    }))];
+  }));
+  const planned = plans.map((p) => p.date);
   const past = Object.fromEntries([...pastLineups].map(([d, l]) => [d, l.map((r) => toEditor(r, false))]));
   const playing = new Set([...roster, ...[...pastLineups.values()].flat()].map((r) => r.universityId).filter(Boolean));
   const marks = days.filter((d) => weekMatches.some((m) => m.match_date === d.date && m.status !== "cancelled" && (playing.has(m.home_university_id) || playing.has(m.away_university_id)))).map((d) => d.date);
@@ -114,6 +127,8 @@ export async function TeamView({ teamId, editable, day: requested, path }: { tea
           today={today}
           current={current}
           past={past}
+          future={future}
+          planned={planned}
           slots={slots}
           editable={editable}
           rosterLimit={league.settings.roster.TOTAL}

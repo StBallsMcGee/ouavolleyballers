@@ -9,7 +9,7 @@ import { LineupEditor, type EditorPlayer } from "./lineup-editor";
  * the owner can edit); earlier days show the lineup that was in place on that day, read-only.
  */
 export function TeamDays({
-  teamId, days, initialDay, today, current, past, slots, editable, rosterLimit, rules, prevHref, nextHref, marks, weekLabel,
+  teamId, days, initialDay, today, current, past, future, planned, slots, editable, rosterLimit, rules, prevHref, nextHref, marks, weekLabel,
 }: {
   teamId: string;
   days: DayTab[];
@@ -17,6 +17,8 @@ export function TeamDays({
   today: string;
   current: EditorPlayer[];
   past: Record<string, EditorPlayer[]>;
+  future: Record<string, EditorPlayer[]>;
+  planned: string[];
   slots: string[];
   editable: boolean;
   rosterLimit: number;
@@ -36,11 +38,10 @@ export function TeamDays({
       </div>
       <div ref={ref} className="mt-3">
         <LineupEditor
-          // Past days are separate snapshots; today and later share one editable lineup, so unsaved
-          // moves survive switching between them.
-          key={isPast ? `past-${day}` : "current"}
+          // Past days are snapshots; today is the live lineup; each later day is its own plan.
+          key={isPast ? `past-${day}` : day === today ? "current" : `plan-${day}`}
           teamId={teamId}
-          players={isPast ? past[day] ?? [] : current}
+          players={isPast ? past[day] ?? [] : day === today ? current : future[day] ?? current}
           slots={slots}
           editable={editable && !isPast}
           rosterLimit={rosterLimit}
@@ -50,6 +51,8 @@ export function TeamDays({
           weekLabel={weekLabel}
           isToday={day === today}
           isPast={isPast}
+          planDate={!isPast && day !== today ? day : undefined}
+          hasOwnPlan={planned.includes(day)}
         />
       </div>
     </>
