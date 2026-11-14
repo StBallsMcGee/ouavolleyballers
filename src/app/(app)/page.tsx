@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireLeague } from "@/lib/data/context";
-import { fetchAll, getMatchesBetween, getMatchupScores, getOwnership, getRoster, getSeasonPlayerPoints, getStandings, getUniversities } from "@/lib/data/queries";
+import { fetchAll, getMatchesBetween, getMatchupScores, getLastPlayDayPoints, getOwnership, getRoster, getSeasonPlayerPoints, getStandings, getUniversities } from "@/lib/data/queries";
 import { pickCourtSix, type CourtPlayer } from "@/lib/data/court";
 import { CourtScene } from "@/components/court-scene";
 import { addDays, formatDate } from "@/lib/time";
@@ -59,8 +59,9 @@ export default async function Dashboard() {
   const courtPlayers = new Map<string, CourtPlayer[]>();
   if (mine) {
     const rosters = await Promise.all([mine.home_team_id, mine.away_team_id].map((t) => getRoster(sb, t)));
-    const pts = await getSeasonPlayerPoints(sb, league.id, rosters.flat().map((r) => r.playerId));
-    [mine.home_team_id, mine.away_team_id].forEach((t, i) => courtPlayers.set(t, pickCourtSix(rosters[i]!, pts)));
+    const ids = rosters.flat().map((r) => r.playerId);
+    const [season, lastDay] = await Promise.all([getSeasonPlayerPoints(sb, league.id, ids), getLastPlayDayPoints(sb, league.id, today, ids)]);
+    [mine.home_team_id, mine.away_team_id].forEach((t, i) => courtPlayers.set(t, pickCourtSix(rosters[i]!, lastDay.points, season)));
   }
   const todaysGames = recentMatches
     .filter((m) => m.match_date === today && m.status !== "cancelled" && m.status !== "postponed")
