@@ -441,12 +441,24 @@ export async function adminSaveMatchStats(matchId: string, rows: unknown[]): Pro
 
 /* ---------------------------------------------------------------- Waiver claims */
 
-/** Claim a free agent (optionally naming a player to drop). Claims are decided at midnight. */
+/**
+ * Claim a free agent (optionally naming a player to drop). If her game today hasn't started she
+ * joins the roster at once ("added"); otherwise the claim is decided at midnight ("claimed").
+ */
 export async function submitWaiverClaim(teamId: string, addPlayerId: string, dropPlayerId: string | null): Promise<ActionResult> {
   try {
-    await rpc("submit_waiver_claim", { p_team: uuid.parse(teamId), p_add: uuid.parse(addPlayerId), p_drop: dropPlayerId ? uuid.parse(dropPlayerId) : null });
-    refresh("/free-agents", "/team", "/players");
-    return { ok: true, message: "Claim placed. It's decided at midnight." };
+    const args = { p_team: uuid.parse(teamId), p_add: uuid.parse(addPlayerId), p_drop: dropPlayerId ? uuid.parse(dropPlayerId) : null };
+    let result: string;
+    try {
+      result = (await rpc("claim_player", args)) as string;
+    } catch (e) {
+      // Database without claim_player yet: every claim waits for midnight.
+      if (!/claim_player|schema cache|does not exist/i.test((e as Error).message)) throw e;
+      await rpc("submit_waiver_claim", args);
+      result = "claimed";
+    }
+    refresh("/free-agents", "/team", "/players", "/activity");
+    return { ok: true, message: result === "added" ? "added" : "claimed" };
   } catch (e) {
     return fail(e);
   }
