@@ -12,6 +12,7 @@ export interface HomeTrade {
 const STATUS: Record<string, [string, string]> = {
   completed: ["Done", "bg-[#7fe0a6] text-charcoal"],
   proposed: ["Offered", "bg-gold-300 text-charcoal"],
+  accepted: ["At midnight", "bg-[#8fc0ff] text-charcoal"],
   pending_review: ["In review", "bg-[#c3adff] text-charcoal"],
   rejected: ["Declined", "bg-surface-3 text-gray-500"],
   cancelled: ["Withdrawn", "bg-surface-3 text-gray-500"],

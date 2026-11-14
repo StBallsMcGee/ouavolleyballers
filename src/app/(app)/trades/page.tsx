@@ -6,8 +6,8 @@ import { TradeButtons } from "@/components/trade-buttons";
 
 export const metadata = { title: "Trades" };
 
-const statusTone = { proposed: "blue", pending_review: "amber", completed: "mint", rejected: "slate", cancelled: "slate", vetoed: "red", failed: "red" } as const;
-const statusText = { proposed: "Awaiting response", pending_review: "Awaiting commissioner", completed: "Completed", rejected: "Declined", cancelled: "Withdrawn", vetoed: "Vetoed", failed: "Could not process" } as const;
+const statusTone = { proposed: "blue", pending_review: "amber", accepted: "amber", completed: "mint", rejected: "slate", cancelled: "slate", vetoed: "red", failed: "red" } as const;
+const statusText = { proposed: "Awaiting response", pending_review: "Awaiting commissioner", accepted: "Accepted · happens at midnight", completed: "Completed", rejected: "Declined", cancelled: "Withdrawn", vetoed: "Vetoed", failed: "Could not process" } as const;
 
 export default async function TradesPage() {
   const ctx = await requireLeague();
@@ -18,7 +18,8 @@ export default async function TradesPage() {
   const incoming = (trades ?? []).filter((t) => t.status === "proposed" && t.receiving_team_id === myTeam?.id);
   const outgoing = (trades ?? []).filter((t) => ["proposed", "pending_review"].includes(t.status) && t.proposing_team_id === myTeam?.id);
   const review = isAdmin ? (trades ?? []).filter((t) => t.status === "pending_review") : [];
-  const history = (trades ?? []).filter((t) => !incoming.includes(t) && !outgoing.includes(t) && !review.includes(t));
+  const tonight = (trades ?? []).filter((t) => t.status === "accepted");
+  const history = (trades ?? []).filter((t) => !incoming.includes(t) && !outgoing.includes(t) && !review.includes(t) && !tonight.includes(t));
 
   const TradeCard = ({ t, buttons }: { t: T; buttons?: React.ReactNode }) => {
     const items = (t.trade_items ?? []) as Array<{ player_id: string; from_team_id: string; players: { display_name: string; position_label: string | null } }>;
@@ -52,12 +53,13 @@ export default async function TradesPage() {
       {!league.settings.trades.enabled ? <div className="mb-4"><Notice tone="amber">Trading is currently closed by the league administrator.</Notice></div> : null}
       {league.settings.trades.enabled ? (
         <p className="mb-3 px-4 text-sm text-gray-500 sm:px-0">
-          Accepted trades {league.settings.trades.review === "commissioner" ? "go to the commissioner for approval, then " : ""}move players straight onto the receiving team&apos;s bench.
-          {league.settings.trades.deadlineWeek ? ` Trade deadline: end of week ${league.settings.trades.deadlineWeek}.` : ""} Rosters can&apos;t go over {league.settings.roster.TOTAL} players.
+          Accepted trades {league.settings.trades.review === "commissioner" ? "go to the commissioner for approval, then " : ""}move players straight onto the receiving team&apos;s bench, or at midnight if any player in the trade has already played that day.
+          {league.settings.trades.deadlineWeek ? ` Trade deadline: end of week ${league.settings.trades.deadlineWeek}.` : ""} A trade can take a roster over {league.settings.roster.TOTAL} players; that team then has to drop players before changing its lineup.
         </p>
       ) : null}
       <div className="space-y-3">
         {review.length ? <Card title="Waiting for your approval (commissioner)"><div className="space-y-3">{review.map((t) => <TradeCard key={t.id} t={t} buttons={<TradeButtons tradeId={t.id} kind="review" />} />)}</div></Card> : null}
+        {tonight.length ? <Card title="Happening at midnight"><p className="mb-3 text-xs text-gray-500">Accepted while a player in the trade had already played today; players switch teams when rosters unlock at midnight.</p><div className="space-y-3">{tonight.map((t) => <TradeCard key={t.id} t={t} />)}</div></Card> : null}
         <Card title="Offers to you">{incoming.length ? <div className="space-y-3">{incoming.map((t) => <TradeCard key={t.id} t={t} buttons={<TradeButtons tradeId={t.id} kind="respond" />} />)}</div> : <Empty>No offers waiting.</Empty>}</Card>
         <Card title="Your open offers">{outgoing.length ? <div className="space-y-3">{outgoing.map((t) => <TradeCard key={t.id} t={t} buttons={<TradeButtons tradeId={t.id} kind="cancel" />} />)}</div> : <Empty>You have no open offers.</Empty>}</Card>
         <Card title="League trade history">{history.length ? <div className="space-y-3">{history.map((t) => <TradeCard key={t.id} t={t} />)}</div> : <Empty>No trades yet.</Empty>}</Card>

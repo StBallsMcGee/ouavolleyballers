@@ -68,6 +68,8 @@ export async function runSync(opts: {
 
 /** Decides waiver claims that are due (after midnight). Cheap when there are none. */
 export async function processDueWaivers(pool: pg.Pool): Promise<number> {
+  // First, trades accepted during games: they happen at midnight, before claims are decided.
+  await pool.query(`select public.process_due_trades()`).catch(() => undefined);
   const due = await pool.query<{ league_id: string }>(
     `select distinct league_id from public.waiver_claims where status = 'pending' and process_after <= now()`).catch(() => ({ rows: [] as { league_id: string }[] }));
   let n = 0;
