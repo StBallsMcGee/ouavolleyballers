@@ -4,21 +4,30 @@ import { PlayerPhoto } from "@/components/player-photo";
 import { TeamAvatar, type TeamLike } from "@/components/team-avatar";
 import type { CourtPlayer, CourtRole } from "@/lib/data/court";
 
-// Where each role stands on the left half (x, y in % of the court); the right half is mirrored.
+// Where players stand on the left half (x, y in % of the court); the right half is mirrored.
 // The ball's rally path in globals.css (@keyframes vb-ball) touches just above these spots.
-// Front row by the net: outside, middle, outside. Back row: outside, libero, setter.
-const SPOTS: Record<string, [number, number]> = {
-  "OH-0": [38, 24], "M-0": [41, 50], "OH-1": [38, 76],
-  "OH-2": [16, 24], "L-0": [13, 50], "S-0": [17, 76],
-};
+// Four attackers: a middle at the net in the centre, the others at the net's ends and back left.
+// Back row: the libero in the middle, the setter at the back right.
+const FRONT_TOP: [number, number] = [38, 24];
+const FRONT_MID: [number, number] = [41, 50];
+const FRONT_BOTTOM: [number, number] = [38, 76];
+const BACK_TOP: [number, number] = [16, 24];
+const LIBERO: [number, number] = [13, 50];
+const SETTER: [number, number] = [17, 76];
 
 function spots(players: CourtPlayer[], side: "left" | "right") {
-  const seen: Record<string, number> = {};
+  const attackers = players.filter((p) => p.role === "OH" || p.role === "M");
+  // A middle takes the centre of the net; everyone else fills the other attacking spots in order.
+  const firstMiddle = attackers.find((p) => p.role === "M");
+  const order = [...(firstMiddle ? [firstMiddle] : []), ...attackers.filter((p) => p !== firstMiddle)];
+  const spotOf = new Map<CourtPlayer, [number, number]>();
+  const free = firstMiddle ? [FRONT_MID, FRONT_TOP, FRONT_BOTTOM, BACK_TOP] : [FRONT_TOP, FRONT_MID, FRONT_BOTTOM, BACK_TOP];
+  order.forEach((p, i) => spotOf.set(p, free[i] ?? BACK_TOP));
+  for (const p of players) if (p.role === "L") spotOf.set(p, LIBERO);
+  for (const p of players) if (p.role === "S") spotOf.set(p, SETTER);
   return players.map((p, i) => {
-    const n = seen[p.role] ?? 0;
-    seen[p.role] = n + 1;
-    const [x, y] = SPOTS[`${p.role}-${n}`] ?? [20 + (i % 2) * 18, 20 + i * 12];
-    return { p, x: side === "left" ? x : 100 - x, y, i };
+    const [x, y] = spotOf.get(p) ?? [20 + (i % 2) * 18, 20 + i * 12];
+    return { p, x: side === "left" ? x : 100 - x, y };
   });
 }
 
