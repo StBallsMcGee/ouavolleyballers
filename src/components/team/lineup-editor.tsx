@@ -98,7 +98,8 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
   }
 
   function drop(p: EditorPlayer) {
-    if (!confirm(`Drop ${p.name}? She becomes a free agent right away; any team can claim her (claims are decided at midnight).`)) return;
+    const note = p.locked ? " Her points from today's game still count for you." : "";
+    if (!confirm(`Drop ${p.name}? She becomes a free agent right away.${note}`)) return;
     start(async () => {
       const r = await addDrop(teamId, null, p.playerId);
       setMsg(r.ok ? { ok: true, text: r.message ?? "Dropped." } : { ok: false, text: r.error });
@@ -131,11 +132,11 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
               <Link href={`/players/${ep.playerId}`} className="block truncate text-[15px] font-bold leading-tight hover:underline">{ep.name}</Link>
               <div className="truncate text-[12px] text-gray-500">
                 <span className="font-semibold text-gray-700">{ep.universityCode}</span> · {ep.positionLabel ?? "–"}
-                {slot === BENCH && editable && !moving && !ep.locked ? (
-                  <button className="ml-2 font-semibold text-red-600" disabled={pending} onClick={() => drop(ep)}>Drop</button>
-                ) : null}
               </div>
               <div className="mt-0.5 text-[12px] leading-snug"><GameLine chips={d.games} compact /></div>
+              {editable && !moving ? (
+                <button className="mt-0.5 text-[11px] font-bold text-red-600 active:text-red-800" disabled={pending} onClick={() => drop(ep)}>Drop</button>
+              ) : null}
             </div>
             <div className="w-12 shrink-0 text-right">
               {d.points === null ? (
