@@ -62,7 +62,7 @@ export function DayStrip({
     return <span className={`${arrow} text-gray-300`} aria-hidden>{dir < 0 ? "‹" : "›"}</span>;
   };
   return (
-    <div className="mx-3 rounded-2xl bg-surface/95 shadow-lg shadow-black/30 backdrop-blur sm:mx-0" data-noswipe>
+    <div className="mx-3 rounded-2xl bg-surface/95 shadow-lg shadow-black/30 backdrop-blur sm:mx-0">
       <div className="flex items-center justify-between px-2 pt-1">
         {step(-1, prevHref, "Previous day")}
         <span key={day} className="animate-pop text-sm font-bold text-gold-300">{cur ? (day === today ? `Today (${cur.label})` : cur.label) : day}</span>

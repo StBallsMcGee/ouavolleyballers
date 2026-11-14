@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { requireLeague } from "@/lib/data/context";
-import { fetchAll, getMatchesBetween, getMatchupScores, getOwnership, getStandings, getUniversities } from "@/lib/data/queries";
+import { fetchAll, getMatchesBetween, getMatchupScores, getOwnership, getRoster, getSeasonPlayerPoints, getStandings, getUniversities } from "@/lib/data/queries";
+import { pickCourtSix, type CourtPlayer } from "@/lib/data/court";
+import { CourtScene } from "@/components/court-scene";
 import { addDays, formatDate } from "@/lib/time";
-import { Card, Empty, MatchupStatus, Notice } from "@/components/ui";
+import { Card, Empty, Notice } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
 import { TeamAvatar } from "@/components/team-avatar";
 import { OUA_TV_URL, ouaTvUrl } from "@/lib/oua-tv";
@@ -53,6 +55,13 @@ export default async function Dashboard() {
   const photoOf = new Map((perfPhotos ?? []).map((p) => [p.player_id, p.photo_url]));
 
   const mine = myTeam ? matchups.find((m) => m.home_team_id === myTeam.id || m.away_team_id === myTeam.id) : undefined;
+  // The court picture: six players from each side of your matchup.
+  const courtPlayers = new Map<string, CourtPlayer[]>();
+  if (mine) {
+    const rosters = await Promise.all([mine.home_team_id, mine.away_team_id].map((t) => getRoster(sb, t)));
+    const pts = await getSeasonPlayerPoints(sb, league.id, rosters.flat().map((r) => r.playerId));
+    [mine.home_team_id, mine.away_team_id].forEach((t, i) => courtPlayers.set(t, pickCourtSix(rosters[i]!, pts)));
+  }
   const todaysGames = recentMatches
     .filter((m) => m.match_date === today && m.status !== "cancelled" && m.status !== "postponed")
     .sort((a, b) => (a.start_time ?? a.lock_at).localeCompare(b.start_time ?? b.lock_at));
@@ -80,24 +89,17 @@ export default async function Dashboard() {
         ) : null}
 
         {mine && myTeam ? (
-          <Link href={`/matchups/${mine.id}`} className="relative mx-3 block overflow-hidden rounded-3xl bg-gradient-to-br from-brand-700 via-brand-800 to-brand-950 px-5 py-5 text-white shadow-xl shadow-brand-950/50 active:opacity-95 sm:mx-0">
-            <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-gold-400/20 blur-2xl" />
-            <span aria-hidden className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-brand-400/20 blur-2xl" />
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-extrabold uppercase tracking-wide text-gold-300">Your matchup</span>
-              <MatchupStatus status={mine.status} source={mine.score_source} />
-            </div>
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-              {[mine.home_team_id, mine.away_team_id].map((id, i) => (
-                <div key={id} className={`flex min-w-0 flex-col ${i === 1 ? "order-3 items-end text-right" : "items-start"}`}>
-                  <TeamAvatar team={team.get(id)} size={36} ring={id === myTeam.id} />
-                  <div className={`mt-1 w-full truncate text-sm font-bold ${id === myTeam.id ? "text-gold-300" : "text-brand-100"}`}>{team.get(id)?.name}</div>
-                  <div className="text-4xl font-black tabular-nums">{(i === 0 ? mine.home_score : mine.away_score).toFixed(1)}</div>
-                </div>
-              ))}
-              <span className="order-2 text-xs font-black text-gold-400">VS</span>
-            </div>
-          </Link>
+          <CourtScene
+            href={`/matchups/${mine.id}`}
+            home={team.get(mine.home_team_id)}
+            away={team.get(mine.away_team_id)}
+            homeScore={mine.home_score}
+            awayScore={mine.away_score}
+            homePlayers={courtPlayers.get(mine.home_team_id) ?? []}
+            awayPlayers={courtPlayers.get(mine.away_team_id) ?? []}
+            status={mine.status}
+            myTeamId={myTeam.id}
+          />
         ) : null}
 
 
@@ -190,7 +192,7 @@ export default async function Dashboard() {
             <a href={OUA_TV_URL} target="_blank" rel="noopener noreferrer" className="rounded-full bg-gradient-to-r from-gold-300 to-orange-400 px-3.5 py-1.5 text-[11px] font-extrabold text-charcoal shadow-lg shadow-orange-500/20">OUA.TV ↗</a>
           </div>
           {todaysGames.length ? (
-            <div className="-mb-2 flex snap-x gap-3 overflow-x-auto px-3 pb-3 sm:px-0 [scrollbar-width:none]" data-noswipe>
+            <div className="-mb-2 flex snap-x gap-3 overflow-x-auto px-3 pb-3 sm:px-0 [scrollbar-width:none]">
               {todaysGames.map((g, i) => {
                 const live = g.status === "live";
                 const final = g.status === "final";

@@ -85,3 +85,16 @@ export function projectedTotal(days: readonly PlayerDay[]): number {
 export function countedTotal(days: readonly PlayerDay[]): number {
   return Math.round(days.reduce((a, d) => a + (d.counted && d.points !== null ? d.points : 0), 0) * 100) / 100;
 }
+
+/** For a lineup on one day: how many starters play that day, and how many haven't finished yet. */
+export function lineupDayStats(days: readonly PlayerDay[]): { playing: number; left: number } {
+  let playing = 0;
+  let left = 0;
+  for (const d of days) {
+    const games = d.games.filter((g) => g.tone !== "none" && g.tone !== "bye");
+    if (games.length === 0) continue;
+    playing++;
+    if (games.some((g) => g.tone === "today" || g.tone === "upcoming" || g.tone === "live")) left++;
+  }
+  return { playing, left };
+}
