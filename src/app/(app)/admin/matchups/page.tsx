@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/data/context";
 import { getMatchupScores, getStandings } from "@/lib/data/queries";
 import { firstRoundPairs, nextRoundPairs } from "@/lib/standings/standings";
 import { AdminNav } from "@/components/admin/admin-nav";
-import { MatchupStatusSelect, PlayoffCreator } from "@/components/admin/matchup-admin";
+import { MatchupStatusSelect } from "@/components/admin/matchup-admin";
 import { Card, Empty, Notice, PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Matchups & playoffs" };
@@ -68,9 +68,20 @@ export default async function AdminMatchupsPage({ searchParams }: { searchParams
         )}
       </Card>
       <Card title="Playoffs" className="mt-3">
-        {!po.enabled ? <Notice>Playoffs are turned off. Turn them on and choose the number of teams and first week in <a href="/admin/settings" className="link">League settings</a>.</Notice> : plan ? (
-          <><p className="mb-2 text-sm text-gray-500">Seeded from the current standings (top {po.teams}). {planNote}</p><PlayoffCreator week={plan.week} pairs={plan.pairs} names={names} /></>
-        ) : <p className="text-sm text-gray-500">{planNote}</p>}
+        {!po.enabled ? <Notice>Playoffs are turned off. Turn them on and choose the first week in <a href="/admin/settings" className="link">League settings</a>.</Notice> : (
+          <div className="space-y-2 text-sm text-gray-600">
+            <p>Playoffs are created automatically, each round as soon as the previous week is final:</p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li><b>Week {po.startWeek}:</b> quarterfinals for seeds 1–8 (1v8, 4v5, 2v7, 3v6); seeds 9–16 start the consolation ladder the same way.</li>
+              <li><b>Week {po.startWeek + 1}:</b> semifinals; the losers play for 5th–8th (and 13th–16th), the ladder winners for 9th–12th.</li>
+              <li><b>Week {po.startWeek + 2}:</b> championship and bronze medal, plus a game for every other place.</li>
+            </ul>
+            <p className="text-xs text-gray-500">Ties go to the higher seed. Playoff and ladder games don&apos;t count in the regular standings. {planNote}</p>
+            {plan && plan.week === po.startWeek && !all.some((m) => m.week === po.startWeek) ? (
+              <p className="text-xs text-gray-500">Week {po.startWeek} will be created once week {po.startWeek - 1} is final.</p>
+            ) : null}
+          </div>
+        )}
       </Card>
     </>
   );

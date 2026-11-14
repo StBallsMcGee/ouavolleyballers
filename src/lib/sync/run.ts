@@ -87,6 +87,8 @@ export async function refreshMatchups(pool: pg.Pool): Promise<number> {
   for (const l of leagues.rows) {
     const r = await pool.query<{ n: number }>(`select public.refresh_matchup_statuses($1) as n`, [l.id]);
     n += r.rows[0]?.n ?? 0;
+    // Next playoff round, as soon as the previous week is final (does nothing otherwise).
+    await pool.query(`select public.advance_playoffs($1)`, [l.id]).catch(() => undefined);
     // Projected points from the latest stats (skipped quietly on a database without them yet).
     await pool.query(`select public.refresh_player_projections($1)`, [l.id]).catch(() => undefined);
   }

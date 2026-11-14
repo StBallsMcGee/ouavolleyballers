@@ -4,6 +4,7 @@ import { fetchAll, getMatchesBetween, getMatchupScores, getLastPlayDayPoints, ge
 import { pickCourtSix, type CourtPlayer } from "@/lib/data/court";
 import { CourtScene } from "@/components/court-scene";
 import { TradesHome } from "@/components/trades-home";
+import { PlayoffBanner } from "@/components/playoff-banner";
 import { StandingsTable } from "@/components/standings-table";
 import { addDays, formatDate } from "@/lib/time";
 import { Card, Empty, Notice } from "@/components/ui";
@@ -96,6 +97,7 @@ export default async function Dashboard() {
           <Notice tone="mint"><Link href="/trades" className="font-bold">{offers.length} trade offer{offers.length > 1 ? "s" : ""} waiting →</Link></Notice>
         ) : null}
 
+        {mine && myTeam ? <PlayoffBanner matchup={mine} myTeamId={myTeam.id} href={`/matchups/${mine.id}`} /> : null}
         {mine && myTeam ? (
           <CourtScene
             href={`/matchups/${mine.id}`}
@@ -127,7 +129,7 @@ export default async function Dashboard() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="rounded-full bg-white/35 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide">{m.status === "in_progress" ? "Live" : m.status === "final" ? "Final" : m.status === "void" ? "—" : "Soon"}</span>
-                    <span className="text-[10px] font-bold opacity-70">Wk {m.week}</span>
+                    <span className="min-w-0 truncate pl-1 text-[10px] font-bold opacity-70">{m.label ?? `Wk ${m.week}`}</span>
                   </div>
                   <div className="my-3 flex items-center justify-center gap-2">
                     <TeamAvatar team={team.get(m.home_team_id)} size={38} />

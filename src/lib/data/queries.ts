@@ -42,6 +42,11 @@ export interface MatchupScore {
   away_score: number;
   winner_team_id: string | null;
   is_tie: boolean;
+  /** Playoffs: the best place this game decides (1 = title), its name and the seeds. */
+  place_base?: number | null;
+  label?: string | null;
+  seed_home?: number | null;
+  seed_away?: number | null;
 }
 /** Every matchup's score in the league, loaded once per page even when several parts ask. */
 const allMatchupScores = cache(async (sb: Sb, leagueId: string): Promise<MatchupScore[]> => {
