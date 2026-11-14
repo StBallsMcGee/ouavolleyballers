@@ -91,7 +91,7 @@ export async function respondTrade(tradeId: string, accept: boolean): Promise<Ac
   try {
     const status = await rpc("respond_trade", { p_trade: uuid.parse(tradeId), p_accept: accept });
     refresh("/trades", "/team", "/activity");
-    const msg = status === "completed" ? "Trade completed. New players are on your bench." : status === "pending_review" ? "Accepted. Waiting for the commissioner's approval." : status === "failed" ? "The trade could not be completed (rosters changed)." : "Trade declined.";
+    const msg = status === "completed" ? "Trade completed. New players are on your bench." : status === "accepted" ? "Accepted. A player in this trade has played today, so it happens at midnight when rosters unlock." : status === "pending_review" ? "Accepted. Waiting for the commissioner's approval." : status === "failed" ? "The trade could not be completed (rosters changed)." : "Trade declined.";
     return { ok: true, message: msg };
   } catch (e) {
     return fail(e);
@@ -138,9 +138,9 @@ export async function signOut() {
 
 export async function reviewTrade(tradeId: string, approve: boolean, reason: string): Promise<ActionResult> {
   try {
-    await rpc("review_trade", { p_trade: uuid.parse(tradeId), p_approve: approve, p_reason: reason || null });
+    const status = await rpc("review_trade", { p_trade: uuid.parse(tradeId), p_approve: approve, p_reason: reason || null });
     refresh("/trades", "/admin");
-    return { ok: true, message: approve ? "Trade approved and processed." : "Trade vetoed." };
+    return { ok: true, message: !approve ? "Trade vetoed." : status === "accepted" ? "Approved. A player has played today, so it happens at midnight." : "Trade approved and processed." };
   } catch (e) {
     return fail(e);
   }
