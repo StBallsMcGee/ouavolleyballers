@@ -10,6 +10,8 @@ import { LEAGUE_TZ } from "@/lib/time";
 import { anyGameLive } from "@/lib/data/games";
 import { LiveRefresh } from "@/components/live-refresh";
 
+const TILES = ["tile-violet", "tile-green", "tile-orange", "tile-blue", "tile-pink", "tile-teal"];
+
 export default async function Dashboard() {
   const ctx = await requireLeague();
   const { supabase: sb, league, teams, myTeam, currentWeek, weeks, today } = ctx;
@@ -49,11 +51,14 @@ export default async function Dashboard() {
 
   return (
     <>
-      <div className="px-4 pb-2 pt-4 sm:px-0">
-        <h1 className="truncate text-xl font-extrabold tracking-tight">{league.name}</h1>
-        <p className="text-sm text-gray-500">
-          {week ? `Week ${week.week} · ${formatDate(week.starts_on, { month: "short", day: "numeric" })}–${formatDate(week.ends_on, { month: "short", day: "numeric" })}` : league.season_label}
-        </p>
+      <div className="flex items-center gap-3 px-4 pb-3 pt-4 sm:px-0">
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-2xl font-extrabold tracking-tight">Hi {(ctx.profile?.display_name || myTeam?.manager || "there").split(" ")[0]}</h1>
+          <p className="truncate text-sm text-gray-500">
+            {week ? `Week ${week.week} · ${formatDate(week.starts_on, { month: "short", day: "numeric" })}–${formatDate(week.ends_on, { month: "short", day: "numeric" })}` : league.season_label} · {league.name}
+          </p>
+        </div>
+        {myTeam ? <Link href="/team" aria-label="My team"><TeamAvatar team={myTeam} size={46} ring /></Link> : null}
       </div>
 
       <LiveRefresh active={anyGameLive(todaysGames)} />
@@ -63,7 +68,28 @@ export default async function Dashboard() {
           <Notice tone="mint"><Link href="/trades" className="font-bold">{offers.length} trade offer{offers.length > 1 ? "s" : ""} waiting →</Link></Notice>
         ) : null}
 
-        <section className="border-y border-gray-200 bg-white sm:rounded-xl sm:border">
+        {mine && myTeam ? (
+          <Link href={`/matchups/${mine.id}`} className="relative mx-3 block overflow-hidden rounded-3xl bg-gradient-to-br from-brand-700 via-brand-800 to-brand-950 px-5 py-5 text-white shadow-xl shadow-brand-950/50 active:opacity-95 sm:mx-0">
+            <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-gold-400/20 blur-2xl" />
+            <span aria-hidden className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-brand-400/20 blur-2xl" />
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase tracking-wide text-gold-300">Your matchup</span>
+              <MatchupStatus status={mine.status} source={mine.score_source} />
+            </div>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+              {[mine.home_team_id, mine.away_team_id].map((id, i) => (
+                <div key={id} className={`flex min-w-0 flex-col ${i === 1 ? "order-3 items-end text-right" : "items-start"}`}>
+                  <TeamAvatar team={team.get(id)} size={36} ring={id === myTeam.id} />
+                  <div className={`mt-1 w-full truncate text-sm font-bold ${id === myTeam.id ? "text-gold-300" : "text-brand-100"}`}>{team.get(id)?.name}</div>
+                  <div className="text-4xl font-black tabular-nums">{(i === 0 ? mine.home_score : mine.away_score).toFixed(1)}</div>
+                </div>
+              ))}
+              <span className="order-2 text-xs font-black text-gold-400">VS</span>
+            </div>
+          </Link>
+        ) : null}
+
+        <section className="mx-3 rounded-2xl bg-surface shadow-lg shadow-black/20 sm:mx-0">
           <div className="flex items-center justify-between gap-2 px-4 py-3">
             <div className="flex items-center gap-2">
               <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" /></span>
@@ -90,42 +116,39 @@ export default async function Dashboard() {
           )}
         </section>
 
-        {mine && myTeam ? (
-          <Link href={`/matchups/${mine.id}`} className="block bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600 px-4 py-4 text-white shadow-md active:opacity-95 sm:rounded-xl">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-extrabold uppercase tracking-wide text-gold-300">Your matchup</span>
-              <MatchupStatus status={mine.status} source={mine.score_source} />
-            </div>
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-              {[mine.home_team_id, mine.away_team_id].map((id, i) => (
-                <div key={id} className={`flex min-w-0 flex-col ${i === 1 ? "order-3 items-end text-right" : "items-start"}`}>
-                  <TeamAvatar team={team.get(id)} size={36} ring={id === myTeam.id} />
-                  <div className={`mt-1 w-full truncate text-sm font-bold ${id === myTeam.id ? "text-gold-300" : "text-brand-100"}`}>{team.get(id)?.name}</div>
-                  <div className="text-3xl font-black tabular-nums">{(i === 0 ? mine.home_score : mine.away_score).toFixed(1)}</div>
-                </div>
-              ))}
-              <span className="order-2 text-xs font-black text-gold-400">VS</span>
-            </div>
-          </Link>
-        ) : null}
 
         {others.length ? (
-          <Card flush title="This week" action={<Link href="/matchups" className="link text-xs">All</Link>}>
-            <ul className="divide-y divide-gray-100">
-              {others.map((m) => (
-                <li key={m.id}>
-                  <Link href={`/matchups/${m.id}`} className="block px-4 py-2.5 active:bg-gray-50">
-                    {[[m.home_team_id, m.home_score], [m.away_team_id, m.away_score]].map(([id, s]) => (
-                      <div key={id as string} className="flex items-center justify-between gap-3 text-sm">
-                        <span className={`min-w-0 truncate ${m.winner_team_id === id ? "font-bold" : "text-gray-700"}`}>{team.get(id as string)?.name}</span>
-                        <span className="shrink-0 font-semibold tabular-nums">{(s as number).toFixed(1)}</span>
-                      </div>
-                    ))}
-                  </Link>
-                </li>
+          <section>
+            <div className="flex items-center justify-between px-4 pb-2 pt-1 sm:px-0">
+              <h2 className="text-lg font-extrabold tracking-tight">This week&apos;s matchups</h2>
+              <Link href="/matchups" className="link text-xs">All</Link>
+            </div>
+            <div className="-mb-2 flex snap-x gap-3 overflow-x-auto px-3 pb-3 sm:px-0 [scrollbar-width:none]">
+              {others.map((m, i) => (
+                <Link
+                  key={m.id}
+                  href={`/matchups/${m.id}`}
+                  className={`${TILES[i % TILES.length]} flex w-44 shrink-0 snap-start flex-col rounded-2xl p-3 shadow-lg shadow-black/30 transition active:scale-[0.98]`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="rounded-full bg-white/35 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide">{m.status === "in_progress" ? "Live" : m.status === "final" ? "Final" : m.status === "void" ? "—" : "Soon"}</span>
+                    <span className="text-[10px] font-bold opacity-70">Wk {m.week}</span>
+                  </div>
+                  <div className="my-3 flex items-center justify-center gap-2">
+                    <TeamAvatar team={team.get(m.home_team_id)} size={38} />
+                    <span className="text-xs font-black opacity-60">–</span>
+                    <TeamAvatar team={team.get(m.away_team_id)} size={38} />
+                  </div>
+                  {[[m.home_team_id, m.home_score], [m.away_team_id, m.away_score]].map(([id, sc]) => (
+                    <div key={id as string} className="flex items-center justify-between gap-2 text-[13px]">
+                      <span className={`min-w-0 truncate ${m.winner_team_id === id ? "font-extrabold" : "font-semibold opacity-80"}`}>{team.get(id as string)?.name}</span>
+                      <span className="shrink-0 font-extrabold tabular-nums">{(sc as number).toFixed(1)}</span>
+                    </div>
+                  ))}
+                </Link>
               ))}
-            </ul>
-          </Card>
+            </div>
+          </section>
         ) : null}
 
         <Card flush title="Standings" action={<Link href="/standings" className="link text-xs">Full table</Link>}>
@@ -135,7 +158,7 @@ export default async function Dashboard() {
                 <Link href={`/teams/${s.teamId}`} className="flex items-center gap-3 px-4 py-2.5 text-sm active:bg-gray-50">
                   <span className={`w-4 shrink-0 text-right text-xs font-black ${s.rank === 1 ? "text-gold-600" : "text-gray-400"}`}>{s.rank}</span>
                   <TeamAvatar team={team.get(s.teamId)} size={26} />
-                  <span className={`min-w-0 flex-1 truncate ${s.teamId === myTeam?.id ? "font-bold text-brand-600" : "font-semibold"}`}>{team.get(s.teamId)?.name}</span>
+                  <span className={`min-w-0 flex-1 truncate ${s.teamId === myTeam?.id ? "font-bold text-brand-300" : "font-semibold"}`}>{team.get(s.teamId)?.name}</span>
                   <span className="shrink-0 font-mono text-xs text-gray-500">{s.wins}-{s.losses}{s.ties ? `-${s.ties}` : ""}</span>
                 </Link>
               </li>
@@ -156,7 +179,7 @@ export default async function Dashboard() {
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-bold">{pl?.display_name}</div>
                         <div className="truncate text-xs text-gray-500">
-                          {pl?.university_id ? unis.get(pl.university_id)?.short_name : ""} · {owner ? <span className={owner === myTeam?.id ? "font-semibold text-brand-600" : ""}>{team.get(owner)?.name}</span> : <span className="font-semibold text-emerald-700">Free agent</span>}
+                          {pl?.university_id ? unis.get(pl.university_id)?.short_name : ""} · {owner ? <span className={owner === myTeam?.id ? "font-semibold text-brand-300" : ""}>{team.get(owner)?.name}</span> : <span className="font-semibold text-emerald-700">Free agent</span>}
                         </div>
                       </div>
                       <span className="shrink-0 text-base font-extrabold tabular-nums">{Number(p.points).toFixed(1)}</span>

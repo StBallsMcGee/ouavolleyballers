@@ -47,51 +47,54 @@ export function Nav({ leagueName, isAdmin, userName }: { leagueName: string; isA
   const activeTab = TABS.findIndex((t) => isActive(shown, t.href));
   const more = [...MORE, ...(isAdmin ? [{ href: "/admin", label: "Admin" }] : []), { href: "/account", label: "Account" }];
   const moreActive = open || (more.some((m) => isActive(shown, m.href)) && activeTab < 0);
-  const indicator = activeTab >= 0 ? activeTab : moreActive ? TABS.length : -1;
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b-2 border-gold-400 bg-gradient-to-r from-brand-950 via-brand-900 to-brand-800 text-white">
+      <header className="sticky top-0 z-30 bg-charcoal/85 text-white backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
-          <Link href="/" className="flex min-w-0 items-center gap-2">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gold-400 text-sm font-black text-brand-950 shadow">S</span>
+          <Link href="/" className="flex min-w-0 items-center gap-2.5">
+            <span className="grid h-9 w-9 shrink-0 rotate-45 place-items-center rounded-xl bg-gradient-to-br from-gold-300 to-gold-500 shadow-lg shadow-gold-500/25">
+              <span className="-rotate-45 text-sm font-black text-charcoal">S</span>
+            </span>
             <span className="min-w-0 leading-tight">
-              <span className="block text-[15px] font-extrabold tracking-tight">Sideout</span>
-              <span className="block truncate text-[11px] font-medium text-gold-200">{leagueName}</span>
+              <span className="block text-[16px] font-extrabold tracking-tight">Sideout</span>
+              <span className="block truncate text-[11px] font-medium text-gray-500">{leagueName}</span>
             </span>
           </Link>
           <nav className="ml-6 hidden items-center gap-1 lg:flex">
             {[...TABS, ...more].map((l) => (
-              <Link key={l.href} href={l.href} onClick={() => setTapped(l.href)} className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${isActive(shown, l.href) ? "bg-gold-400 text-brand-950" : "text-brand-100 hover:bg-white/10"}`}>
+              <Link key={l.href} href={l.href} onClick={() => setTapped(l.href)} className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${isActive(shown, l.href) ? "bg-gold-400 text-charcoal" : "text-gray-600 hover:bg-white/5"}`}>
                 {l.label}
               </Link>
             ))}
           </nav>
-          <span className="ml-auto hidden text-xs text-brand-200 xl:block">{userName}</span>
+          <span className="ml-auto hidden text-xs text-gray-500 xl:block">{userName}</span>
         </div>
       </header>
 
-      {/* Phone: bottom tab bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden" aria-label="Main">
+      {/* Phone: bottom tab bar, with Matchup as the raised gold button in the middle. */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 rounded-t-3xl bg-surface/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(0,0,0,0.45)] backdrop-blur-md lg:hidden" aria-label="Main">
         <div className="relative mx-auto grid max-w-lg grid-cols-5">
-          {/* A coral bar that slides to the active tab. */}
-          <span
-            aria-hidden
-            className={`absolute left-0 top-0 h-1 w-1/5 px-5 transition-[transform,opacity] duration-300 ease-[cubic-bezier(.2,.8,.2,1)] ${indicator < 0 ? "opacity-0" : "opacity-100"}`}
-            style={{ transform: `translateX(${Math.max(indicator, 0) * 100}%)` }}
-          >
-            <span className="block h-full rounded-b-full bg-gold-400" />
-          </span>
-          {TABS.map((t) => {
+          {TABS.map((t, i) => {
             const on = isActive(shown, t.href);
+            if (i === 2) {
+              return (
+                <Link key={t.href} href={t.href} onClick={() => setTapped(t.href)} className="relative flex flex-col items-center pb-1.5 pt-2 text-[10px] font-bold" aria-label={t.label}>
+                  <span className={`-mt-7 grid h-14 w-14 rotate-45 place-items-center rounded-2xl bg-gradient-to-br from-gold-300 to-orange-400 shadow-lg transition-transform duration-200 ${on ? "scale-105 shadow-orange-500/40" : "shadow-black/40"}`}>
+                    <svg viewBox="0 0 24 24" className="h-6 w-6 -rotate-45 text-charcoal" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinejoin="round"><path d={t.icon} /></svg>
+                  </span>
+                  <span className={`mt-2 transition-colors ${on ? "text-gold-300" : "text-gray-500"}`}>{t.label}</span>
+                </Link>
+              );
+            }
             return (
-              <Link key={t.href} href={t.href} onClick={() => setTapped(t.href)} className={`flex flex-col items-center gap-0.5 pb-1.5 pt-2 text-[10px] font-bold transition-colors duration-200 ${on ? "text-brand-700" : "text-gray-500"}`}>
-                <svg viewBox="0 0 24 24" className={`h-6 w-6 transition-transform duration-200 ${on ? "scale-110" : ""}`} fill="none" stroke="currentColor" strokeWidth={on ? 2.4 : 1.8} strokeLinejoin="round"><path d={t.icon} /></svg>
+              <Link key={t.href} href={t.href} onClick={() => setTapped(t.href)} className={`relative flex flex-col items-center gap-0.5 pb-1.5 pt-2.5 text-[10px] font-bold transition-colors duration-200 ${on ? "text-gold-300" : "text-gray-500"}`}>
+                <svg viewBox="0 0 24 24" className={`h-6 w-6 transition-transform duration-200 ${on ? "scale-110 drop-shadow-[0_0_8px_rgba(249,194,46,0.45)]" : ""}`} fill={on ? "currentColor" : "none"} fillOpacity={on ? 0.15 : 0} stroke="currentColor" strokeWidth={on ? 2.2 : 1.8} strokeLinejoin="round"><path d={t.icon} /></svg>
                 {t.label}
               </Link>
             );
           })}
-          <button onClick={() => (open ? close() : setOpen(true))} className={`flex flex-col items-center gap-0.5 pb-1.5 pt-2 text-[10px] font-bold transition-colors duration-200 ${moreActive ? "text-brand-700" : "text-gray-500"}`}>
+          <button onClick={() => (open ? close() : setOpen(true))} className={`flex flex-col items-center gap-0.5 pb-1.5 pt-2.5 text-[10px] font-bold transition-colors duration-200 ${moreActive ? "text-gold-300" : "text-gray-500"}`}>
             <svg viewBox="0 0 24 24" className={`h-6 w-6 transition-transform duration-200 ${open ? "rotate-90 scale-110" : ""}`} fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
             More
           </button>
@@ -101,7 +104,7 @@ export function Nav({ leagueName, isAdmin, userName }: { leagueName: string; isA
       {open ? (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
           <button className={`absolute inset-0 bg-black/30 ${closing ? "animate-fade-out" : "animate-fade-in"}`} aria-label="Close menu" onClick={close} />
-          <div className={`absolute inset-x-0 bottom-0 rounded-t-2xl bg-white pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-2xl ${closing ? "animate-slide-down" : "animate-slide-up"}`}>
+          <div className={`absolute inset-x-0 bottom-0 rounded-t-2xl bg-surface pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-2xl ${closing ? "animate-slide-down" : "animate-slide-up"}`}>
             <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-gray-300" />
             <p className="px-5 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-500">{userName}</p>
             <ul className="divide-y divide-gray-100">
@@ -112,7 +115,7 @@ export function Nav({ leagueName, isAdmin, userName }: { leagueName: string; isA
               </li>
               {more.map((m) => (
                 <li key={m.href}>
-                  <Link href={m.href} onClick={() => setTapped(m.href)} className={`flex items-center justify-between px-5 py-3.5 text-[15px] font-semibold active:bg-gray-50 ${isActive(shown, m.href) ? "text-brand-600" : "text-gray-900"}`}>
+                  <Link href={m.href} onClick={() => setTapped(m.href)} className={`flex items-center justify-between px-5 py-3.5 text-[15px] font-semibold active:bg-gray-50 ${isActive(shown, m.href) ? "text-brand-300" : "text-gray-900"}`}>
                     {m.label}<span className="text-gray-400">›</span>
                   </Link>
                 </li>

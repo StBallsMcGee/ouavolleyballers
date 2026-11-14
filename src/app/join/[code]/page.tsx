@@ -64,7 +64,7 @@ export default async function JoinPage({ params }: { params: Promise<{ code: str
           <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-brand-500 text-xl font-black text-white">S</div>
           <p className="text-sm font-bold text-gray-500">Sideout</p>
         </div>
-        <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">{body}</div>
+        <div className="space-y-4 rounded-2xl border border-gray-200 bg-surface p-5 shadow-sm">{body}</div>
       </div>
     </main>
   );
@@ -73,7 +73,7 @@ export default async function JoinPage({ params }: { params: Promise<{ code: str
 function Header({ league }: { league: string }) {
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-wide text-brand-600">You&apos;re invited</p>
+      <p className="text-xs font-bold uppercase tracking-wide text-brand-300">You&apos;re invited</p>
       <h1 className="text-xl font-extrabold leading-tight">Join {league}</h1>
     </div>
   );

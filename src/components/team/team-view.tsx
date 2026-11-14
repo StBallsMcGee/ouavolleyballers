@@ -84,7 +84,8 @@ export async function TeamView({ teamId, editable, day: requested, path }: { tea
 
   return (
     <>
-      <div className="bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600 px-4 pb-3 pt-4 text-white shadow-sm sm:mt-4 sm:rounded-xl">
+      <div className="relative mx-3 mt-1 overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 via-brand-800 to-brand-950 px-4 pb-4 pt-4 text-white shadow-xl shadow-black/40 sm:mx-0 sm:mt-4">
+        <span aria-hidden className="pointer-events-none absolute -right-12 -top-14 h-44 w-44 rounded-full bg-gold-400/20 blur-2xl" />
         <div className="flex items-center gap-3">
           {team ? <TeamLogoEditor team={team} size={56} editable={editable} /> : null}
           <div className="min-w-0 flex-1">

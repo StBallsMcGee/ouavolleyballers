@@ -45,7 +45,7 @@ export function JoinSignup({ code }: { code: string }) {
       </div>
       {error ? <p className="animate-fade-in text-sm text-red-600" role="alert">{error}</p> : null}
       <button className="btn-primary w-full" disabled={pending}>{pending ? "Creating account…" : "Continue"}</button>
-      <Link href={`/login?next=${encodeURIComponent(`/join/${code}`)}`} className="block text-center text-sm font-semibold text-brand-600">I already have an account</Link>
+      <Link href={`/login?next=${encodeURIComponent(`/join/${code}`)}`} className="block text-center text-sm font-semibold text-brand-300">I already have an account</Link>
     </form>
   );
 }
@@ -76,7 +76,7 @@ export function JoinPickTeam({ code, email, defaultName, teams }: { code: string
               role="radio"
               aria-checked={picked === t.id}
               onClick={() => { setPicked(t.id); setError(null); }}
-              className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition duration-200 ${picked === t.id ? "border-brand-500 bg-brand-50 shadow-sm" : "border-gray-200 bg-white active:bg-gray-50"}`}
+              className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition duration-200 ${picked === t.id ? "border-brand-500 bg-brand-950/50 shadow-sm" : "border-gray-200 bg-surface active:bg-gray-50"}`}
             >
               <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${picked === t.id ? "border-brand-500" : "border-gray-300"}`}>
                 <span className={`h-2.5 w-2.5 rounded-full bg-brand-500 transition-transform duration-200 ${picked === t.id ? "scale-100" : "scale-0"}`} />

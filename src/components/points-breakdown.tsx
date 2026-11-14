@@ -71,8 +71,8 @@ export function PointsButton({
         <div className="fixed inset-0 z-[60] flex items-end justify-center text-left sm:items-center" role="dialog" aria-modal="true" aria-label={`${name} points breakdown`}>
           <button className={`absolute inset-0 bg-black/50 ${closing ? "animate-fade-out" : "animate-fade-in"}`} aria-label="Close" onClick={close} />
           <div className={`relative mx-3 w-full max-w-md ${closing ? "animate-pop-out" : "animate-pop"}`} style={{ transformOrigin: "50% 80%" }}>
-          <div className="relative mb-[calc(env(safe-area-inset-bottom)+12px)] rounded-2xl bg-white pt-12 shadow-2xl sm:mb-0">
-            <div className="absolute -top-10 left-1/2 -translate-x-1/2 rounded-full bg-white p-1 shadow">
+          <div className="relative mb-[calc(env(safe-area-inset-bottom)+12px)] rounded-2xl bg-surface pt-12 shadow-2xl sm:mb-0">
+            <div className="absolute -top-10 left-1/2 -translate-x-1/2 rounded-full bg-surface p-1 shadow">
               <PlayerPhoto name={name} photo={photo} size={80} />
             </div>
             <button className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full text-2xl leading-none text-gray-500 hover:bg-gray-100" aria-label="Close" onClick={close}>×</button>
@@ -83,7 +83,7 @@ export function PointsButton({
             {several ? (
               <div className="mt-3 flex flex-wrap justify-center gap-1.5 px-4">
                 {["All", ...games.map((g) => g.label)].map((l, i) => (
-                  <button key={l + i} onClick={() => setTab(i)} className={`rounded-full px-3 py-1 text-xs font-bold transition-colors duration-200 ${tab === i ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}>{l}</button>
+                  <button key={l + i} onClick={() => setTab(i)} className={`rounded-full px-3 py-1 text-xs font-bold transition-colors duration-200 ${tab === i ? "bg-gold-400 text-charcoal" : "bg-surface-3 text-gray-700"}`}>{l}</button>
                 ))}
               </div>
             ) : null}

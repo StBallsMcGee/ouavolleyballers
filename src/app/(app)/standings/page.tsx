@@ -36,8 +36,8 @@ export default async function StandingsPage() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.map((r) => (
-              <tr key={r.teamId} className={r.teamId === myTeam?.id ? "bg-brand-50" : ""}>
-                <td className={`py-2.5 pl-3 text-xs font-black ${r.rank === 1 ? "text-gold-600" : r.rank <= 4 ? "text-brand-700" : "text-gray-400"}`}>{r.rank}</td>
+              <tr key={r.teamId} className={r.teamId === myTeam?.id ? "bg-brand-950/50" : ""}>
+                <td className={`py-2.5 pl-3 text-xs font-black ${r.rank === 1 ? "text-gold-600" : r.rank <= 4 ? "text-brand-300" : "text-gray-400"}`}>{r.rank}</td>
                 <td className="py-2.5 pr-2">
                   <div className="flex min-w-0 items-center gap-2">
                     <TeamAvatar team={team.get(r.teamId)} size={28} />

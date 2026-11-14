@@ -111,17 +111,19 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   }));
   const setsTotal = current.reduce((a, r) => a + (r.sets ?? 0), 0);
   const perSet = setsTotal > 0 ? (["kills", "digs", "assists", "service_aces"] as const).map((k) => `${(sum(k, current) / setsTotal).toFixed(1)} ${STAT_SHORT[k]}`).join(" · ") : null;
+  const TILE_COLORS = ["tile-gold", "tile-violet", "tile-green", "tile-blue", "tile-orange", "tile-teal"];
+  let tileN = 0;
   const tile = (label: string, value: React.ReactNode, sub?: React.ReactNode) => (
-    <div className="rounded-lg bg-gray-50 px-2.5 py-2">
-      <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{label}</div>
-      <div className="text-lg font-black tabular-nums leading-tight text-gray-900">{value}</div>
-      {sub ? <div className="truncate text-[11px] text-gray-500">{sub}</div> : null}
+    <div className={`${TILE_COLORS[tileN++ % TILE_COLORS.length]} rounded-2xl px-2.5 py-2 shadow-md shadow-black/30`}>
+      <div className="text-[10px] font-extrabold uppercase tracking-wide opacity-70">{label}</div>
+      <div className="text-lg font-black tabular-nums leading-tight">{value}</div>
+      {sub ? <div className="truncate text-[11px] font-semibold opacity-75">{sub}</div> : null}
     </div>
   );
 
   return (
     <>
-      <div className="border-b border-gray-200 bg-white px-4 pb-4 pt-4 sm:mt-4 sm:rounded-xl sm:border">
+      <div className="mx-3 mt-1 rounded-3xl bg-surface px-4 pb-4 pt-4 shadow-lg shadow-black/30 sm:mx-0 sm:mt-4">
         <div className="flex items-center gap-4">
           <PlayerPhoto name={p.display_name} photo={profile?.photo_url} size={88} />
           <div className="min-w-0 flex-1">
@@ -153,7 +155,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
             {tile("Projected", fmt1(proj?.perGame), "pts per game")}
             {tile("Season avg", fmt1(seasonAvg), `${current.length} game${current.length === 1 ? "" : "s"}`)}
             {tile("Last 3", fmt1(last3Avg), trendDelta === null ? "games" : (
-              <span className={trendDelta >= 0 ? "font-semibold text-emerald-700" : "font-semibold text-red-600"}>{trendDelta >= 0 ? "▲" : "▼"} {Math.abs(trendDelta).toFixed(1)} vs avg</span>
+              <span className="font-extrabold">{trendDelta >= 0 ? "▲" : "▼"} {Math.abs(trendDelta).toFixed(1)} vs avg</span>
             ))}
             {tile("Best", fmt1(proj?.best ?? null), "this season")}
             {tile("Worst", fmt1(proj?.worst ?? null), "this season")}
@@ -184,7 +186,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
         const total = rs.reduce((a, r) => a + r.pts, 0);
         const sum = (k: (typeof CORE_STAT_KEYS)[number]) => rs.reduce((a, r) => a + (r.line[k] ?? 0), 0);
         return (
-          <details key={season} open={season === league.season_label || seasons.length === 1} className="group border-y border-gray-200 bg-white sm:rounded-xl sm:border">
+          <details key={season} open={season === league.season_label || seasons.length === 1} className="group mx-3 rounded-2xl bg-surface shadow-lg shadow-black/20 sm:mx-0">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 border-b border-gray-100 px-4 py-2.5">
               <span className="text-[13px] font-extrabold uppercase tracking-wide text-gray-800">{season} · {rs.length} matches</span>
               <span className="flex items-center gap-2 text-sm"><Points value={Math.round(total * 10) / 10} /> pts<span className="text-gray-400 transition group-open:rotate-90">›</span></span>
