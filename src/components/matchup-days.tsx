@@ -3,6 +3,7 @@ import Link from "next/link";
 import { DayStrip, useDaySwitch } from "@/components/day-strip";
 import { GameLine } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
+import { PositionTile, positionText } from "@/components/position";
 import { PointsButton } from "@/components/points-breakdown";
 import { lineupDayStats, type DayTab, type PlayerDay } from "@/lib/data/days";
 import type { ScoringRule } from "@/lib/scoring/engine";
@@ -32,7 +33,7 @@ function Side({ p, align, rules, label, hidePoints }: { p: SidePlayer | null; al
       <PlayerPhoto name={p.name} photo={p.photoUrl} size={28} />
       <Link href={`/players/${p.playerId}`} className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-bold leading-tight"><span className="sm:hidden">{p.shortName}</span><span className="hidden sm:inline">{p.name}</span></div>
-        <div className="truncate text-[11px] text-gray-500">{p.code} · {p.pos}</div>
+        <div className="truncate text-[11px] text-gray-500">{p.code} · <span className={`font-bold ${positionText(p.pos)}`}>{p.pos}</span></div>
         <div className="text-[11px]"><GameLine chips={p.day.games} compact /></div>
       </Link>
       <div className={`w-10 shrink-0 text-[14px] font-extrabold tabular-nums ${align === "right" ? "text-left" : "text-right"}`}>
@@ -87,7 +88,7 @@ export function MatchupDays({
             {(d && day < today && d.starters.every((s) => !s.home && !s.away) ? [] : d?.starters ?? []).map((s) => (
               <li key={s.slot} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 px-2 py-2">
                 <Side p={s.home} align="left" rules={rules} label={weekLabel} hidePoints={imported} />
-                <span className="w-7 text-center text-[10px] font-extrabold text-gray-500">{s.group}</span>
+                <PositionTile label={s.group} size="sm" />
                 <Side p={s.away} align="right" rules={rules} label={weekLabel} hidePoints={imported} />
               </li>
             ))}
@@ -117,7 +118,7 @@ export function MatchupDays({
               {Array.from({ length: benchRows }, (_, i) => (
                 <li key={i} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-2 py-2 opacity-80">
                   <Side p={d.homeBench[i] ?? null} align="left" rules={rules} label={weekLabel} hidePoints={imported} />
-                  <span className="w-8 text-center text-[10px] font-extrabold text-gray-400">BN</span>
+                  <PositionTile label="BN" size="sm" />
                   <Side p={d.awayBench[i] ?? null} align="right" rules={rules} label={weekLabel} hidePoints={imported} />
                 </li>
               ))}

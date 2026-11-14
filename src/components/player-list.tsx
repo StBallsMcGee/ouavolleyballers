@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge, GameLine, type GameLineChip } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
+import { positionText } from "@/components/position";
 
 export interface PlayerListItem {
   id: string;
@@ -31,7 +32,7 @@ export function PlayerList({ items, showOwner = true }: { items: PlayerListItem[
               {p.flags?.map((f) => <Badge key={f} tone="amber">{f}</Badge>)}
             </div>
             <div className="truncate text-[12px] text-gray-500">
-              <span className="font-semibold text-gray-700">{p.code}</span> · {p.position ?? "–"}
+              <span className="font-semibold text-gray-700">{p.code}</span> · <span className={`font-bold ${positionText(p.position)}`}>{p.position ?? "–"}</span>
               {showOwner ? (
                 p.owner ? <> · <Link href={`/teams/${p.owner.id}`} className={p.owner.mine ? "font-semibold text-brand-300" : "hover:underline"}>{p.owner.name}</Link></> : <> · <span className="font-semibold text-emerald-700">FA</span></>
               ) : null}

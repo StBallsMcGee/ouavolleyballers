@@ -1,6 +1,19 @@
 "use client";
 import { useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { submitWaiverClaim } from "@/app/actions";
+import { PlayerPhoto } from "@/components/player-photo";
+import { PositionTile, positionText } from "@/components/position";
+
+export interface DropCandidate {
+  id: string;
+  name: string;
+  locked: boolean;
+  photo?: string | null;
+  position?: string | null;
+  slot?: string;
+  points?: number;
+}
 
 /**
  * Add or claim a free agent. If her game today hasn't started, she joins the roster at once
@@ -9,7 +22,7 @@ import { submitWaiverClaim } from "@/app/actions";
  */
 export function AddPlayerButton({ teamId, playerId, playerName, rosterFull, roster, claimed = false, locked = false }: {
   teamId: string; playerId: string; playerName: string; rosterFull: boolean;
-  roster: Array<{ id: string; name: string; locked: boolean }>; claimed?: boolean; locked?: boolean;
+  roster: DropCandidate[]; claimed?: boolean; locked?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [drop, setDrop] = useState("");
@@ -41,17 +54,50 @@ export function AddPlayerButton({ teamId, playerId, playerName, rosterFull, rost
       </span>
     );
   }
+  // Roster full: choose who to drop from a sheet with photos and positions.
+  const chosen = roster.find((r) => r.id === drop);
   return (
-    <div className="flex animate-pop flex-col items-end gap-1">
-      <select className="input w-40 py-1 text-xs" value={drop} onChange={(e) => setDrop(e.target.value)}>
-        <option value="">{locked ? "Drop who, if it wins?" : "Drop who?"}</option>
-        {roster.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-      </select>
-      <div className="flex gap-1">
-        <button className="btn-ghost px-2 py-1 text-xs" onClick={() => setOpen(false)}>Cancel</button>
-        <button className="btn-primary px-2 py-1 text-xs" disabled={!drop || pending} onClick={run}>{verb} &amp; drop</button>
-      </div>
-      {msg && !msg.ok ? <span className="max-w-[14rem] text-right text-xs text-red-600">{msg.text}</span> : null}
-    </div>
+    <>
+      <span className="text-[11px] font-bold text-gray-500">Choosing…</span>
+      {createPortal(
+        <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={`Who to drop for ${playerName}`}>
+          <button className="absolute inset-0 animate-fade-in bg-black/60" aria-label="Cancel" onClick={() => { setOpen(false); setDrop(""); }} />
+          <div className="relative w-full max-w-md animate-slide-up rounded-t-3xl bg-surface pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-2xl sm:rounded-3xl">
+            <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-gray-300" />
+            <div className="px-5 pb-2 pt-3">
+              <p className="text-[11px] font-extrabold uppercase tracking-wider text-gold-300">{verb} {playerName}</p>
+              <h2 className="text-lg font-black">Who do you want to drop?</h2>
+              {locked ? <p className="text-xs text-gray-500">The drop only happens if your claim wins at midnight.</p> : null}
+            </div>
+            <ul className="max-h-[55vh] divide-y divide-gray-100 overflow-y-auto">
+              {roster.map((r) => {
+                const on = r.id === drop;
+                return (
+                  <li key={r.id}>
+                    <button type="button" onClick={() => setDrop(r.id)} className={`flex w-full items-center gap-3 px-5 py-2.5 text-left transition-colors ${on ? "bg-red-50" : "active:bg-white/5"}`} aria-pressed={on}>
+                      <PositionTile label={r.slot && r.slot !== "BENCH" ? r.slot.replace(/\d+$/, "") : "BN"} size="sm" />
+                      <PlayerPhoto name={r.name} photo={r.photo} size={38} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[14px] font-bold">{r.name}</span>
+                        <span className="block text-[11px] text-gray-500"><span className={`font-bold ${positionText(r.position)}`}>{r.position ?? "–"}</span>{r.points !== undefined ? ` · ${r.points.toFixed(1)} pts this season` : ""}{r.locked ? " · 🔒 playing today" : ""}</span>
+                      </span>
+                      <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 text-[11px] font-black ${on ? "border-red-600 bg-red-600 text-charcoal" : "border-gray-300 text-transparent"}`}>✕</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="flex items-center gap-2 px-5 pt-3">
+              <button className="btn-ghost flex-1" onClick={() => { setOpen(false); setDrop(""); }}>Cancel</button>
+              <button className="btn-primary flex-[2]" disabled={!drop || pending} onClick={run}>
+                {pending ? "…" : chosen ? `${verb} & drop ${chosen.name.split(" ")[0]}` : "Pick a player to drop"}
+              </button>
+            </div>
+            {msg && !msg.ok ? <p className="px-5 pt-2 text-xs text-red-600">{msg.text}</p> : null}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }
