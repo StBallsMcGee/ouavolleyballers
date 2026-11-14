@@ -36,9 +36,10 @@ export default async function MatchupsPage({ searchParams }: { searchParams: Pro
                   <span className="rounded-full bg-white/35 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide">
                     {m.status === "in_progress" ? "● Live" : m.status === "final" ? (m.score_source === "imported" ? "Final · USVB" : "Final") : m.status === "void" ? "No contest" : "Upcoming"}
                   </span>
+                  {m.place_base != null && m.place_base <= 3 ? <span aria-hidden>🏆</span> : null}
                   {mine ? <span className="text-[10px] font-extrabold uppercase">You</span> : null}
                 </div>
-                {m.playoff_round ? <div className="mt-1"><Badge tone="amber">Playoff round {m.playoff_round}</Badge></div> : null}
+                {m.label ? <div className="mt-1.5 truncate text-[11px] font-extrabold uppercase tracking-wide opacity-80">{m.label}</div> : m.playoff_round ? <div className="mt-1"><Badge tone="amber">Playoff round {m.playoff_round}</Badge></div> : null}
                 <div className="my-3 flex items-center justify-center gap-2">
                   <TeamAvatar team={team.get(m.home_team_id)} size={40} />
                   <span className="text-xs font-black opacity-60">–</span>
@@ -46,7 +47,7 @@ export default async function MatchupsPage({ searchParams }: { searchParams: Pro
                 </div>
                 {[[m.home_team_id, m.home_score], [m.away_team_id, m.away_score]].map(([id, sc]) => (
                   <div key={id as string} className="flex items-center justify-between gap-2 text-[13px]">
-                    <span className={`min-w-0 truncate ${m.winner_team_id === id ? "font-extrabold" : "font-semibold opacity-80"}`}>{team.get(id as string)?.name}</span>
+                    <span className={`min-w-0 truncate ${m.winner_team_id === id ? "font-extrabold" : "font-semibold opacity-80"}`}>{m.seed_home != null ? <span className="mr-1 text-[10px] font-black opacity-60">#{id === m.home_team_id ? m.seed_home : m.seed_away}</span> : null}{team.get(id as string)?.name}</span>
                     <span className="shrink-0 font-extrabold tabular-nums">{(sc as number).toFixed(1)}</span>
                   </div>
                 ))}

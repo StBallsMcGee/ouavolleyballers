@@ -4,7 +4,9 @@ import { fetchAll, getMatchesBetween, getMatchupScores, getLastPlayDayPoints, ge
 import { pickCourtSix, type CourtPlayer } from "@/lib/data/court";
 import { CourtScene } from "@/components/court-scene";
 import { TradesHome } from "@/components/trades-home";
+import { PlayoffBanner } from "@/components/playoff-banner";
 import { StandingsTable } from "@/components/standings-table";
+import { leaguePlayoffOdds } from "@/lib/standings/odds";
 import { addDays, formatDate } from "@/lib/time";
 import { Card, Empty, Notice } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
@@ -61,6 +63,11 @@ export default async function Dashboard() {
   const playerById = new Map((perfPlayers ?? []).map((p) => [p.id, p]));
   const photoOf = new Map((perfPhotos ?? []).map((p) => [p.player_id, p.photo_url]));
 
+  // Playoff odds for the standings (simulated from each team's scores so far).
+  const po = league.settings.playoffs;
+  const odds = po.enabled
+    ? leaguePlayoffOdds({ matchups: await getMatchupScores(sb, league.id), standings, weeks: ctx.weeks, startWeek: po.startWeek, spots: 8, today })
+    : null;
   const mine = myTeam ? matchups.find((m) => m.home_team_id === myTeam.id || m.away_team_id === myTeam.id) : undefined;
   // The court picture: six players from each side of your matchup.
   const courtPlayers = new Map<string, CourtPlayer[]>();
@@ -96,6 +103,7 @@ export default async function Dashboard() {
           <Notice tone="mint"><Link href="/trades" className="font-bold">{offers.length} trade offer{offers.length > 1 ? "s" : ""} waiting →</Link></Notice>
         ) : null}
 
+        {mine && myTeam ? <PlayoffBanner matchup={mine} myTeamId={myTeam.id} href={`/matchups/${mine.id}`} /> : null}
         {mine && myTeam ? (
           <CourtScene
             href={`/matchups/${mine.id}`}
@@ -127,7 +135,7 @@ export default async function Dashboard() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="rounded-full bg-white/35 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide">{m.status === "in_progress" ? "Live" : m.status === "final" ? "Final" : m.status === "void" ? "—" : "Soon"}</span>
-                    <span className="text-[10px] font-bold opacity-70">Wk {m.week}</span>
+                    <span className="min-w-0 truncate pl-1 text-[10px] font-bold opacity-70">{m.label ?? `Wk ${m.week}`}</span>
                   </div>
                   <div className="my-3 flex items-center justify-center gap-2">
                     <TeamAvatar team={team.get(m.home_team_id)} size={38} />
@@ -161,7 +169,7 @@ export default async function Dashboard() {
         />
 
         <Card flush title="Standings" action={<Link href="/standings" className="link text-xs">Full table</Link>}>
-          <StandingsTable rows={standings.slice(0, 5)} teams={team} myTeamId={myTeam?.id} />
+          <StandingsTable rows={standings.slice(0, 5)} teams={team} myTeamId={myTeam?.id} odds={odds ?? undefined} />
         </Card>
 
         <Card flush title={currentWeek ? `Top performers · Week ${currentWeek}` : "Top performers"}>

@@ -11,6 +11,7 @@ import { MatchupStatus, Notice } from "@/components/ui";
 import { TeamAvatar } from "@/components/team-avatar";
 import { CourtLines } from "@/components/court";
 import { ScoreTicker } from "@/components/score-ticker";
+import { PlayoffBanner } from "@/components/playoff-banner";
 import { MatchupDays, type MatchupDay, type SidePlayer } from "@/components/matchup-days";
 import { rulesForWeek, weekBreakdowns } from "@/lib/data/breakdowns";
 
@@ -134,7 +135,7 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
         <div className="relative mb-3 flex items-center justify-between gap-2 text-[11px] font-bold uppercase tracking-wide text-brand-200">
           <span className="flex items-center gap-2">
             {m.week > 1 ? <Link href={`/matchups?week=${m.week - 1}`} className="text-brand-300" aria-label="Previous week">‹</Link> : null}
-            Week {m.week}{weekInfo ? ` · ${formatDate(weekInfo.starts_on, { month: "short", day: "numeric" })}–${formatDate(weekInfo.ends_on, { month: "short", day: "numeric" })}` : ""}
+            {m.label ? <span className="text-gold-200">{m.label} · Wk {m.week}</span> : null}{m.label ? null : <>Week {m.week}</>}{!m.label && weekInfo ? ` · ${formatDate(weekInfo.starts_on, { month: "short", day: "numeric" })}–${formatDate(weekInfo.ends_on, { month: "short", day: "numeric" })}` : ""}
             <Link href={`/matchups?week=${m.week + 1}`} className="text-brand-300" aria-label="Next week">›</Link>
           </span>
           <MatchupStatus status={m.status} source={m.score_source} />
@@ -148,6 +149,7 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
 
       <LiveRefresh everyMs={30_000} active={!imported && anyGameLive(matches.filter((x) => x.match_date === today))} />
       <div className="mt-3 space-y-3">
+        {ctx.myTeam && (m.home_team_id === ctx.myTeam.id || m.away_team_id === ctx.myTeam.id) ? <PlayoffBanner matchup={m} myTeamId={ctx.myTeam.id} /> : null}
         {imported ? (
           <Notice>{m.status === "void" ? "No contest: this week was played on USportVB with no result." : "Final score recorded on USportVB; player points weren't tracked here."}</Notice>
         ) : null}
