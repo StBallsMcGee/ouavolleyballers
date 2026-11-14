@@ -5,7 +5,8 @@ import { anyGameLive, dayChips } from "@/lib/data/games";
 import { LiveRefresh } from "@/components/live-refresh";
 import { rulesForWeek, weekBreakdowns } from "@/lib/data/breakdowns";
 import { daysOfWeek, lineupMomentFor, playerDay, weekContaining, weekLinks } from "@/lib/data/days";
-import { Avatar, MatchupStatus } from "@/components/ui";
+import { MatchupStatus } from "@/components/ui";
+import { TeamLogoEditor } from "./team-logo-editor";
 import { formatDate } from "@/lib/time";
 import type { EditorPlayer } from "./lineup-editor";
 import { TeamDays } from "./team-days";
@@ -83,22 +84,22 @@ export async function TeamView({ teamId, editable, day: requested, path }: { tea
 
   return (
     <>
-      <div className="border-b border-gray-200 bg-white px-4 pb-3 pt-4 sm:mt-4 sm:rounded-xl sm:border">
+      <div className="bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600 px-4 pb-3 pt-4 text-white shadow-sm sm:mt-4 sm:rounded-xl">
         <div className="flex items-center gap-3">
-          <Avatar name={team?.name ?? "?"} size={52} />
+          {team ? <TeamLogoEditor team={team} size={56} editable={editable} /> : null}
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-extrabold leading-tight">{team?.name}</h1>
-            <p className="truncate text-xs text-gray-500">{team?.manager}</p>
-            {st ? <p className="mt-0.5 text-xs font-semibold text-gray-700">{st.wins}-{st.losses}{st.ties ? `-${st.ties}` : ""} · {ordinal(st.rank)} place</p> : null}
+            <p className="truncate text-xs text-brand-200">{team?.manager}</p>
+            {st ? <p className="mt-0.5 text-xs font-bold text-gold-300">{st.wins}-{st.losses}{st.ties ? `-${st.ties}` : ""} · {ordinal(st.rank)} place</p> : null}
           </div>
         </div>
         {mu && oppId ? (
-          <Link href={`/matchups/${mu.id}?day=${day}`} className="mt-3 flex items-center gap-3 rounded-lg bg-gray-50 px-3 py-2 active:bg-gray-100">
-            <span className="text-[11px] font-bold uppercase text-gray-500">Wk {mu.week}</span>
-            <span className="text-lg font-black tabular-nums">{myScore.toFixed(1)}</span>
-            <span className="text-xs text-gray-400">vs</span>
-            <span className="text-lg font-black tabular-nums text-gray-500">{oppScore.toFixed(1)}</span>
-            <span className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-700">{teams.find((t) => t.id === oppId)?.name}</span>
+          <Link href={`/matchups/${mu.id}?day=${day}`} className="mt-3 flex items-center gap-3 rounded-lg bg-white/10 px-3 py-2 backdrop-blur active:bg-white/20">
+            <span className="text-[11px] font-bold uppercase text-brand-200">Wk {mu.week}</span>
+            <span className={`text-lg font-black tabular-nums ${myScore >= oppScore ? "text-gold-300" : ""}`}>{myScore.toFixed(1)}</span>
+            <span className="text-xs text-brand-300">vs</span>
+            <span className={`text-lg font-black tabular-nums ${oppScore > myScore ? "text-gold-300" : "text-brand-100"}`}>{oppScore.toFixed(1)}</span>
+            <span className="min-w-0 flex-1 truncate text-xs font-semibold text-brand-100">{teams.find((t) => t.id === oppId)?.name}</span>
             <MatchupStatus status={mu.status} source={mu.score_source} />
           </Link>
         ) : null}

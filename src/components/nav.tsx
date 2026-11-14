@@ -51,23 +51,23 @@ export function Nav({ leagueName, isAdmin, userName }: { leagueName: string; isA
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-gray-200 bg-white">
+      <header className="sticky top-0 z-30 border-b-2 border-gold-400 bg-gradient-to-r from-brand-950 via-brand-900 to-brand-800 text-white">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
           <Link href="/" className="flex min-w-0 items-center gap-2">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-coral-500 text-sm font-black text-white">S</span>
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gold-400 text-sm font-black text-brand-950 shadow">S</span>
             <span className="min-w-0 leading-tight">
               <span className="block text-[15px] font-extrabold tracking-tight">Sideout</span>
-              <span className="block truncate text-[11px] font-medium text-gray-500">{leagueName}</span>
+              <span className="block truncate text-[11px] font-medium text-gold-200">{leagueName}</span>
             </span>
           </Link>
           <nav className="ml-6 hidden items-center gap-1 lg:flex">
             {[...TABS, ...more].map((l) => (
-              <Link key={l.href} href={l.href} onClick={() => setTapped(l.href)} className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${isActive(shown, l.href) ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
+              <Link key={l.href} href={l.href} onClick={() => setTapped(l.href)} className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${isActive(shown, l.href) ? "bg-gold-400 text-brand-950" : "text-brand-100 hover:bg-white/10"}`}>
                 {l.label}
               </Link>
             ))}
           </nav>
-          <span className="ml-auto hidden text-xs text-gray-500 xl:block">{userName}</span>
+          <span className="ml-auto hidden text-xs text-brand-200 xl:block">{userName}</span>
         </div>
       </header>
 
@@ -77,21 +77,21 @@ export function Nav({ leagueName, isAdmin, userName }: { leagueName: string; isA
           {/* A coral bar that slides to the active tab. */}
           <span
             aria-hidden
-            className={`absolute left-0 top-0 h-[3px] w-1/5 px-5 transition-[transform,opacity] duration-300 ease-[cubic-bezier(.2,.8,.2,1)] ${indicator < 0 ? "opacity-0" : "opacity-100"}`}
+            className={`absolute left-0 top-0 h-1 w-1/5 px-5 transition-[transform,opacity] duration-300 ease-[cubic-bezier(.2,.8,.2,1)] ${indicator < 0 ? "opacity-0" : "opacity-100"}`}
             style={{ transform: `translateX(${Math.max(indicator, 0) * 100}%)` }}
           >
-            <span className="block h-full rounded-b-full bg-coral-500" />
+            <span className="block h-full rounded-b-full bg-gold-400" />
           </span>
           {TABS.map((t) => {
             const on = isActive(shown, t.href);
             return (
-              <Link key={t.href} href={t.href} onClick={() => setTapped(t.href)} className={`flex flex-col items-center gap-0.5 pb-1.5 pt-2 text-[10px] font-bold transition-colors duration-200 ${on ? "text-coral-600" : "text-gray-500"}`}>
+              <Link key={t.href} href={t.href} onClick={() => setTapped(t.href)} className={`flex flex-col items-center gap-0.5 pb-1.5 pt-2 text-[10px] font-bold transition-colors duration-200 ${on ? "text-brand-700" : "text-gray-500"}`}>
                 <svg viewBox="0 0 24 24" className={`h-6 w-6 transition-transform duration-200 ${on ? "scale-110" : ""}`} fill="none" stroke="currentColor" strokeWidth={on ? 2.4 : 1.8} strokeLinejoin="round"><path d={t.icon} /></svg>
                 {t.label}
               </Link>
             );
           })}
-          <button onClick={() => (open ? close() : setOpen(true))} className={`flex flex-col items-center gap-0.5 pb-1.5 pt-2 text-[10px] font-bold transition-colors duration-200 ${moreActive ? "text-coral-600" : "text-gray-500"}`}>
+          <button onClick={() => (open ? close() : setOpen(true))} className={`flex flex-col items-center gap-0.5 pb-1.5 pt-2 text-[10px] font-bold transition-colors duration-200 ${moreActive ? "text-brand-700" : "text-gray-500"}`}>
             <svg viewBox="0 0 24 24" className={`h-6 w-6 transition-transform duration-200 ${open ? "rotate-90 scale-110" : ""}`} fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
             More
           </button>
@@ -112,7 +112,7 @@ export function Nav({ leagueName, isAdmin, userName }: { leagueName: string; isA
               </li>
               {more.map((m) => (
                 <li key={m.href}>
-                  <Link href={m.href} onClick={() => setTapped(m.href)} className={`flex items-center justify-between px-5 py-3.5 text-[15px] font-semibold active:bg-gray-50 ${isActive(shown, m.href) ? "text-coral-600" : "text-gray-900"}`}>
+                  <Link href={m.href} onClick={() => setTapped(m.href)} className={`flex items-center justify-between px-5 py-3.5 text-[15px] font-semibold active:bg-gray-50 ${isActive(shown, m.href) ? "text-brand-600" : "text-gray-900"}`}>
                     {m.label}<span className="text-gray-400">›</span>
                   </Link>
                 </li>
