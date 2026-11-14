@@ -175,9 +175,17 @@ export async function loadBoxScore(
   game: Candidate,
   box: BoxScore,
   warnings: string[],
-  opts: { source?: string; teamMatches?: typeof captionMatches } = {},
+  opts: {
+    source?: string;
+    teamMatches?: typeof captionMatches;
+    /** Existing lines from these sources are overwritten (e.g. live numbers during a game). */
+    replaceSources?: string[];
+    /** "live" while the game is on; otherwise the game is marked final. */
+    matchStatus?: "live" | "final";
+  } = {},
 ): Promise<number | null> {
   const source = opts.source ?? "school-boxscore";
+  const replace = opts.replaceSources ?? [];
   const matches = opts.teamMatches ?? captionMatches;
   const label = `${game.match_date} ${game.home_name} v ${game.away_name}`;
   if (box.date && box.date !== game.match_date) {
@@ -219,16 +227,23 @@ export async function loadBoxScore(
           `insert into public.player_match_statistics (player_id, match_id, university_id, kills, attack_errors, attack_attempts, assists,
              service_aces, service_errors, digs, solo_blocks, block_assists, sets_played, source_system, source_hash, source_updated_at)
            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $15, $14, now())
-           on conflict (player_id, match_id) do nothing`,
+           on conflict (player_id, match_id) do update set
+             university_id = excluded.university_id, kills = excluded.kills, attack_errors = excluded.attack_errors,
+             attack_attempts = excluded.attack_attempts, assists = excluded.assists, service_aces = excluded.service_aces,
+             service_errors = excluded.service_errors, digs = excluded.digs, solo_blocks = excluded.solo_blocks,
+             block_assists = excluded.block_assists, sets_played = excluded.sets_played, source_system = excluded.source_system,
+             source_hash = excluded.source_hash, source_updated_at = now(), updated_at = now()
+           where player_match_statistics.source_system = any($16::text[])
+             and (player_match_statistics.source_hash <> excluded.source_hash or player_match_statistics.source_system <> excluded.source_system)`,
           [o.id, game.id, uni.id, p.kills, p.attackErrors, p.attackAttempts, p.assists, p.serviceAces, p.serviceErrors, p.digs,
-           p.soloBlocks, p.blockAssists, p.sets, statHash(p), source]);
+           p.soloBlocks, p.blockAssists, p.sets, statHash(p), source, replace]);
         inserted += r.rowCount ?? 0;
       }
     }
     await client.query(
       `update public.matches set stats_available = true, last_updated_at = now(),
-         status = case when status in ('scheduled', 'live') then 'final'::public.match_status else status end
-       where id = $1`, [game.id]);
+         status = case when status in ('scheduled', 'live') then $2::public.match_status else status end
+       where id = $1`, [game.id, opts.matchStatus ?? "final"]);
     await client.query("commit");
     return inserted;
   } catch (e) {

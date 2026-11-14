@@ -91,3 +91,13 @@ export function dayChips(
 export function isBye(chips: readonly GameLineChip[]): boolean {
   return chips[0]?.tone === "bye";
 }
+
+/** True while any of these games is on (marked live, or started within the last 3 hours and not finished). */
+export function anyGameLive(matches: readonly MatchRow[], now = Date.now()): boolean {
+  return matches.some((m) => {
+    if (m.status === "live") return true;
+    if (m.status !== "scheduled" || !m.counts_for_fantasy) return false;
+    const start = new Date(m.start_time ?? m.lock_at).getTime();
+    return start <= now && now - start < 3 * 3600_000;
+  });
+}

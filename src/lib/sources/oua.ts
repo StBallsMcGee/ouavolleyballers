@@ -82,3 +82,36 @@ export function ouaTeamMatches(team: string, university: { name: string; short_n
   const t = nameKey(team);
   return t === nameKey(university.name) || (!!university.short_name && t === nameKey(university.short_name));
 }
+
+/**
+ * Today's games on the OUA composite page (oua.ca/composite?sport=wvball). Each game links to its
+ * box score page ("Live stats" while it's on, "Box Score" after).
+ */
+export function parseOuaComposite(html: string): OuaScheduleEntry[] {
+  const out: OuaScheduleEntry[] = [];
+  const seen = new Set<string>();
+  for (const m of html.matchAll(/<a[^>]*aria-label="Women(?:&#39;|')s Volleyball event: [^:"]*:[^:"]*: ([^"]*?) at ([^":]*?): [^"]*"[^>]*href="([^"]*\/wvball\/[^"]*\/boxscores\/(\d{4})(\d{2})(\d{2})_[0-9a-z]+\.xml)"/gi)) {
+    const url = new URL(m[3]!, OUA_BASE).toString();
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push({ date: `${m[4]}-${m[5]}-${m[6]}`, away: textOf(m[1]) ?? "", home: textOf(m[2]) ?? "", boxScoreUrl: url });
+  }
+  return out;
+}
+
+/** The individual-stats view of a game page, served as plain HTML (no live feed needed). */
+export function ouaIndividualStatsUrl(boxScoreUrl: string): string {
+  const u = new URL(boxScoreUrl);
+  u.hash = "";
+  u.searchParams.set("view", "individual");
+  return u.toString();
+}
+
+/** Whether the game on a box score page is finished, under way, or not started. */
+export function parseOuaGameState(html: string): "final" | "live" | "pre" {
+  const table = html.match(/<table class="table mb-0">([\s\S]*?)<\/table>/)?.[1] ?? "";
+  const firstHead = textOf(table.match(/<th[^>]*>([\s\S]*?)<\/th>/)?.[1]) ?? "";
+  if (/^final/i.test(firstHead)) return "final";
+  if (/set|progress|live/i.test(firstHead)) return "live";
+  return parseOuaBoxScore(html).teams.length > 0 ? "live" : "pre";
+}

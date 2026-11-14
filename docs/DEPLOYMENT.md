@@ -120,6 +120,22 @@ select cron.schedule('sideout-sync-daytime', '7 14,18 * * *', $$
 $$);
 ```
 
+**Live scoring** (every 3 minutes; it does nothing, not even a request to OUA, unless a game is on):
+
+```sql
+select cron.schedule('sideout-live', '*/3 * * * *', $$
+  select net.http_get(
+    url := 'https://YOUR-SITE/api/cron/live',
+    headers := jsonb_build_object('Authorization', 'Bearer ' ||
+      (select decrypted_secret from vault.decrypted_secrets where name = 'sideout_cron_secret')),
+    timeout_milliseconds := 60000);
+$$);
+```
+
+While games are on it reads each game's individual stats on oua.ca (10 seconds between requests,
+as the site's robots.txt asks; the disallowed /action/ live feed is never used), and the My Team,
+Matchup and Home screens refresh themselves every minute.
+
 (Times are UTC. 21:00–05:59 UTC is roughly 4 pm–1 am in Toronto.) Each run downloads one file
 of about 1.3 MB from USportVB. That's about 22 requests a day, well within what the USportVB
 developer agreed to.
