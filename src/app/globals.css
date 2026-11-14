@@ -55,7 +55,7 @@ details[open] > :not(summary) { animation: grow .2s cubic-bezier(.2,.8,.2,1) bot
 @keyframes vb-drift-1 { 0% { transform: translate(-50%, -50%); } 50% { transform: translate(calc(-50% + 7px), calc(-50% - 6px)); } 100% { transform: translate(calc(-50% - 5px), calc(-50% + 5px)); } }
 @keyframes vb-drift-2 { 0% { transform: translate(calc(-50% + 4px), -50%); } 50% { transform: translate(calc(-50% - 6px), calc(-50% + 6px)); } 100% { transform: translate(calc(-50% + 3px), calc(-50% - 7px)); } }
 @keyframes vb-drift-3 { 0% { transform: translate(-50%, calc(-50% + 5px)); } 50% { transform: translate(calc(-50% + 5px), calc(-50% + 1px)); } 100% { transform: translate(calc(-50% - 7px), calc(-50% - 4px)); } }
-/* The ball plays a 12-touch rally between the players' spots (see SPOTS in court-scene.tsx):
+/* The ball plays a 12-touch rally between the players' spots (see the spots in court-scene.tsx):
    three touches on one side (pass, set, attack), over the net, three on the other, then the same
    again with different players, so the loop is hard to spot. Each touch is just above a player. */
 .vb-ball { animation: vb-ball 14s infinite; }
