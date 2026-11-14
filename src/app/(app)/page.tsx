@@ -3,6 +3,8 @@ import { requireLeague } from "@/lib/data/context";
 import { fetchAll, getMatchesBetween, getMatchupScores, getLastPlayDayPoints, getOwnership, getRoster, getSeasonPlayerPoints, getStandings, getUniversities } from "@/lib/data/queries";
 import { pickCourtSix, type CourtPlayer } from "@/lib/data/court";
 import { CourtScene } from "@/components/court-scene";
+import { TradesHome } from "@/components/trades-home";
+import { StandingsTable } from "@/components/standings-table";
 import { addDays, formatDate } from "@/lib/time";
 import { Card, Empty, Notice } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
@@ -21,13 +23,15 @@ export default async function Dashboard() {
   const week = weeks.find((w) => w.week === currentWeek);
   const team = new Map(teams.map((t) => [t.id, t]));
 
-  const [matchups, standings, unis, recentMatches, ownership, { data: offers }] = await Promise.all([
+  const [matchups, standings, unis, recentMatches, ownership, { data: offers }, { data: tradeRows }] = await Promise.all([
     currentWeek ? getMatchupScores(sb, league.id, currentWeek) : Promise.resolve([]),
     getStandings(sb, league.id, teams.map((t) => t.id)),
     getUniversities(sb),
     getMatchesBetween(sb, addDays(today, -5), today),
     getOwnership(sb, league.id),
     myTeam ? sb.from("trades").select("id").eq("receiving_team_id", myTeam.id).eq("status", "proposed") : Promise.resolve({ data: [] }),
+    sb.from("trades").select("id, proposing_team_id, receiving_team_id, status, created_at, processed_at, trade_items(player_id, to_team_id)")
+      .eq("league_id", league.id).order("created_at", { ascending: false }).limit(5),
   ]);
 
   // Top performers: points scored in this matchup week only (all of a player's games this week).
@@ -44,7 +48,10 @@ export default async function Dashboard() {
   }
   const perf = [...weekTotals.entries()].sort((x, y) => y[1].points - x[1].points).slice(0, 5)
     .map(([player_id, t]) => ({ player_id, points: t.points, games: t.games }));
-  const perfIds = (perf ?? []).map((p) => p.player_id);
+  type TradeRow = { id: string; proposing_team_id: string; receiving_team_id: string; status: string; created_at: string; processed_at: string | null; trade_items: Array<{ player_id: string; to_team_id: string }> | null };
+  const tradeList = (tradeRows ?? []) as TradeRow[];
+  const tradePlayerIds = tradeList.flatMap((t) => (t.trade_items ?? []).map((i) => i.player_id));
+  const perfIds = [...new Set([...(perf ?? []).map((p) => p.player_id), ...tradePlayerIds])];
   const [{ data: perfPlayers }, { data: perfPhotos }] = perfIds.length
     ? await Promise.all([
         sb.from("players").select("id, display_name, university_id, position_label").in("id", perfIds),
@@ -139,19 +146,22 @@ export default async function Dashboard() {
           </section>
         ) : null}
 
+        <TradesHome
+          canTrade={!!myTeam && league.settings.trades.enabled}
+          waiting={offers?.length ?? 0}
+          trades={tradeList.map((t) => ({
+            id: t.id,
+            status: t.status,
+            date: t.processed_at ?? t.created_at,
+            sides: [t.proposing_team_id, t.receiving_team_id].map((teamId) => ({
+              team: team.get(teamId),
+              gets: (t.trade_items ?? []).filter((i) => i.to_team_id === teamId).map((i) => playerById.get(i.player_id)?.display_name ?? "a player"),
+            })),
+          }))}
+        />
+
         <Card flush title="Standings" action={<Link href="/standings" className="link text-xs">Full table</Link>}>
-          <ol className="divide-y divide-gray-100">
-            {standings.slice(0, 5).map((s) => (
-              <li key={s.teamId}>
-                <Link href={`/teams/${s.teamId}`} className="flex items-center gap-3 px-4 py-2.5 text-sm active:bg-gray-50">
-                  <span className={`w-4 shrink-0 text-right text-xs font-black ${s.rank === 1 ? "text-gold-600" : "text-gray-400"}`}>{s.rank}</span>
-                  <TeamAvatar team={team.get(s.teamId)} size={26} />
-                  <span className={`min-w-0 flex-1 truncate ${s.teamId === myTeam?.id ? "font-bold text-brand-300" : "font-semibold"}`}>{team.get(s.teamId)?.name}</span>
-                  <span className="shrink-0 font-mono text-xs text-gray-500">{s.wins}-{s.losses}{s.ties ? `-${s.ties}` : ""}</span>
-                </Link>
-              </li>
-            ))}
-          </ol>
+          <StandingsTable rows={standings.slice(0, 5)} teams={team} myTeamId={myTeam?.id} />
         </Card>
 
         <Card flush title={currentWeek ? `Top performers · Week ${currentWeek}` : "Top performers"}>

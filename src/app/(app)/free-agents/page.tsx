@@ -43,7 +43,9 @@ export default async function FreeAgentsPage({ searchParams }: { searchParams: P
     .sort((a, b) => (sp.sort === "proj" ? (b.proj ?? -999) - (a.proj ?? -999) : 0) || b.pts - a.pts || a.display_name.localeCompare(b.display_name));
   const limit = league.settings.roster.TOTAL;
   const enabled = league.settings.freeAgency.enabled;
-  const myRoster = roster.map((r) => ({ id: r.playerId, name: r.name, locked: r.universityId ? locked.has(r.universityId) : false }));
+  const myRoster = roster
+    .map((r) => ({ id: r.playerId, name: r.name, locked: r.universityId ? locked.has(r.universityId) : false, photo: r.photoUrl, position: r.positionLabel, slot: r.slot, points: season.get(r.playerId)?.points ?? 0 }))
+    .sort((a, b) => Number(a.slot !== "BENCH") - Number(b.slot !== "BENCH") || a.points - b.points); // bench and low scorers first
   return (
     <>
       <PageHeader title="Free agents" subtitle={myTeam ? `Your roster ${roster.length}/${limit}` : undefined} />

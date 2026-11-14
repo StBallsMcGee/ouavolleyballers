@@ -6,6 +6,7 @@ import { autofillLineup, validateLineup, type LineupPlayer } from "@/lib/lineup/
 import { BENCH, isEligibleForSlot, slotGroup } from "@/lib/league/settings";
 import { GameLine } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
+import { PositionTile, positionText } from "@/components/position";
 import { PointsButton } from "@/components/points-breakdown";
 import type { ScoringRule } from "@/lib/scoring/engine";
 import { countedTotal, lineupDayStats, projectedTotal, type PlayerDay } from "@/lib/data/days";
@@ -127,14 +128,14 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
     const isMover = !!p && p.playerId === moving;
     return (
       <li key={p ? p.playerId : slot} className={`flex items-center gap-3 px-3 py-2.5 transition-colors duration-200 ${isMover ? "bg-brand-950/50" : ""}`}>
-        <span className={`w-8 shrink-0 text-center text-[11px] font-extrabold ${slot === BENCH ? "text-gray-400" : "text-gray-700"}`}>{slot === BENCH ? "BN" : slotGroup(slot)}</span>
+        <PositionTile label={slot === BENCH ? "BN" : slotGroup(slot)} />
         {ep ? (
           <>
             <PlayerPhoto name={ep.name} photo={ep.photoUrl} size={42} />
             <div className="min-w-0 flex-1">
               <Link href={`/players/${ep.playerId}`} className="block truncate text-[15px] font-bold leading-tight hover:underline">{ep.name}</Link>
               <div className="truncate text-[12px] text-gray-500">
-                <span className="font-semibold text-gray-700">{ep.universityCode}</span> · {ep.positionLabel ?? "–"}
+                <span className="font-semibold text-gray-700">{ep.universityCode}</span> · <span className={`font-bold ${positionText(ep.positionLabel)}`}>{ep.positionLabel ?? "–"}</span>
               </div>
               <div className="mt-0.5 text-[12px] leading-snug"><GameLine chips={d.games} compact /></div>
               {editable && !moving ? (
