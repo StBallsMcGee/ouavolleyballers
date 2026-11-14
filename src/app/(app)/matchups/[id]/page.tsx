@@ -9,6 +9,7 @@ import { slotGroup } from "@/lib/league/settings";
 import { formatDate, parseDay } from "@/lib/time";
 import { MatchupStatus, Notice } from "@/components/ui";
 import { TeamAvatar } from "@/components/team-avatar";
+import { CourtLines } from "@/components/court";
 import { MatchupDays, type MatchupDay, type SidePlayer } from "@/components/matchup-days";
 import { rulesForWeek, weekBreakdowns } from "@/lib/data/breakdowns";
 
@@ -125,7 +126,9 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
   return (
     <>
       <div className="relative mx-3 mt-1 overflow-hidden rounded-3xl bg-gradient-to-br from-[#a28eff] via-[#7f86ff] to-[#4f74ea] px-4 pb-5 pt-3 text-white shadow-xl shadow-black/40 sm:mx-0 sm:mt-4">
-        <div className="mb-3 flex items-center justify-between gap-2 text-[11px] font-bold uppercase tracking-wide text-brand-200">
+        {/* A volleyball court behind the scoreboard. */}
+        <CourtLines className="pointer-events-none absolute inset-x-2 inset-y-3 h-[calc(100%-1.5rem)] w-[calc(100%-1rem)] opacity-30" floor="rgba(255,255,255,0.06)" />
+        <div className="relative mb-3 flex items-center justify-between gap-2 text-[11px] font-bold uppercase tracking-wide text-brand-200">
           <span className="flex items-center gap-2">
             {m.week > 1 ? <Link href={`/matchups?week=${m.week - 1}`} className="text-brand-300" aria-label="Previous week">‹</Link> : null}
             Week {m.week}{weekInfo ? ` · ${formatDate(weekInfo.starts_on, { month: "short", day: "numeric" })}–${formatDate(weekInfo.ends_on, { month: "short", day: "numeric" })}` : ""}
@@ -133,7 +136,7 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
           </span>
           <MatchupStatus status={m.status} source={m.score_source} />
         </div>
-        <div className="flex items-start gap-3">
+        <div className="relative flex items-start gap-3">
           <ScoreSide teamId={m.home_team_id} score={m.home_score} align="left" projected={homeProj} />
           <span className="pt-14 text-xs font-black text-gold-400">VS</span>
           <ScoreSide teamId={m.away_team_id} score={m.away_score} align="right" projected={awayProj} />

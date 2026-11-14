@@ -49,3 +49,17 @@ details[open] > :not(summary) { animation: grow .2s cubic-bezier(.2,.8,.2,1) bot
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* Home court scene: players drift around their side; the ball flies over the net. */
+.vb-player { animation-timing-function: ease-in-out; animation-iteration-count: infinite; animation-direction: alternate; }
+@keyframes vb-drift-1 { 0% { transform: translate(-50%, -50%); } 50% { transform: translate(calc(-50% + 7px), calc(-50% - 6px)); } 100% { transform: translate(calc(-50% - 5px), calc(-50% + 5px)); } }
+@keyframes vb-drift-2 { 0% { transform: translate(calc(-50% + 4px), -50%); } 50% { transform: translate(calc(-50% - 6px), calc(-50% + 6px)); } 100% { transform: translate(calc(-50% + 3px), calc(-50% - 7px)); } }
+@keyframes vb-drift-3 { 0% { transform: translate(-50%, calc(-50% + 5px)); } 50% { transform: translate(calc(-50% + 5px), calc(-50% + 1px)); } 100% { transform: translate(calc(-50% - 7px), calc(-50% - 4px)); } }
+.vb-ball { animation: vb-ball 3.2s ease-in-out infinite; }
+@keyframes vb-ball {
+  0%   { left: 22%; top: 70%; }
+  22%  { left: 40%; top: 30%; }
+  50%  { left: 75%; top: 38%; }
+  72%  { left: 60%; top: 72%; }
+  100% { left: 22%; top: 70%; }
+}

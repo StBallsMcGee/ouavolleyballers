@@ -8,7 +8,7 @@ import { GameLine } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
 import { PointsButton } from "@/components/points-breakdown";
 import type { ScoringRule } from "@/lib/scoring/engine";
-import { countedTotal, projectedTotal, type PlayerDay } from "@/lib/data/days";
+import { countedTotal, lineupDayStats, projectedTotal, type PlayerDay } from "@/lib/data/days";
 
 export interface EditorPlayer extends LineupPlayer {
   positionLabel: string | null;
@@ -199,6 +199,16 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
           <span>{dayLabel} · {fmt(dayTotal)}{dayProj > 0 ? <span className="font-bold normal-case text-gray-400"> · proj {fmt(dayTotal + dayProj)}</span> : null}</span>
         </div>
         <ul className="divide-y divide-gray-100">{slots.map((s) => row(s, occupant(s)))}</ul>
+        {(() => {
+          const st = lineupDayStats(slots.flatMap((s) => { const o = occupant(s); return o ? [byId.get(o.playerId)?.byDay[day] ?? NO_DAY] : []; }));
+          return (
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 rounded-b-2xl border-t border-gray-100 bg-surface-2 px-3 py-2 text-[11px] text-gray-500">
+              <span><b className="text-gray-900">{st.playing}</b> playing {isToday ? "today" : "this day"}</span>
+              <span><b className="text-gray-900">{st.left}</b> left to play</span>
+              <span><b className="text-gold-300">{fmt(dayTotal)}</b> daily total</span>
+            </div>
+          );
+        })()}
       </section>
 
       <section className="mx-3 rounded-2xl bg-surface shadow-lg shadow-black/20 sm:mx-0">

@@ -4,7 +4,7 @@ import { DayStrip, useDaySwitch } from "@/components/day-strip";
 import { GameLine } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
 import { PointsButton } from "@/components/points-breakdown";
-import type { DayTab, PlayerDay } from "@/lib/data/days";
+import { lineupDayStats, type DayTab, type PlayerDay } from "@/lib/data/days";
 import type { ScoringRule } from "@/lib/scoring/engine";
 
 export interface SidePlayer {
@@ -92,6 +92,23 @@ export function MatchupDays({
               </li>
             ))}
           </ul>
+          {d && !(day < today && d.starters.every((s) => !s.home && !s.away)) ? (() => {
+            const h = lineupDayStats(d.starters.flatMap((s) => (s.home ? [s.home.day] : [])));
+            const a = lineupDayStats(d.starters.flatMap((s) => (s.away ? [s.away.day] : [])));
+            const line = (x: { playing: number; left: number }, total: number) => (
+              <>
+                <span><b className="text-gray-900">{x.playing}</b> playing</span>
+                <span><b className="text-gray-900">{x.left}</b> left to play</span>
+                <span><b className="text-gold-300">{imported ? "–" : total.toFixed(1)}</b> today</span>
+              </>
+            );
+            return (
+              <div className="grid grid-cols-2 gap-2 rounded-b-2xl border-t border-gray-100 bg-surface-2 px-3 py-2 text-[11px] text-gray-500">
+                <div className="flex flex-wrap gap-x-2 gap-y-0.5">{line(h, d.homeTotal)}</div>
+                <div className="flex flex-wrap justify-end gap-x-2 gap-y-0.5 text-right">{line(a, d.awayTotal)}</div>
+              </div>
+            );
+          })() : null}
         </section>
         {d && benchRows > 0 ? (
           <section className="mx-3 rounded-2xl bg-surface shadow-lg shadow-black/20 sm:mx-0">
