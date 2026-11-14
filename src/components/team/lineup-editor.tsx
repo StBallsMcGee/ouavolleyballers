@@ -110,8 +110,11 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
     });
   }
 
+  // After a trade a roster can be over the limit: the lineup is frozen until players are dropped.
+  const overBy = editable && !isPast ? players.length - rosterLimit : 0;
   const actionCell = (slot: string, p: LineupPlayer | undefined) => {
     if (!editable) return null;
+    if (overBy > 0) return <span className="grid w-16 place-items-center text-sm text-gray-400" title="Drop players to change your lineup">🔒</span>;
     if (moving) {
       if (p && p.playerId === moving) return <button className="w-16 rounded-full border border-gray-300 py-1.5 text-[11px] font-extrabold text-gray-600" onClick={() => setMoving(null)}>CANCEL</button>;
       if (canDrop(slot)) return <button className="w-16 animate-pop rounded-full bg-brand-500 py-1.5 text-[11px] font-extrabold text-white" onClick={() => moveTo(slot)}>HERE</button>;
@@ -182,7 +185,12 @@ export function LineupEditor({ teamId, players, slots, editable, rosterLimit, ru
 
   return (
     <div className="space-y-3 pb-16">
-      {editable && (moving || isToday || planDate) ? (
+      {overBy > 0 ? (
+        <div className="mx-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:mx-0" role="alert">
+          <b>Roster over the limit ({players.length}/{rosterLimit}).</b> Drop {overBy === 1 ? "a player" : `${overBy} players`} to change your lineup again; until then it stays as it is.
+        </div>
+      ) : null}
+      {editable && overBy <= 0 && (moving || isToday || planDate) ? (
         <div className="flex items-center gap-2 px-4 sm:px-0">
           {moving ? <span className="min-w-0 animate-fade-in truncate text-xs font-semibold text-brand-300">Tap HERE to move {byId.get(moving)?.name}</span> : <button className="btn-secondary min-h-[34px] px-3 py-1 text-xs" onClick={autofill} disabled={pending}>Start active players</button>}
         </div>
