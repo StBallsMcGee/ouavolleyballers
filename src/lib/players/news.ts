@@ -1,5 +1,7 @@
 /**
  * The weekly "News" write-up on a player's page, in the voice of a sports reporter.
+ * Claude writes the published stories from `newsFacts` (src/lib/news/writer.ts); the template
+ * below is the fallback when no API key is set.
  * Built only from our own statistics and match results for the most recent completed fantasy
  * week (Monday–Sunday), so it changes over at league midnight between Sunday and Monday.
  * Nothing is invented: every number in the text comes from the inputs.
@@ -28,6 +30,8 @@ export interface NewsInput {
   week: NewsGame[];
   /** Her earlier games this season (before that week), newest first. */
   before: NewsGame[];
+  /** The coming week, for a closing outlook (optional). */
+  next?: { matches: number; opponents: string[]; projPerGame: number | null } | null;
 }
 
 export interface NewsStory {
@@ -62,12 +66,12 @@ function picker(seed: string) {
   };
 }
 
-function hittingPct(gs: readonly NewsGame[]): number | null {
+export function hittingPct(gs: readonly NewsGame[]): number | null {
   const ta = total(gs, "attack_attempts");
   if (ta < 10) return null;
   return (total(gs, "kills") - total(gs, "attack_errors")) / ta;
 }
-const fmtPct = (v: number) => (v < 0 ? "-" : "") + "." + String(Math.round(Math.abs(v) * 1000)).padStart(3, "0");
+export const fmtPct = (v: number) => (v < 0 ? "-" : "") + "." + String(Math.round(Math.abs(v) * 1000)).padStart(3, "0");
 
 /** The headline stat for her role, per game. */
 function keyStat(role: Role): { key: keyof StatLine | "blocks"; word: string; many: string } {
@@ -93,10 +97,11 @@ function resultPhrase(g: NewsGame, pick: ReturnType<typeof picker>): string | nu
   return `a ${g.setsAgainst}-${g.setsFor} loss to ${g.opponent}`;
 }
 
-export function buildWeeklyNews(input: NewsInput): NewsStory | null {
+/** The template version (used when Claude isn't set up). `salt` gives a different wording. */
+export function buildWeeklyNews(input: NewsInput, salt = ""): NewsStory | null {
   const { week, before } = input;
   if (week.length === 0) return null;
-  const pick = picker(`${input.playerId}|${input.weekLabel}`);
+  const pick = picker(`${input.playerId}|${input.weekLabel}|${salt}`);
   const role = roleOf(input.position);
   const ks = keyStat(role);
   const last = input.lastName;
@@ -208,10 +213,18 @@ export function buildWeeklyNews(input: NewsInput): NewsStory | null {
     ? `In fantasy terms, that's ${one(pts)} points (${one(ppg)} per match), ${hot ? `well above her ${one(prevPpg)} average and a strong week for her managers` : cold ? `below her ${one(prevPpg)} average` : Math.abs(ppg - prevPpg) <= prevPpg * 0.1 ? `right around her ${one(prevPpg)} average` : ppg > prevPpg ? `a bit better than her ${one(prevPpg)} average` : `a little under her ${one(prevPpg)} average`}.`
     : `Fantasy managers banked ${one(pts)} points from her this week.`;
 
+  const nx = input.next;
+  const outlook = !nx ? "" : nx.matches === 0
+    ? pick(["Her team has the coming week off.", "Next up is a bye week, so she'll be idle."])
+    : `${pick(["Next up:", "Coming up,", "On deck:"])} ${nx.matches === 1 ? "a date with" : `${nx.matches} matches, against`} ${listAnd([...new Set(nx.opponents)])}${nx.projPerGame !== null ? `, where she projects to about ${one(nx.projPerGame)} fantasy points per match` : ""}.`;
   return {
     headline,
-    paragraphs: [lead, [...second, ...trend].join(" "), fantasy].filter((x) => x.trim()),
+    paragraphs: [lead, [...second, ...trend].join(" "), [fantasy, outlook].filter(Boolean).join(" ")].filter((x) => x.trim()),
   };
+}
+
+function listAnd(xs: string[]): string {
+  return xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}` : xs[0] ?? "";
 }
 
 function possessive(name: string): string {
