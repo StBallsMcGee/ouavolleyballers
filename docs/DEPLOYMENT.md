@@ -256,3 +256,25 @@ the seeded bracket for you to create, one round at a time.
   what it was before and after, and when.
 - Every import keeps a copy of the source data (with the league password removed) in the
   `source_snapshots` table.
+
+## Player news stories
+
+Each player's page has a weekly news story about the week that just ended. Stories are written
+by Claude shortly after midnight Sunday (`/api/cron/news`) and saved, so they never change later.
+
+1. Create an API key at https://console.anthropic.com (Settings → API keys) and add it in Vercel as
+   `ANTHROPIC_API_KEY` (Production), then redeploy. Without it, simpler template stories are used.
+2. Run `supabase/migrations/20261116000100_player_news.sql`. It schedules the writer automatically,
+   using the same address and secret as the `sideout-live` job. To schedule it by hand instead:
+
+```sql
+select cron.schedule('sideout-news', '*/2 4-11 * * 1', $$
+  select net.http_get(
+    url := 'https://YOUR-SITE/api/cron/news',
+    headers := jsonb_build_object('Authorization', 'Bearer ' ||
+      (select decrypted_secret from vault.decrypted_secrets where name = 'sideout_cron_secret')),
+    timeout_milliseconds := 60000);
+$$);
+```
+
+Cost: roughly one short request per player per week (a few dollars a week for the whole league).

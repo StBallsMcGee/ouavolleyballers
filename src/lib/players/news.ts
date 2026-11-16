@@ -1,5 +1,7 @@
 /**
  * The weekly "News" write-up on a player's page, in the voice of a sports reporter.
+ * Claude writes the published stories from `newsFacts` (src/lib/news/writer.ts); the template
+ * below is the fallback when no API key is set.
  * Built only from our own statistics and match results for the most recent completed fantasy
  * week (Monday–Sunday), so it changes over at league midnight between Sunday and Monday.
  * Nothing is invented: every number in the text comes from the inputs.
@@ -62,12 +64,12 @@ function picker(seed: string) {
   };
 }
 
-function hittingPct(gs: readonly NewsGame[]): number | null {
+export function hittingPct(gs: readonly NewsGame[]): number | null {
   const ta = total(gs, "attack_attempts");
   if (ta < 10) return null;
   return (total(gs, "kills") - total(gs, "attack_errors")) / ta;
 }
-const fmtPct = (v: number) => (v < 0 ? "-" : "") + "." + String(Math.round(Math.abs(v) * 1000)).padStart(3, "0");
+export const fmtPct = (v: number) => (v < 0 ? "-" : "") + "." + String(Math.round(Math.abs(v) * 1000)).padStart(3, "0");
 
 /** The headline stat for her role, per game. */
 function keyStat(role: Role): { key: keyof StatLine | "blocks"; word: string; many: string } {
@@ -93,10 +95,11 @@ function resultPhrase(g: NewsGame, pick: ReturnType<typeof picker>): string | nu
   return `a ${g.setsAgainst}-${g.setsFor} loss to ${g.opponent}`;
 }
 
-export function buildWeeklyNews(input: NewsInput): NewsStory | null {
+/** The template version (used when Claude isn't set up). `salt` gives a different wording. */
+export function buildWeeklyNews(input: NewsInput, salt = ""): NewsStory | null {
   const { week, before } = input;
   if (week.length === 0) return null;
-  const pick = picker(`${input.playerId}|${input.weekLabel}`);
+  const pick = picker(`${input.playerId}|${input.weekLabel}|${salt}`);
   const role = roleOf(input.position);
   const ks = keyStat(role);
   const last = input.lastName;

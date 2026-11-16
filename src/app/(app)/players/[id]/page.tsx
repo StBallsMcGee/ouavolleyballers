@@ -80,7 +80,10 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   const newsWeek = doneWeeks.find((w) => current.some((r) => r.date >= w.starts_on && r.date <= w.ends_on)) ?? null;
   const uniShort = (uid: string | null) => (uid ? unis.get(uid)?.short_name ?? unis.get(uid)?.name ?? "?" : "?");
   const toNews = (r: Row): NewsGame => ({ date: r.date, opponent: uniShort(r.opp), setsFor: r.setsFor, setsAgainst: r.setsAgainst, sets: r.sets, line: r.line, points: r.pts });
-  const news = newsWeek ? buildWeeklyNews({
+  const { data: saved } = newsWeek
+    ? await sb.from("player_news").select("headline, paragraphs").eq("league_id", league.id).eq("player_id", id).eq("week", newsWeek.week).maybeSingle()
+    : { data: null };
+  const news = saved ? { headline: saved.headline as string, paragraphs: saved.paragraphs as string[] } : newsWeek ? buildWeeklyNews({
     playerId: id,
     firstName: p.first_name,
     lastName: p.last_name,
@@ -177,7 +180,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
             </p>
             {news.paragraphs.map((t, i) => <p key={i} className="mt-2 text-[15px] leading-relaxed text-gray-800">{t}</p>)}
           </article>
-          <p className="mt-3 text-[11px] text-gray-400">Written from her box scores. A new story posts after each week ends, at midnight Sunday.</p>
+          <p className="mt-3 text-[11px] text-gray-400">Written from her box scores{saved ? "" : " (a full story is on its way)"}. A new story posts after each week ends, at midnight Sunday.</p>
         </Card>
       ) : null}
       {rows.length > 0 || proj ? (
