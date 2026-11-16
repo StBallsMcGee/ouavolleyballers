@@ -153,7 +153,7 @@ export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; par
           and m.status = 'final'`,
       [league.id, league.season_label, wk.ends_on]);
     const { rows: unis } = await pool.query<{ id: string; name: string; short_name: string | null }>(`select id, name, short_name from public.universities`);
-    const uniName = new Map(unis.map((u) => [u.id, u.short_name ?? u.name]));
+    const uniName = new Map(unis.map((u) => [u.id, u.name])); // full names ("Lakehead", not "LU") so stories read naturally
     const { rows: existing } = await pool.query<{ player_id: string; week: number; headline: string; first: string | null }>(
       `select player_id, week, headline, paragraphs->>0 as first from public.player_news where league_id = $1 and week >= $2 - 3`, [league.id, wk.week]);
     const done = new Set(existing.filter((e) => e.week === wk.week).map((e) => e.player_id));
