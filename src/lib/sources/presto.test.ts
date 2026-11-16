@@ -25,4 +25,12 @@ describe("parsePrestoRoster", () => {
     });
     expect(r[1]?.photoUrl).toBe("https://example.ca/sports/wvball/2026-27/bios/9.jpg");
   });
+
+  it("takes photos from the photos folder and skips the default silhouette", () => {
+    const html = card(1, "Jane", "Sample", true).replace("2026-27/bios/1.jpg", "2025-26/photos/0001/hs_jane_sample.jpg")
+      + card(2, "Ann", "Example", false).replace("/sports/wvball/2026-27/bios/2.jpg", "/images/setup/default-headshot.png");
+    const r = parsePrestoRoster(html, "https://example.ca/sports/wvball/2026-27/roster?view=headshot");
+    expect(r[0]?.photoUrl).toBe("https://example.ca/sports/wvball/2025-26/photos/0001/hs_jane_sample.jpg");
+    expect(r[1]?.photoUrl).toBeNull();
+  });
 });

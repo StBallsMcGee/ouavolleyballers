@@ -47,9 +47,10 @@ export function parsePrestoRoster(html: string, baseUrl: string): RosterProfile[
     const alt = textOf(block.match(/alt="([^"]*?) bio photo"/i)?.[1]);
     const name = [first, last].filter(Boolean).join(" ") || alt;
     if (!name) continue;
-    const img =
-      block.match(/<img[^>]*src="([^"]*\/bios\/[^"]+)"/i)?.[1] ??
-      block.match(/background-image:\s*url\('([^']*\/bios\/[^']+)'\)/i)?.[1];
+    // The player's own headshot: any image of this sport's photos or bios (not the default silhouette).
+    const img = [...block.matchAll(/(?:<img[^>]*src="|background-image:\s*url\(')([^"']+)/gi)]
+      .map((m) => m[1]!)
+      .find((u) => /\/sports\/[^/]+\/[^/]+\/(?:bios|photos)\//i.test(u) && /\.(?:jpe?g|png|webp)/i.test(u) && !/default|placeholder|silhouette/i.test(u));
     const jersey = Number.parseInt(textOf(block.match(/class="number[^"]*"[^>]*>([\s\S]*?)<\/span>/i)?.[1])?.replace("#", "") ?? "", 10);
     const field = (label: string) => textOf(block.match(new RegExp(`<span class="fw-bold">${label}:</span>([\\s\\S]*?)</li>`, "i"))?.[1]);
     const profileUrl = abs(block.match(/href="([^"]*\/bios\/[^"?#]+)"[^>]*full-bio/i)?.[1] ?? block.match(/href="([^"]*\/bios\/[^"?#.]+)"/i)?.[1], baseUrl);
