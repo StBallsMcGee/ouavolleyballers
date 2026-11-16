@@ -9,27 +9,40 @@ import type { NewsStory } from "@/lib/players/news";
 
 export class GeminiRateLimited extends Error {}
 
-let chosenModel: string | null = null;
+let candidates: string[] | null = null;
 
-/** The newest stable Flash text model available to this key (falls back to a known name). */
-export async function pickGeminiModel(ai: GoogleGenAI): Promise<string> {
-  if (process.env.GEMINI_MODEL) return process.env.GEMINI_MODEL;
-  if (chosenModel) return chosenModel;
-  let best = "gemini-2.5-flash";
+/**
+ * Models to try, best first: GEMINI_MODEL if set, then the stable Flash models this key can use
+ * (newest first), then the Flash-Lite ones. When one is overloaded the next is tried.
+ */
+export async function geminiModels(ai: GoogleGenAI): Promise<string[]> {
+  if (candidates) return candidates;
+  const list: string[] = [];
+  if (process.env.GEMINI_MODEL) list.push(process.env.GEMINI_MODEL);
   try {
     const pager = await ai.models.list({ config: { pageSize: 200 } });
     const names = pager.page
       .filter((m) => (m.supportedActions ?? []).includes("generateContent"))
-      .map((m) => (m.name ?? "").replace(/^models\//, ""))
-      .filter((n) => /^gemini-\d+(\.\d+)?-flash$/.test(n)); // stable Flash only: no lite, preview, image or audio variants
+      .map((m) => (m.name ?? "").replace(/^models\//, ""));
     const version = (n: string) => Number.parseFloat(n.split("-")[1] ?? "0");
-    names.sort((a, b) => version(b) - version(a));
-    if (names[0]) best = names[0];
+    const pick = (re: RegExp) => names.filter((n) => re.test(n)).sort((a, b) => version(b) - version(a));
+    list.push(...pick(/^gemini-\d+(\.\d+)?-flash$/), ...pick(/^gemini-\d+(\.\d+)?-flash-lite$/));
   } catch {
-    // Listing failed: use the known name.
+    // Listing failed: use known names.
   }
-  chosenModel = best;
-  return best;
+  if (!list.length) list.push("gemini-2.5-flash", "gemini-2.5-flash-lite");
+  candidates = [...new Set(list)];
+  return candidates;
+}
+
+/** Forget the model list (tests). */
+export function resetGeminiModels(): void {
+  candidates = null;
+}
+
+/** The model the next story will use first (for reporting). */
+export async function pickGeminiModel(ai: GoogleGenAI): Promise<string> {
+  return (await geminiModels(ai))[0]!;
 }
 
 const STORY_SCHEMA = {
@@ -41,8 +54,27 @@ const STORY_SCHEMA = {
   required: ["headline", "paragraphs"],
 };
 
+const overloaded = (e: unknown) => e instanceof ApiError && (e.status === 503 || e.status === 500 || e.status === 504);
+
 export async function writeWithGemini(ai: GoogleGenAI, styleGuide: string, prompt: string): Promise<NewsStory | null> {
-  const model = await pickGeminiModel(ai);
+  const models = await geminiModels(ai);
+  let lastError: unknown = null;
+  // Each model gets two tries (a short pause between); an overloaded model hands over to the next.
+  for (const model of models.slice(0, 3)) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await writeOnce(ai, model, styleGuide, prompt);
+      } catch (e) {
+        if (!overloaded(e)) throw e;
+        lastError = e;
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 2500));
+      }
+    }
+  }
+  throw lastError;
+}
+
+async function writeOnce(ai: GoogleGenAI, model: string, styleGuide: string, prompt: string): Promise<NewsStory | null> {
   try {
     const res = await ai.models.generateContent({
       model,

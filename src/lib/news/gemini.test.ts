@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError, type GoogleGenAI } from "@google/genai";
-import { GeminiRateLimited, writeWithGemini } from "./gemini";
+import { GeminiRateLimited, resetGeminiModels, writeWithGemini } from "./gemini";
 
 process.env.GEMINI_MODEL = "test-model";
 const fakeAi = (reply: () => unknown) => ({ models: { generateContent: async () => reply() } }) as unknown as GoogleGenAI;
@@ -18,4 +18,26 @@ describe("writeWithGemini", () => {
     const ai = fakeAi(() => { throw new ApiError({ message: "quota", status: 429 }); });
     await expect(writeWithGemini(ai, "guide", "prompt")).rejects.toBeInstanceOf(GeminiRateLimited);
   });
+});
+
+describe("writeWithGemini when a model is overloaded", () => {
+  it("moves on to the next model", async () => {
+    const used: string[] = [];
+    const ai = { models: {
+      list: async () => ({ page: [
+        { name: "models/gemini-9-flash", supportedActions: ["generateContent"] },
+        { name: "models/gemini-9-flash-lite", supportedActions: ["generateContent"] },
+      ] }),
+      generateContent: async ({ model }: { model: string }) => {
+        used.push(model);
+        if (model === "gemini-9-flash") throw new ApiError({ message: "high demand", status: 503 });
+        return { text: JSON.stringify({ headline: "Fine", paragraphs: ["Ok."] }) };
+      },
+    } } as unknown as GoogleGenAI;
+    delete process.env.GEMINI_MODEL;
+    resetGeminiModels();
+    const s = await writeWithGemini(ai, "g", "p");
+    expect(s?.headline).toBe("Fine");
+    expect(used).toEqual(["gemini-9-flash", "gemini-9-flash", "gemini-9-flash-lite"]);
+  }, 10_000);
 });

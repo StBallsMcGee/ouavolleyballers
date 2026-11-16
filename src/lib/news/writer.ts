@@ -117,6 +117,8 @@ export interface NewsRunResult {
   written: number;
   byAi: number;
   writer: "claude" | "gemini" | "template";
+  /** The stories written in this run (so a run can be checked). */
+  stories: Array<{ player: string; headline: string; paragraphs: string[] }>;
   byTemplate: number;
   remaining: number;
   errors: string[];
@@ -125,7 +127,7 @@ export interface NewsRunResult {
 /** Writes any missing stories for the most recent completed week, until the deadline. */
 export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; parallel?: number; maxStories?: number; writer?: StoryWriter | null; today?: string }): Promise<NewsRunResult> {
   const writer = opts.writer !== undefined ? opts.writer : defaultWriter();
-  const result: NewsRunResult = { league: null, week: null, due: 0, written: 0, byAi: 0, byTemplate: 0, remaining: 0, errors: [], writer: writer?.by ?? "template" };
+  const result: NewsRunResult = { league: null, week: null, due: 0, written: 0, byAi: 0, byTemplate: 0, remaining: 0, errors: [], writer: writer?.by ?? "template", stories: [] };
   let stop = false;
   const { rows: leagues } = await pool.query<{ id: string; season_label: string; timezone: string }>(
     `select id, season_label, timezone from public.leagues where status in ('setup', 'active') order by created_at`);
@@ -232,7 +234,7 @@ export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; par
         if (writer) {
           try {
             const s = await writer.write(newsFacts(input, extra), { usedHeadlines, herPrevious: previousOf.get(pid) ?? [] });
-            if (s) return { pid, story: s, by: writer.by };
+            if (s) return { pid, name: `${first.first_name} ${first.last_name}`, story: s, by: writer.by };
           } catch (e) {
             result.errors.push(`${first.last_name}: ${(e as Error).message.slice(0, 160)}`);
             // Rate limit, bad key, outage: stop for now; the next scheduled run carries on.
@@ -240,7 +242,7 @@ export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; par
           }
           return null;
         }
-        return { pid, story: templateStory(input, usedHeadlines), by: "template" as const };
+        return { pid, name: `${first.first_name} ${first.last_name}`, story: templateStory(input, usedHeadlines), by: "template" as const };
       }));
       for (const s of stories) {
         if (!s?.story) continue;
@@ -249,6 +251,7 @@ export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; par
            values ($1, $2, $3, $4, $5::jsonb, $6) on conflict (league_id, player_id, week) do nothing`,
           [league.id, s.pid, wk.week, s.story.headline, JSON.stringify(s.story.paragraphs), s.by]);
         usedHeadlines.push(s.story.headline);
+        result.stories.push({ player: s.name, headline: s.story.headline, paragraphs: s.story.paragraphs });
         result.written++;
         if (s.by === "template") result.byTemplate++; else result.byAi++;
       }
