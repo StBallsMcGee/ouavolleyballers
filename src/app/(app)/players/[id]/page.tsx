@@ -4,6 +4,7 @@ import { requireLeague } from "@/lib/data/context";
 import { getMatchesBetween, getOwnership, getProjections, getRuleSets, getSeasonPlayerPoints, getUniversities, ruleSetInForce } from "@/lib/data/queries";
 import { PointSources, TrendChart } from "@/components/player-analytics";
 import { buildBlurb, yearLabel } from "@/lib/players/blurb";
+import { buildWeeklyNews, type NewsGame } from "@/lib/players/news";
 import { statSummary } from "@/lib/players/format";
 import { PlayerPhoto } from "@/components/player-photo";
 import { scoreStatLine, STAT_SHORT, CORE_STAT_KEYS, type StatLine } from "@/lib/scoring/engine";
@@ -20,7 +21,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   const [unis, owner, { data: stats }, { data: leaguePts }, ruleSets, { data: profile }, seasonPts, { data: teammates }, projections, { data: positions }, upcoming] = await Promise.all([
     getUniversities(sb),
     getOwnership(sb, league.id),
-    sb.from("player_match_statistics").select("*, matches(id, match_date, season_label, home_university_id, away_university_id, status)").eq("player_id", id),
+    sb.from("player_match_statistics").select("*, matches(id, match_date, season_label, home_university_id, away_university_id, home_sets, away_sets, status)").eq("player_id", id),
     sb.from("v_player_match_points").select("match_id, points, week").eq("player_id", id).eq("league_id", league.id),
     getRuleSets(sb, league.id),
     sb.from("player_profiles").select("*").eq("player_id", id).maybeSingle(),
@@ -32,9 +33,10 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   ]);
   const official = new Map((leaguePts ?? []).map((r) => [r.match_id, r]));
   const latestRules = ruleSetInForce(ruleSets, ctx.currentWeek ?? 1)?.rules.map((r) => ({ statKey: r.stat_key, label: r.label, points: r.points, active: r.active })) ?? [];
-  type Row = { id: string; date: string; season: string; opp: string | null; line: StatLine; sets: number | null; pts: number; official: boolean };
+  type Row = { id: string; date: string; season: string; opp: string | null; line: StatLine; sets: number | null; pts: number; official: boolean; setsFor: number | null; setsAgainst: number | null };
   const rows: Row[] = (stats ?? []).map((s) => {
-    const m = s.matches as { id: string; match_date: string; season_label: string; home_university_id: string; away_university_id: string };
+    const m = s.matches as { id: string; match_date: string; season_label: string; home_university_id: string; away_university_id: string; home_sets: number | null; away_sets: number | null };
+    const home = m.home_university_id === p.university_id;
     const line: StatLine = Object.fromEntries(CORE_STAT_KEYS.map((k) => [k, s[k] as number]));
     const o = official.get(m.id);
     return {
@@ -46,6 +48,8 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
       sets: s.sets_played,
       pts: o ? Number(o.points) : scoreStatLine(line, latestRules),
       official: !!o,
+      setsFor: home ? m.home_sets : m.away_sets,
+      setsAgainst: home ? m.away_sets : m.home_sets,
     };
   }).sort((a, b) => b.date.localeCompare(a.date));
   const seasons = [...new Set(rows.map((r) => r.season))];
@@ -71,6 +75,21 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
       : null,
     teamRank: rankIdx >= 0 && (seasonPts.get(id)?.points ?? 0) > 0 ? { rank: rankIdx + 1, of: ranked.length } : null,
   });
+  // ---- News: a write-up of her most recent completed week (changes over at midnight Sunday) ----
+  const doneWeeks = ctx.weeks.filter((w) => w.ends_on < ctx.today).sort((a, b) => b.week - a.week);
+  const newsWeek = doneWeeks.find((w) => current.some((r) => r.date >= w.starts_on && r.date <= w.ends_on)) ?? null;
+  const uniShort = (uid: string | null) => (uid ? unis.get(uid)?.short_name ?? unis.get(uid)?.name ?? "?" : "?");
+  const toNews = (r: Row): NewsGame => ({ date: r.date, opponent: uniShort(r.opp), setsFor: r.setsFor, setsAgainst: r.setsAgainst, sets: r.sets, line: r.line, points: r.pts });
+  const news = newsWeek ? buildWeeklyNews({
+    playerId: id,
+    firstName: p.first_name,
+    lastName: p.last_name,
+    position: p.position_label,
+    school: uniShort(p.university_id),
+    weekLabel: `Week ${newsWeek.week}`,
+    week: current.filter((r) => r.date >= newsWeek.starts_on && r.date <= newsWeek.ends_on).sort((a, b) => a.date.localeCompare(b.date)).map(toNews),
+    before: current.filter((r) => r.date < newsWeek.starts_on).map(toNews),
+  }) : null;
   const facts = [
     ["Position", profile?.position_label ?? p.position_label],
     ["Height", profile?.height],
@@ -149,6 +168,18 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
         ) : null}
       </div>
       <div className="mt-3 space-y-3">
+      {news && newsWeek ? (
+        <Card title={`News · Week ${newsWeek.week}`}>
+          <article>
+            <h2 className="text-lg font-extrabold leading-snug text-gold-300">{news.headline}</h2>
+            <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+              {formatDate(newsWeek.starts_on, { month: "short", day: "numeric" })} – {formatDate(newsWeek.ends_on, { month: "short", day: "numeric" })} · Sideout wire
+            </p>
+            {news.paragraphs.map((t, i) => <p key={i} className="mt-2 text-[15px] leading-relaxed text-gray-800">{t}</p>)}
+          </article>
+          <p className="mt-3 text-[11px] text-gray-400">Written from her box scores. A new story posts after each week ends, at midnight Sunday.</p>
+        </Card>
+      ) : null}
       {rows.length > 0 || proj ? (
         <Card title="Outlook">
           <div className="grid grid-cols-3 gap-2">
