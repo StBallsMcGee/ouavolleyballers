@@ -68,12 +68,12 @@ export interface StoryWriter {
   by: "claude" | "gemini";
   parallel: number;
   gapMs: number;
-  write: (facts: string, avoid: Avoid) => Promise<NewsStory | null>;
+  write: (facts: string, avoid: Avoid, deadline: number) => Promise<NewsStory | null>;
 }
 
 export function geminiWriter(ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })): StoryWriter {
   // Free tier: roughly 10 requests a minute, so one at a time, about 6.5 seconds apart.
-  return { by: "gemini", parallel: 1, gapMs: 6500, write: (facts, avoid) => writeWithGemini(ai, STYLE_GUIDE, storyPrompt(facts, avoid)) };
+  return { by: "gemini", parallel: 1, gapMs: 6500, write: (facts, avoid, deadline) => writeWithGemini(ai, STYLE_GUIDE, storyPrompt(facts, avoid), deadline) };
 }
 
 export function claudeWriter(client = new Anthropic()): StoryWriter {
@@ -233,7 +233,7 @@ export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; par
         input.next = extra.nextWeek ? { matches: extra.nextWeek.matches.length, opponents: extra.nextWeek.matches.map((m) => m.opponent), projPerGame: extra.projection?.perGame ?? null } : null;
         if (writer) {
           try {
-            const s = await writer.write(newsFacts(input, extra), { usedHeadlines, herPrevious: previousOf.get(pid) ?? [] });
+            const s = await writer.write(newsFacts(input, extra), { usedHeadlines, herPrevious: previousOf.get(pid) ?? [] }, opts.deadline);
             if (s) return { pid, name: `${first.first_name} ${first.last_name}`, story: s, by: writer.by };
           } catch (e) {
             result.errors.push(`${first.last_name}: ${(e as Error).message.slice(0, 160)}`);
