@@ -12,11 +12,17 @@ function authorized(req: NextRequest): boolean {
   return got.length === want.length && timingSafeEqual(got, want);
 }
 
-// Only these public stats sites can be checked.
-const ALLOWED_HOSTS = new Set(["oua.ca", "www.oua.ca"]);
+// Only these public sports sites can be checked (OUA, and the three OUA schools whose sites
+// aren't SIDEARM: Trent, Lakehead, Ottawa).
+const ALLOWED_HOSTS = new Set([
+  "oua.ca", "www.oua.ca",
+  "trentexcalibur.ca", "www.trentexcalibur.ca",
+  "thunderwolves.ca", "www.thunderwolves.ca",
+  "geegees.ca", "www.geegees.ca", "ottawa.prestosports.com",
+]);
 
 /**
- * One ordinary request from the app's server to a public OUA stats page, to see whether the site
+ * One ordinary request from the app's server to a public OUA or school sports page, to see whether the site
  * answers it and what the page looks like (protected by CRON_SECRET; for setting up a stats source).
  *   GET /api/admin/probe?url=https://oua.ca/sports/wvball/2026-27/boxscores/....xml
  */
@@ -29,7 +35,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Give a full url." }, { status: 400 });
   }
   if (target.protocol !== "https:" || !ALLOWED_HOSTS.has(target.hostname)) {
-    return NextResponse.json({ error: "Only https://oua.ca pages can be checked." }, { status: 400 });
+    return NextResponse.json({ error: "That site can't be checked." }, { status: 400 });
   }
   const started = Date.now();
   try {
