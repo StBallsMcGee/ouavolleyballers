@@ -23,7 +23,7 @@ describe("writeWithGemini", () => {
 });
 
 describe("writeWithGemini when a model is overloaded", () => {
-  it("moves on to the next model", async () => {
+  it("tries Flash-Lite first and moves on to the next model when it's busy", async () => {
     const used: string[] = [];
     const ai = { models: {
       list: async () => ({ page: [
@@ -32,7 +32,7 @@ describe("writeWithGemini when a model is overloaded", () => {
       ] }),
       generateContent: async ({ model }: { model: string }) => {
         used.push(model);
-        if (model === "gemini-9-flash") throw new ApiError({ message: "high demand", status: 503 });
+        if (model === "gemini-9-flash-lite") throw new ApiError({ message: "high demand", status: 503 });
         return { text: JSON.stringify({ headline: "Fine", paragraphs: ["Ok."] }) };
       },
     } } as unknown as GoogleGenAI;
@@ -40,6 +40,6 @@ describe("writeWithGemini when a model is overloaded", () => {
     resetGeminiModels();
     const s = await writeWithGemini(ai, "g", "p");
     expect(s?.headline).toBe("Fine");
-    expect(used).toEqual(["gemini-9-flash", "gemini-9-flash", "gemini-9-flash-lite"]);
+    expect(used).toEqual(["gemini-9-flash-lite", "gemini-9-flash-lite", "gemini-9-flash"]); // Lite first, then Flash
   }, 10_000);
 });
