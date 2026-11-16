@@ -264,10 +264,13 @@ midnight Sunday (`/api/cron/news`) and saved, so it never changes later. The wri
 app or database itself: the server sends it each player's complete fact sheet (matches, results,
 stat lines, season averages and highs, fantasy points by week) and saves the story it returns.
 
-1. Get a free Gemini API key at https://aistudio.google.com/apikey and add it in Vercel as
-   `GEMINI_API_KEY` (Production), then redeploy. Optional: `GEMINI_MODEL` picks a model; by
-   default the newest stable Gemini Flash model is used. (If `GEMINI_API_KEY` isn't set but
-   `ANTHROPIC_API_KEY` is, Claude writes the stories; with neither, simpler template stories are used.)
+1. Recommended: create an Anthropic API key at https://console.anthropic.com (Settings → API keys),
+   add a small credit (Billing; auto-reload optional), and add it in Vercel as `ANTHROPIC_API_KEY`
+   (Production), then redeploy. Claude Haiku writes the stories: about a cent for ten stories,
+   roughly $2 for a whole season.
+   Alternative: a free Gemini API key from https://aistudio.google.com/apikey as `GEMINI_API_KEY`
+   (used only when there's no Anthropic key; its free tier is often overloaded, so stories can take
+   days to arrive). With neither key, simpler template stories are used.
 2. Run `supabase/migrations/20261116000100_player_news.sql`. It schedules the writer automatically,
    using the same address and secret as the `sideout-live` job. To schedule it by hand instead:
 

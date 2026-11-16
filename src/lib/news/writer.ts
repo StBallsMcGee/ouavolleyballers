@@ -5,8 +5,8 @@
  * her own recent stories, so the stories don't repeat each other. Stories are saved as they're
  * written, so a run that stops early just carries on next time.
  *
- * Who writes: Gemini when GEMINI_API_KEY is set (free tier), otherwise Claude when
- * ANTHROPIC_API_KEY is set, otherwise the template writer in src/lib/players/news.ts.
+ * Who writes: Claude Haiku when ANTHROPIC_API_KEY is set, otherwise Gemini when GEMINI_API_KEY is
+ * set (free tier), otherwise the template writer in src/lib/players/news.ts.
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
@@ -19,7 +19,7 @@ import { GoogleGenAI } from "@google/genai";
 import { newsFacts, type NewsExtra } from "./facts";
 import { GeminiRateLimited, writeWithGemini } from "./gemini";
 
-export const NEWS_MODEL = "claude-opus-5-5";
+export const NEWS_MODEL = "claude-haiku-5-5"; // short stories: Haiku writes them well for pennies a week
 
 const STYLE_GUIDE = `You write weekly notes on players in Ontario university (OUA) women's volleyball for a fantasy league's app. Each note appears on the player's page, right under her bio.
 
@@ -82,8 +82,8 @@ export function claudeWriter(client = new Anthropic()): StoryWriter {
 
 /** The writer the environment is set up for (null = templates). */
 export function defaultWriter(): StoryWriter | null {
-  if (process.env.GEMINI_API_KEY) return geminiWriter();
   if (process.env.ANTHROPIC_API_KEY) return claudeWriter();
+  if (process.env.GEMINI_API_KEY) return geminiWriter();
   return null;
 }
 
@@ -91,8 +91,6 @@ export async function writeWithClaude(client: Anthropic, facts: string, avoid: A
   const response = await client.beta.messages.parse({
     model: NEWS_MODEL,
     max_tokens: 4000,
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
     output_config: { effort: "low", format: betaZodOutputFormat(StorySchema) },
     system: [{ type: "text", text: STYLE_GUIDE, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: storyPrompt(facts, avoid) }],
