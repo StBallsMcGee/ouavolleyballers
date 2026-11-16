@@ -14,9 +14,11 @@ describe("writeWithGemini", () => {
     expect(await writeWithGemini(fakeAi(() => ({ text: "not json" })), "guide", "prompt")).toBeNull();
     expect(await writeWithGemini(fakeAi(() => ({ text: JSON.stringify({ headline: "x" }) })), "guide", "prompt")).toBeNull();
   });
-  it("reports the free-tier limit so the run can stop and resume later", async () => {
-    const ai = fakeAi(() => { throw new ApiError({ message: "quota", status: 429 }); });
-    await expect(writeWithGemini(ai, "guide", "prompt")).rejects.toBeInstanceOf(GeminiRateLimited);
+  it("reports the free-tier limit (once every model is at it) so the run can stop and resume later", async () => {
+    const ai = fakeAi(() => { throw new ApiError({ message: "Quota exceeded for metric: requests per day", status: 429 }); });
+    const err = await writeWithGemini(ai, "guide", "prompt").catch((e) => e);
+    expect(err).toBeInstanceOf(GeminiRateLimited);
+    expect(String(err.message)).toMatch(/per day/);
   });
 });
 

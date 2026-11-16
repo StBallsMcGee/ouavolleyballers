@@ -64,10 +64,10 @@ export async function writeWithGemini(ai: GoogleGenAI, styleGuide: string, promp
   const models = await geminiModels(ai);
   let lastError: unknown = null;
   const tried: string[] = [];
-  const why = (e: unknown) => (e instanceof ApiError ? `HTTP ${e.status}` : timedOut(e) ? "timed out" : (e as Error).message.slice(0, 60));
+  const why = (e: unknown) => (e instanceof ApiError ? `HTTP ${e.status}${e.status === 429 ? ` ${quotaNote(e.message)}` : ""}` : timedOut(e) ? "timed out" : (e as Error).message.slice(0, 60));
   // Each model gets two tries (a short pause between); an overloaded model hands over to the next.
   // Nothing starts that couldn't finish before the deadline.
-  for (const model of models.slice(0, 3)) {
+  for (const model of models.slice(0, 4)) {
     for (let attempt = 0; attempt < 2; attempt++) {
       if (Date.now() + GEMINI_REQUEST_MS > deadline) {
         throw new GeminiRateLimited(`Out of time for this run (tried ${tried.join("; ") || "nothing"}); will continue on the next run`);
@@ -77,13 +77,20 @@ export async function writeWithGemini(ai: GoogleGenAI, styleGuide: string, promp
       } catch (e) {
         if (e instanceof GeminiRateLimited) throw e;
         tried.push(`${model}: ${why(e)}`);
+        if (e instanceof ApiError && e.status === 429) break; // this model's free allowance is used up: next model
         if (!overloaded(e) && !timedOut(e)) throw new Error(`${model}: ${(e as Error).message.slice(0, 200)}`);
         lastError = e;
         if (attempt === 0) await new Promise((r) => setTimeout(r, 2500));
       }
     }
   }
-  throw new GeminiRateLimited(`All models busy (${tried.join("; ")})${lastError ? "" : ""}; will continue on the next run`);
+  throw new GeminiRateLimited(`All models busy or at their free limit (${tried.join("; ")})${lastError ? "" : ""}; will continue on the next run`);
+}
+
+/** The useful part of Google's quota message (which limit, e.g. per minute or per day). */
+function quotaNote(message: string): string {
+  const m = message.match(/quota[^"]{0,160}/i);
+  return m ? m[0].replace(/\s+/g, " ").slice(0, 160) : "";
 }
 
 /** Short notes don't need long reasoning: turn thinking off (2.5 models) or down (newer ones). */
@@ -125,7 +132,7 @@ async function request(ai: GoogleGenAI, model: string, styleGuide: string, promp
     if (!out.headline.trim() || paragraphs.length === 0) return null;
     return { headline: out.headline.trim(), paragraphs };
   } catch (e) {
-    if (e instanceof ApiError && e.status === 429) throw new GeminiRateLimited("Gemini free-tier limit reached; will continue on the next run");
+    // 429 (free-tier limit) is handled by the caller: limits are per model, so it moves to the next.
     if (e instanceof SyntaxError) return null; // not valid JSON: skip this one
     throw e;
   }
