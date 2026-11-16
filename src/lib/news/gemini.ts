@@ -4,7 +4,7 @@
  *
  * Model: GEMINI_MODEL if set, otherwise the newest stable "Flash" model the key can use.
  */
-import { ApiError, GoogleGenAI } from "@google/genai";
+import { ApiError, GoogleGenAI, ThinkingLevel, type ThinkingConfig } from "@google/genai";
 import type { NewsStory } from "@/lib/players/news";
 
 export class GeminiRateLimited extends Error {}
@@ -58,29 +58,50 @@ const timedOut = (e: unknown) => e instanceof Error && /abort|timeout|timed out/
 const overloaded = (e: unknown) => e instanceof ApiError && (e.status === 503 || e.status === 500 || e.status === 504);
 
 /** How long one request may take before it's abandoned. */
-export const GEMINI_REQUEST_MS = 15_000;
+export const GEMINI_REQUEST_MS = 25_000;
 
 export async function writeWithGemini(ai: GoogleGenAI, styleGuide: string, prompt: string, deadline = Infinity): Promise<NewsStory | null> {
   const models = await geminiModels(ai);
   let lastError: unknown = null;
+  const tried: string[] = [];
+  const why = (e: unknown) => (e instanceof ApiError ? `HTTP ${e.status}` : timedOut(e) ? "timed out" : (e as Error).message.slice(0, 60));
   // Each model gets two tries (a short pause between); an overloaded model hands over to the next.
   // Nothing starts that couldn't finish before the deadline.
   for (const model of models.slice(0, 3)) {
     for (let attempt = 0; attempt < 2; attempt++) {
-      if (Date.now() + GEMINI_REQUEST_MS > deadline) throw new GeminiRateLimited("Out of time for this run; will continue on the next run");
+      if (Date.now() + GEMINI_REQUEST_MS > deadline) {
+        throw new GeminiRateLimited(`Out of time for this run (tried ${tried.join("; ") || "nothing"}); will continue on the next run`);
+      }
       try {
         return await writeOnce(ai, model, styleGuide, prompt);
       } catch (e) {
-        if (!overloaded(e) && !timedOut(e)) throw e;
+        if (e instanceof GeminiRateLimited) throw e;
+        tried.push(`${model}: ${why(e)}`);
+        if (!overloaded(e) && !timedOut(e)) throw new Error(`${model}: ${(e as Error).message.slice(0, 200)}`);
         lastError = e;
         if (attempt === 0) await new Promise((r) => setTimeout(r, 2500));
       }
     }
   }
-  throw lastError;
+  throw new GeminiRateLimited(`All models busy (${tried.join("; ")})${lastError ? "" : ""}; will continue on the next run`);
+}
+
+/** Short notes don't need long reasoning: turn thinking off (2.5 models) or down (newer ones). */
+function thinkingFor(model: string): ThinkingConfig {
+  return /^gemini-2\.5/.test(model) ? { thinkingBudget: 0 } : { thinkingLevel: ThinkingLevel.LOW };
 }
 
 async function writeOnce(ai: GoogleGenAI, model: string, styleGuide: string, prompt: string): Promise<NewsStory | null> {
+  try {
+    return await request(ai, model, styleGuide, prompt, true);
+  } catch (e) {
+    // A model that doesn't accept the thinking setting: ask again without it.
+    if (e instanceof ApiError && e.status === 400 && /think/i.test(e.message)) return request(ai, model, styleGuide, prompt, false);
+    throw e;
+  }
+}
+
+async function request(ai: GoogleGenAI, model: string, styleGuide: string, prompt: string, setThinking: boolean): Promise<NewsStory | null> {
   try {
     const res = await ai.models.generateContent({
       model,
@@ -93,6 +114,7 @@ async function writeOnce(ai: GoogleGenAI, model: string, styleGuide: string, pro
         maxOutputTokens: 4000,
         // One attempt per call (this file does its own retries and model fallback), and a time limit.
         httpOptions: { timeout: GEMINI_REQUEST_MS, retryOptions: { attempts: 1 } },
+        ...(setThinking ? { thinkingConfig: thinkingFor(model) } : {}),
       },
     });
     const text = res.text;
