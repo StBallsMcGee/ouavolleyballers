@@ -5,7 +5,7 @@
  * disallowed for robots. We therefore read ONE roster page per school (a different server each),
  * never download images, and only store a link to each headshot. The viewer's browser loads the
  * photo from the school's site, credited and linked back. Administrator approval: 6 Nov 2026.
- * Ottawa, Trent and Lakehead block automated access and are not read.
+ * Trent and Lakehead (PrestoSports) are read by the app server instead: see presto.ts.
  *
  * Collected: name, jersey, position, height, year, hometown, previous team, photo link, profile
  * link. Deliberately NOT collected: program of study / major, social media, anything else.
