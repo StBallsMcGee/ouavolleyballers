@@ -1,5 +1,6 @@
 -- Weekly player news stories. Written once per player per completed week (shortly after
 -- midnight Sunday) by /api/cron/news and kept, so a story never changes after it's published.
+-- Safe to run again (e.g. if an earlier version of this file was already run).
 
 create table if not exists public.player_news (
   league_id   uuid not null references public.leagues (id) on delete cascade,
@@ -7,10 +8,12 @@ create table if not exists public.player_news (
   week        int not null,
   headline    text not null,
   paragraphs  jsonb not null,                 -- ["first paragraph", "second", ...]
-  written_by  text not null default 'claude' check (written_by in ('claude', 'template')),
+  written_by  text not null default 'gemini',
   created_at  timestamptz not null default now(),
   primary key (league_id, player_id, week)
 );
+alter table public.player_news drop constraint if exists player_news_written_by_check;
+alter table public.player_news add constraint player_news_written_by_check check (written_by in ('gemini', 'claude', 'template'));
 create index if not exists player_news_week_idx on public.player_news (league_id, week);
 alter table public.player_news enable row level security;
 drop policy if exists player_news_read on public.player_news;

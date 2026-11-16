@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type pg from "pg";
-import type Anthropic from "@anthropic-ai/sdk";
-import { runNewsWriter } from "@/lib/news/writer";
+import { runNewsWriter, type StoryWriter } from "@/lib/news/writer";
 import { addMatch, addStat, createTestDb, seed, type Fixture } from "./helpers";
 
 let client: pg.Client;
@@ -27,25 +26,26 @@ afterAll(async () => drop());
 
 const pool = () => client as unknown as pg.Pool;
 
-/** A stand-in for the Claude API that records what it was asked. */
-function fakeClaude(calls: string[]) {
+/** A stand-in for the AI writer that records what it was asked. */
+function fakeWriter(calls: string[]): StoryWriter {
   let n = 0;
   return {
-    beta: { messages: { parse: async (req: { messages: Array<{ content: string }>; system: Array<{ text: string }> }) => {
-      calls.push(req.messages[0]!.content);
+    by: "gemini", parallel: 1, gapMs: 0,
+    write: async (facts, avoid) => {
+      calls.push(`${facts}\n${avoid.usedHeadlines.length ? `Headlines already used this week: ${avoid.usedHeadlines.join(" | ")}` : ""}`);
       n++;
-      return { stop_reason: "end_turn", parsed_output: { headline: `Story number ${n}`, paragraphs: ["First paragraph.", "Second paragraph."] } };
-    } } },
-  } as unknown as Anthropic;
+      return { headline: `Story number ${n}`, paragraphs: ["First paragraph.", "Second paragraph."] };
+    },
+  };
 }
 
 describe("weekly news writer", () => {
   it("writes one story per player who played in the week that just ended, from her real numbers", async () => {
     const calls: string[] = [];
-    const r = await runNewsWriter(pool(), { deadline: Date.now() + 20_000, client: fakeClaude(calls), today: "2026-11-16", parallel: 1 });
+    const r = await runNewsWriter(pool(), { deadline: Date.now() + 20_000, writer: fakeWriter(calls), today: "2026-11-16" });
     expect(r.week).toBe(1);
     expect(r.written).toBe(3);
-    expect(r.byClaude).toBe(3);
+    expect(r.byAi).toBe(3);
     const rows = (await client.query(`select player_id, headline, paragraphs, written_by from player_news order by headline`)).rows;
     expect(rows.map((x) => x.player_id).sort()).toEqual([f.players.oh1, f.players.oh2, f.players.ohB].sort());
     expect(rows[0].paragraphs).toEqual(["First paragraph.", "Second paragraph."]);
@@ -61,22 +61,40 @@ describe("weekly news writer", () => {
 
   it("does nothing on the next run: stories are written once and kept", async () => {
     const calls: string[] = [];
-    const r = await runNewsWriter(pool(), { deadline: Date.now() + 20_000, client: fakeClaude(calls), today: "2026-11-17" });
+    const r = await runNewsWriter(pool(), { deadline: Date.now() + 20_000, writer: fakeWriter(calls), today: "2026-11-17" });
     expect(r.written).toBe(0);
     expect(calls).toHaveLength(0);
   });
 
   it("without an API key, writes template stories with different headlines", async () => {
     await client.query(`delete from player_news`);
-    const r = await runNewsWriter(pool(), { deadline: Date.now() + 20_000, client: null, today: "2026-11-16" });
+    const r = await runNewsWriter(pool(), { deadline: Date.now() + 20_000, writer: null, today: "2026-11-16" });
     expect(r.byTemplate).toBe(3);
     const heads = (await client.query(`select headline from player_news`)).rows.map((x) => x.headline);
     expect(new Set(heads).size).toBe(3);
   });
 
+  it("stops at the free-tier limit and carries on in the next run", async () => {
+    await client.query(`delete from player_news`);
+    const { GeminiRateLimited } = await import("@/lib/news/gemini");
+    let n = 0;
+    const limited: StoryWriter = { by: "gemini", parallel: 1, gapMs: 0, write: async () => {
+      if (++n > 1) throw new GeminiRateLimited("limit");
+      return { headline: "Only one", paragraphs: ["Text."] };
+    } };
+    const r = await runNewsWriter(pool(), { deadline: Date.now() + 20_000, writer: limited, today: "2026-11-16" });
+    expect(r.written).toBe(1);
+    expect(r.remaining).toBe(2);
+    const calls: string[] = [];
+    const r2 = await runNewsWriter(pool(), { deadline: Date.now() + 20_000, writer: fakeWriter(calls), today: "2026-11-16" });
+    expect(r2.written).toBe(2);
+  });
+
   it("players can read their league's stories", async () => {
     const { asUser } = await import("./helpers");
     const seen = await asUser(client, f.alice, () => client.query(`select count(*)::int n from player_news`));
-    expect(seen.rows[0].n).toBe(3);
+    expect(seen.rows[0].n).toBeGreaterThan(0);
+    const total = (await client.query(`select count(*)::int n from player_news`)).rows[0].n;
+    expect(seen.rows[0].n).toBe(total);
   });
 });

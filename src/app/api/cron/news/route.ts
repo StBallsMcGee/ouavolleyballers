@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     deadline: Date.now() + 40_000,
     maxStories: Number.isFinite(max) && max > 0 ? max : undefined,
   });
-  return NextResponse.json({ ok: true, ai: !!process.env.ANTHROPIC_API_KEY, ...result });
+  return NextResponse.json({ ok: true, ...result });
 }
 
 export const POST = GET;

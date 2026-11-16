@@ -5,7 +5,8 @@
  * her own recent stories, so the stories don't repeat each other. Stories are saved as they're
  * written, so a run that stops early just carries on next time.
  *
- * Without ANTHROPIC_API_KEY the template writer in src/lib/players/news.ts is used instead.
+ * Who writes: Gemini when GEMINI_API_KEY is set (free tier), otherwise Claude when
+ * ANTHROPIC_API_KEY is set, otherwise the template writer in src/lib/players/news.ts.
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
@@ -14,7 +15,9 @@ import type pg from "pg";
 import { buildWeeklyNews, type NewsGame, type NewsInput, type NewsStory } from "@/lib/players/news";
 import { CORE_STAT_KEYS, type StatLine } from "@/lib/scoring/engine";
 import { formatDate, localDate } from "@/lib/time";
+import { GoogleGenAI } from "@google/genai";
 import { newsFacts, type NewsExtra } from "./facts";
+import { GeminiRateLimited, writeWithGemini } from "./gemini";
 
 export const NEWS_MODEL = "claude-opus-5-5";
 
@@ -41,11 +44,42 @@ const StorySchema = z.object({
   paragraphs: z.array(z.string()).min(1).max(4),
 });
 
-export async function writeWithClaude(client: Anthropic, facts: string, avoid: { usedHeadlines: string[]; herPrevious: string[] }): Promise<NewsStory | null> {
+export interface Avoid { usedHeadlines: string[]; herPrevious: string[] }
+
+/** The request text: her fact sheet, plus what's already been written (so nothing repeats). */
+export function storyPrompt(facts: string, avoid: Avoid): string {
   const avoidText = [
     avoid.usedHeadlines.length ? `Headlines already used this week (don't reuse their wording or pattern):\n${avoid.usedHeadlines.map((h) => `- ${h}`).join("\n")}` : "",
     avoid.herPrevious.length ? `Her earlier stories began like this (write something that reads differently):\n${avoid.herPrevious.map((h) => `- ${h}`).join("\n")}` : "",
   ].filter(Boolean).join("\n\n");
+  return `Fact sheet:\n${facts}${avoidText ? `\n\n${avoidText}` : ""}\n\nWrite her story for this week. Reply with JSON: {"headline": "...", "paragraphs": ["...", "..."]}.`;
+}
+
+/** An AI story writer: who it is, how many requests at once, and the pause between batches. */
+export interface StoryWriter {
+  by: "claude" | "gemini";
+  parallel: number;
+  gapMs: number;
+  write: (facts: string, avoid: Avoid) => Promise<NewsStory | null>;
+}
+
+export function geminiWriter(ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })): StoryWriter {
+  // Free tier: roughly 10 requests a minute, so one at a time, about 6.5 seconds apart.
+  return { by: "gemini", parallel: 1, gapMs: 6500, write: (facts, avoid) => writeWithGemini(ai, STYLE_GUIDE, storyPrompt(facts, avoid)) };
+}
+
+export function claudeWriter(client = new Anthropic()): StoryWriter {
+  return { by: "claude", parallel: 4, gapMs: 0, write: (facts, avoid) => writeWithClaude(client, facts, avoid) };
+}
+
+/** The writer the environment is set up for (null = templates). */
+export function defaultWriter(): StoryWriter | null {
+  if (process.env.GEMINI_API_KEY) return geminiWriter();
+  if (process.env.ANTHROPIC_API_KEY) return claudeWriter();
+  return null;
+}
+
+export async function writeWithClaude(client: Anthropic, facts: string, avoid: Avoid): Promise<NewsStory | null> {
   const response = await client.beta.messages.parse({
     model: NEWS_MODEL,
     max_tokens: 4000,
@@ -53,7 +87,7 @@ export async function writeWithClaude(client: Anthropic, facts: string, avoid: {
     fallbacks: "default",
     output_config: { effort: "low", format: betaZodOutputFormat(StorySchema) },
     system: [{ type: "text", text: STYLE_GUIDE, cache_control: { type: "ephemeral" } }],
-    messages: [{ role: "user", content: `Fact sheet:\n${facts}${avoidText ? `\n\n${avoidText}` : ""}\n\nWrite her story for this week.` }],
+    messages: [{ role: "user", content: storyPrompt(facts, avoid) }],
   });
   if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens") return null;
   const out = response.parsed_output;
@@ -73,16 +107,18 @@ export interface NewsRunResult {
   week: number | null;
   due: number;
   written: number;
-  byClaude: number;
+  byAi: number;
+  writer: "claude" | "gemini" | "template";
   byTemplate: number;
   remaining: number;
   errors: string[];
 }
 
 /** Writes any missing stories for the most recent completed week, until the deadline. */
-export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; parallel?: number; maxStories?: number; client?: Anthropic | null; today?: string }): Promise<NewsRunResult> {
-  const result: NewsRunResult = { league: null, week: null, due: 0, written: 0, byClaude: 0, byTemplate: 0, remaining: 0, errors: [] };
-  const client = opts.client !== undefined ? opts.client : process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
+export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; parallel?: number; maxStories?: number; writer?: StoryWriter | null; today?: string }): Promise<NewsRunResult> {
+  const writer = opts.writer !== undefined ? opts.writer : defaultWriter();
+  const result: NewsRunResult = { league: null, week: null, due: 0, written: 0, byAi: 0, byTemplate: 0, remaining: 0, errors: [], writer: writer?.by ?? "template" };
+  let stop = false;
   const { rows: leagues } = await pool.query<{ id: string; season_label: string; timezone: string }>(
     `select id, season_label, timezone from public.leagues where status in ('setup', 'active') order by created_at`);
   for (const league of leagues) {
@@ -135,9 +171,13 @@ export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; par
         points: Number(r.points ?? 0),
       };
     };
-    const parallel = opts.parallel ?? 4;
+    const parallel = opts.parallel ?? writer?.parallel ?? 4;
     let i = 0;
-    while (i < due.length && Date.now() < opts.deadline && (opts.maxStories === undefined || result.written < opts.maxStories)) {
+    while (!stop && i < due.length && Date.now() < opts.deadline && (opts.maxStories === undefined || result.written < opts.maxStories)) {
+      if (i > 0 && writer?.gapMs) {
+        if (Date.now() + writer.gapMs + 15_000 > opts.deadline) break; // not enough time for another request
+        await new Promise((r) => setTimeout(r, writer.gapMs));
+      }
       const batch = due.slice(i, i + parallel);
       i += batch.length;
       const stories = await Promise.all(batch.map(async ([pid, rs]) => {
@@ -158,15 +198,14 @@ export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; par
           weekDates: `${formatDate(wk.starts_on, { month: "short", day: "numeric" })} to ${formatDate(wk.ends_on, { month: "short", day: "numeric" })}`,
           weeklyPoints: [...weekly.entries()].sort((a, b) => a[0] - b[0]).map(([week, v]) => ({ week, ...v })),
         };
-        if (client) {
+        if (writer) {
           try {
-            const s = await writeWithClaude(client, newsFacts(input, extra), { usedHeadlines, herPrevious: previousOf.get(pid) ?? [] });
-            if (s) return { pid, story: s, by: "claude" as const };
+            const s = await writer.write(newsFacts(input, extra), { usedHeadlines, herPrevious: previousOf.get(pid) ?? [] });
+            if (s) return { pid, story: s, by: writer.by };
           } catch (e) {
             result.errors.push(`${first.last_name}: ${(e as Error).message.slice(0, 160)}`);
-            // Out of credit, bad key and the like: stop for now and try again on the next run.
-            if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError || e instanceof Anthropic.RateLimitError) return null;
-            if (e instanceof Anthropic.APIConnectionError || e instanceof Anthropic.InternalServerError) return null;
+            // Rate limit, bad key, outage: stop for now; the next scheduled run carries on.
+            if (e instanceof GeminiRateLimited || !(e instanceof SyntaxError)) stop = true;
           }
           return null;
         }
@@ -180,9 +219,8 @@ export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; par
           [league.id, s.pid, wk.week, s.story.headline, JSON.stringify(s.story.paragraphs), s.by]);
         usedHeadlines.push(s.story.headline);
         result.written++;
-        if (s.by === "claude") result.byClaude++; else result.byTemplate++;
+        if (s.by === "template") result.byTemplate++; else result.byAi++;
       }
-      if (client && stories.every((s) => s === null) && result.errors.length) break; // the API is unavailable right now
     }
   }
   result.remaining = result.due - result.written;

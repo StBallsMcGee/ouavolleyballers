@@ -259,11 +259,15 @@ the seeded bracket for you to create, one round at a time.
 
 ## Player news stories
 
-Each player's page has a weekly news story about the week that just ended. Stories are written
-by Claude shortly after midnight Sunday (`/api/cron/news`) and saved, so they never change later.
+Each player's page has a weekly news story about the week that just ended, written shortly after
+midnight Sunday (`/api/cron/news`) and saved, so it never changes later. The writer never reads the
+app or database itself: the server sends it each player's complete fact sheet (matches, results,
+stat lines, season averages and highs, fantasy points by week) and saves the story it returns.
 
-1. Create an API key at https://console.anthropic.com (Settings → API keys) and add it in Vercel as
-   `ANTHROPIC_API_KEY` (Production), then redeploy. Without it, simpler template stories are used.
+1. Get a free Gemini API key at https://aistudio.google.com/apikey and add it in Vercel as
+   `GEMINI_API_KEY` (Production), then redeploy. Optional: `GEMINI_MODEL` picks a model; by
+   default the newest stable Gemini Flash model is used. (If `GEMINI_API_KEY` isn't set but
+   `ANTHROPIC_API_KEY` is, Claude writes the stories; with neither, simpler template stories are used.)
 2. Run `supabase/migrations/20261116000100_player_news.sql`. It schedules the writer automatically,
    using the same address and secret as the `sideout-live` job. To schedule it by hand instead:
 
@@ -277,4 +281,7 @@ select cron.schedule('sideout-news', '*/2 4-11 * * 1', $$
 $$);
 ```
 
-Cost: roughly one short request per player per week (a few dollars a week for the whole league).
+On Gemini's free tier, stories are written one at a time a few seconds apart (its per-minute
+limit), so a full week takes an hour or so on Monday morning. If the daily limit is reached, the
+rest are written by the next day's catch-up run. Google may use free-tier requests to improve its
+models; the requests contain only public player statistics.
