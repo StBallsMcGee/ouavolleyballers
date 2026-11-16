@@ -54,18 +54,24 @@ const STORY_SCHEMA = {
   required: ["headline", "paragraphs"],
 };
 
+const timedOut = (e: unknown) => e instanceof Error && /abort|timeout|timed out/i.test(`${e.name} ${e.message}`);
 const overloaded = (e: unknown) => e instanceof ApiError && (e.status === 503 || e.status === 500 || e.status === 504);
 
-export async function writeWithGemini(ai: GoogleGenAI, styleGuide: string, prompt: string): Promise<NewsStory | null> {
+/** How long one request may take before it's abandoned. */
+export const GEMINI_REQUEST_MS = 15_000;
+
+export async function writeWithGemini(ai: GoogleGenAI, styleGuide: string, prompt: string, deadline = Infinity): Promise<NewsStory | null> {
   const models = await geminiModels(ai);
   let lastError: unknown = null;
   // Each model gets two tries (a short pause between); an overloaded model hands over to the next.
+  // Nothing starts that couldn't finish before the deadline.
   for (const model of models.slice(0, 3)) {
     for (let attempt = 0; attempt < 2; attempt++) {
+      if (Date.now() + GEMINI_REQUEST_MS > deadline) throw new GeminiRateLimited("Out of time for this run; will continue on the next run");
       try {
         return await writeOnce(ai, model, styleGuide, prompt);
       } catch (e) {
-        if (!overloaded(e)) throw e;
+        if (!overloaded(e) && !timedOut(e)) throw e;
         lastError = e;
         if (attempt === 0) await new Promise((r) => setTimeout(r, 2500));
       }
@@ -85,6 +91,8 @@ async function writeOnce(ai: GoogleGenAI, model: string, styleGuide: string, pro
         responseJsonSchema: STORY_SCHEMA,
         temperature: 1,
         maxOutputTokens: 4000,
+        // One attempt per call (this file does its own retries and model fallback), and a time limit.
+        httpOptions: { timeout: GEMINI_REQUEST_MS, retryOptions: { attempts: 1 } },
       },
     });
     const text = res.text;

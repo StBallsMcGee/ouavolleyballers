@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const max = Number.parseInt(req.nextUrl.searchParams.get("max") ?? "", 10);
   const result = await runNewsWriter(getPool(), {
-    deadline: Date.now() + 40_000,
+    deadline: Date.now() + 42_000, // every request finishes by then (Vercel stops the function at 60 s)
     maxStories: Number.isFinite(max) && max > 0 ? max : undefined,
   });
   return NextResponse.json({ ok: true, ...result });
