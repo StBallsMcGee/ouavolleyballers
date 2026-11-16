@@ -15,10 +15,10 @@ function authorized(req: NextRequest): boolean {
   return got.length === want.length && timingSafeEqual(got, want);
 }
 
-const OTTAWA_HOSTS = new Set(["geegees.ca", "www.geegees.ca", "ottawa.prestosports.com"]);
+const OTTAWA_HOSTS = new Set(["teams.geegees.ca", "geegees.ca", "www.geegees.ca", "ottawa.prestosports.com"]);
 
 /**
- * Reads the Trent and Lakehead roster pages (and Ottawa's, given ?ottawa=<roster url>) from this
+ * Reads the Trent, Ottawa and Lakehead roster pages (?ottawa=<url> overrides Ottawa's address) from this
  * server and saves each player's photo link and profile. ?dry=1 shows what would be saved.
  * Protected by CRON_SECRET. One request per school.
  */
@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
     let host = "";
     try { host = new URL(ottawa).hostname; } catch { /* checked below */ }
     if (!OTTAWA_HOSTS.has(host) || !ottawa.startsWith("https://")) return NextResponse.json({ error: "Ottawa roster must be an https geegees.ca page" }, { status: 400 });
+    const i = schools.findIndex((x) => x.key === "ottawa");
+    if (i >= 0) schools.splice(i, 1);
     schools.push({ key: "ottawa", label: "Ottawa Gee-Gees", universitySourceId: OTTAWA_SOURCE_ID, rosterUrl: ottawa });
   }
 

@@ -18,7 +18,7 @@ const ALLOWED_HOSTS = new Set([
   "oua.ca", "www.oua.ca",
   "trentexcalibur.ca", "www.trentexcalibur.ca",
   "thunderwolves.ca", "www.thunderwolves.ca",
-  "geegees.ca", "www.geegees.ca", "ottawa.prestosports.com",
+  "geegees.ca", "www.geegees.ca", "teams.geegees.ca", "ottawa.prestosports.com",
 ]);
 
 /**

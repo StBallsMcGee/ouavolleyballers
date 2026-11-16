@@ -1,6 +1,5 @@
 /**
- * Official school roster pages on the PrestoSports platform: Trent and Lakehead (and Ottawa
- * once its roster address is known). The league administrator has permission from these schools
+ * Official school roster pages on the PrestoSports platform: Trent, Ottawa and Lakehead. The league administrator has permission from these schools
  * (16 Nov 2026). Their sites refuse requests from outside servers, so the app's own server reads
  * one roster page per school, identifying itself honestly. Like the SIDEARM import, images are
  * never downloaded: only a link to each headshot is stored, shown credited and linked back.
@@ -18,10 +17,11 @@ export interface PrestoSchool {
 
 export const PRESTO_SCHOOLS: PrestoSchool[] = [
   { key: "trent", label: "Trent Excalibur", universitySourceId: "j8jvomv74zlpzuzk", rosterUrl: "https://trentexcalibur.ca/sports/wvball/2026-27/roster?view=headshot" },
+  { key: "ottawa", label: "Ottawa Gee-Gees", universitySourceId: "mqzdwlflgwir1qmq", rosterUrl: "https://teams.geegees.ca/sports/wvball/2026-27/roster?view=headshot" },
   { key: "lakehead", label: "Lakehead Thunderwolves", universitySourceId: "qiowub5ypmkc3t97", rosterUrl: "https://thunderwolves.ca/sports/wvball/2026-27/roster?view=headshot" },
 ];
 
-/** Ottawa's university id, for when its roster page address is supplied. */
+/** Ottawa's university id (for a different roster address passed as ?ottawa=). */
 export const OTTAWA_SOURCE_ID = "mqzdwlflgwir1qmq";
 
 function abs(url: string | undefined, base: string): string | null {
