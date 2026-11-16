@@ -31,9 +31,24 @@ function gameLine(g: NewsGame): string {
   return `- ${formatDate(g.date, { weekday: "long", month: "short", day: "numeric" })} vs ${g.opponent}: her team ${res}${g.sets ? `; she played ${g.sets} sets` : ""}. Her line: ${parts.join(", ")}. Fantasy points: ${r1(g.points)}.`;
 }
 
+export interface NextWeek {
+  week: number;
+  dates: string;
+  matches: Array<{ date: string; opponent: string; home: boolean | null }>;
+}
+
+export interface Projection {
+  perGame: number | null;
+  last3Avg: number | null;
+  seasonAvg: number | null;
+}
+
 export interface NewsExtra {
   weekDates: string;
   weeklyPoints: Array<{ week: number; points: number; games: number }>;
+  /** The coming week (null when the season has no more weeks). */
+  nextWeek: NextWeek | null;
+  projection: Projection | null;
 }
 
 export function newsFacts(input: NewsInput, extra: NewsExtra): string {
@@ -71,5 +86,26 @@ export function newsFacts(input: NewsInput, extra: NewsExtra): string {
   if (extra.weeklyPoints.length > 1) {
     lines.push(`Her fantasy points by week this season: ${extra.weeklyPoints.map((w) => `week ${w.week}: ${r1(w.points)} in ${w.games} match${w.games === 1 ? "" : "es"}`).join("; ")}.`);
   }
+  lines.push("", ...nextWeekLines(extra));
   return lines.join("\n");
+}
+
+function nextWeekLines(extra: NewsExtra): string[] {
+  const nw = extra.nextWeek;
+  const pr = extra.projection;
+  if (!nw) return ["Next week: the fantasy regular season is over; no outlook needed beyond a closing line about her season."];
+  const out = [`NEXT WEEK (week ${nw.week}, ${nw.dates}):`];
+  if (nw.matches.length === 0) {
+    out.push("- Her team has no matches scheduled (a bye week), so she won't score fantasy points.");
+  } else {
+    out.push(`- ${nw.matches.length} match${nw.matches.length === 1 ? "" : "es"} scheduled: ${nw.matches.map((m) => `${formatDate(m.date, { weekday: "long", month: "short", day: "numeric" })} ${m.home === null ? "vs" : m.home ? "at home vs" : "away at"} ${m.opponent}`).join("; ")}.`);
+  }
+  if (pr && pr.perGame !== null) {
+    out.push(`- Her projection: ${r1(pr.perGame)} fantasy points per match${nw.matches.length ? `, about ${r1(pr.perGame * nw.matches.length)} for the week` : ""}.`);
+    const bits = [pr.seasonAvg !== null ? `season average ${r1(pr.seasonAvg)} per match` : "", pr.last3Avg !== null ? `last 3 matches ${r1(pr.last3Avg)} per match` : ""].filter(Boolean);
+    if (bits.length) out.push(`- For context: ${bits.join(", ")}.`);
+  } else {
+    out.push("- No projection is available for her yet.");
+  }
+  return out;
 }

@@ -55,6 +55,12 @@ describe("weekly news writer", () => {
     expect(oh1).toMatch(/vs Z: her team LOST 3-2/);
     expect(oh1).toMatch(/33 kills/);
     expect(oh1).toMatch(/team record 1-1/);
+    // Next week: her schedule and projection, for the outlook.
+    expect(oh1).toMatch(/NEXT WEEK \(week 2/);
+    expect(oh1).toMatch(/1 match scheduled: Friday, Nov 20 .*Y/);
+    expect(oh1).toMatch(/No projection is available|Her projection/);
+    // ohB's team (Z) has no week-2 match: a bye.
+    expect(calls.find((c) => c.includes("Player: ohB Test"))).toMatch(/bye week/);
     // Later requests are told which headlines are already taken.
     expect(calls[calls.length - 1]).toMatch(/Headlines already used this week/);
   });
@@ -72,6 +78,8 @@ describe("weekly news writer", () => {
     expect(r.byTemplate).toBe(3);
     const heads = (await client.query(`select headline from player_news`)).rows.map((x) => x.headline);
     expect(new Set(heads).size).toBe(3);
+    const oh1 = (await client.query(`select paragraphs from player_news where player_id = $1`, [f.players.oh1])).rows[0].paragraphs.join(" ");
+    expect(oh1).toMatch(/Y/); // the template's outlook names next week's opponent
   });
 
   it("stops at the free-tier limit and carries on in the next run", async () => {

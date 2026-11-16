@@ -30,6 +30,8 @@ export interface NewsInput {
   week: NewsGame[];
   /** Her earlier games this season (before that week), newest first. */
   before: NewsGame[];
+  /** The coming week, for a closing outlook (optional). */
+  next?: { matches: number; opponents: string[]; projPerGame: number | null } | null;
 }
 
 export interface NewsStory {
@@ -211,10 +213,18 @@ export function buildWeeklyNews(input: NewsInput, salt = ""): NewsStory | null {
     ? `In fantasy terms, that's ${one(pts)} points (${one(ppg)} per match), ${hot ? `well above her ${one(prevPpg)} average and a strong week for her managers` : cold ? `below her ${one(prevPpg)} average` : Math.abs(ppg - prevPpg) <= prevPpg * 0.1 ? `right around her ${one(prevPpg)} average` : ppg > prevPpg ? `a bit better than her ${one(prevPpg)} average` : `a little under her ${one(prevPpg)} average`}.`
     : `Fantasy managers banked ${one(pts)} points from her this week.`;
 
+  const nx = input.next;
+  const outlook = !nx ? "" : nx.matches === 0
+    ? pick(["Her team has the coming week off.", "Next up is a bye week, so she'll be idle."])
+    : `${pick(["Next up:", "Coming up,", "On deck:"])} ${nx.matches === 1 ? "a date with" : `${nx.matches} matches, against`} ${listAnd([...new Set(nx.opponents)])}${nx.projPerGame !== null ? `, where she projects to about ${one(nx.projPerGame)} fantasy points per match` : ""}.`;
   return {
     headline,
-    paragraphs: [lead, [...second, ...trend].join(" "), fantasy].filter((x) => x.trim()),
+    paragraphs: [lead, [...second, ...trend].join(" "), [fantasy, outlook].filter(Boolean).join(" ")].filter((x) => x.trim()),
   };
+}
+
+function listAnd(xs: string[]): string {
+  return xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}` : xs[0] ?? "";
 }
 
 function possessive(name: string): string {

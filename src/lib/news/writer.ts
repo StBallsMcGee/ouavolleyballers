@@ -21,23 +21,31 @@ import { GeminiRateLimited, writeWithGemini } from "./gemini";
 
 export const NEWS_MODEL = "claude-opus-5-5";
 
-const STYLE_GUIDE = `You are a sports reporter writing short weekly notes on players in Ontario university (OUA) women's volleyball for a fantasy league's app. Each note is read on the player's page, right under her bio.
+const STYLE_GUIDE = `You write weekly notes on players in Ontario university (OUA) women's volleyball for a fantasy league's app. Each note appears on the player's page, right under her bio.
 
-Write like a real beat reporter who watched the week: specific, warm, a little punchy, never robotic. Vary everything from story to story:
-- Open in different ways: a key moment, a number, the team result, a comparison with her earlier weeks, a scene-setter about the opponent or the weekend. Do not start with her full name and school as a formula.
-- Vary sentence length and paragraph count (two or three short paragraphs, 90-170 words in total).
-- Find the angle that makes THIS week interesting (a season high, a cold or hot streak, efficiency, a five-set fight, a sweep, a quiet week, her role in a loss) and build the story around it, rather than listing every stat.
-- Talk about the stats that matter for her position. Setters: assists and running the offence. Liberos: digs and defence. Middles: kills, blocks, efficiency. Outside hitters and right sides: kills and hitting percentage. Mention other stats only when they stand out.
-- Mention her team's results (wins, losses, set scores) naturally.
-- Mention fantasy points once at most, lightly, near the end, and only if it adds something.
+The league's instructions, which come first:
+1. Write this like a sports journalist.
+2. Avoid repeating the same phrases or headlines as much as possible.
+3. Cover the player's relevant stats.
+4. Include a sentence or two on how she's expected to perform next week.
+
+How to do that:
+- Sound like a real beat reporter who watched the week: specific, warm, a little punchy, never robotic.
+- No repetition: every note must read differently from the others. Vary the opening (a key moment, a number, the team result, a comparison with her earlier weeks, the weekend's opponents), sentence length, rhythm, verbs and paragraph count. Don't start with her full name and school as a formula. Don't reuse the wording or structure of any headline or opening you're shown as already used.
+- Find the angle that makes THIS week interesting (a season high, a hot or cold stretch, efficiency, a five-set fight, a sweep, a quiet week, her role in a loss) and build the note around it rather than listing every number.
+- Relevant stats by position. Setters: assists, assists per set, running the offence. Liberos and defensive specialists: digs, digs per set, defence. Middles: kills, blocks, hitting percentage. Outside hitters and right sides: kills and hitting percentage. Bring in other stats only when they stand out.
+- Work her team's results (wins, losses, set scores) in naturally.
+- Close with a sentence or two on next week, using only the NEXT WEEK section: how many matches and against whom (home or away), and what her projection suggests. Frame it as an expectation ("should", "projects to", "will look to"), never a guarantee. If her team has a bye, say she's idle next week.
+- Fantasy points: mention them at most once or twice, lightly.
+- Two or three short paragraphs, 100-180 words in total.
 
 Strict rules:
-- Use ONLY facts from the fact sheet. Never invent quotes, coach comments, injuries, crowd details, rankings, records, streaks, standings, or anything about the opponents beyond their name. If a number isn't on the sheet, don't state it.
+- Use ONLY facts from the fact sheet. Never invent quotes, coach comments, injuries, crowd details, rankings, records, streaks, standings, or anything about the opponents beyond their names. If a number isn't on the sheet, don't state it.
 - Don't do new arithmetic; use the figures given. Write hitting percentage the volleyball way (.312, not 31.2%).
 - Use she/her. Canadian spelling (offence, defence).
 - Plain text only: no markdown, no emoji, no hashtags.
-- The headline: under 10 words, specific to her week, in headline style. It must not repeat or closely imitate any headline in the "already used" list (no shared structure like "X heating up" or "Big week for X").
-- Avoid stock phrases: "on fire", "stuffed the stat sheet", "made her presence felt", "a force to be reckoned with", "showcased", "proved", "in a big way", "turned heads", "electric", "dominant performance".`;
+- Headline: under 10 words, specific to her week, in headline style, and different in wording and pattern from every headline listed as already used (no shared templates like "X heating up" or "Big week for X").
+- Avoid stock phrases: "on fire", "stuffed the stat sheet", "made her presence felt", "a force to be reckoned with", "showcased", "proved", "in a big way", "turned heads", "electric", "dominant performance", "look to build on", "carry that momentum".`;
 
 const StorySchema = z.object({
   headline: z.string(),
@@ -153,6 +161,17 @@ export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; par
       previousOf.set(e.player_id, [...(previousOf.get(e.player_id) ?? []), `${e.headline} — ${(e.first ?? "").slice(0, 140)}`]);
     }
 
+    // The coming week: her team's schedule and her projection, for the outlook.
+    const { rows: [nextWk] } = await pool.query<{ week: number; starts_on: string; ends_on: string }>(
+      `select week, starts_on::text, ends_on::text from public.matchup_weeks where league_id = $1 and week = $2`, [league.id, wk.week + 1]);
+    const { rows: upcoming } = nextWk ? await pool.query<{ match_date: string; home_university_id: string | null; away_university_id: string | null; home_away_known: boolean }>(
+      `select match_date::text, home_university_id, away_university_id, home_away_known from public.matches
+        where match_date between $1 and $2 and status not in ('cancelled', 'postponed') and counts_for_fantasy order by match_date`,
+      [nextWk.starts_on, nextWk.ends_on]) : { rows: [] };
+    const { rows: projRows } = await pool.query<{ player_id: string; proj_per_game: string | null; last3_avg: string | null; avg_points: string | null }>(
+      `select player_id, proj_per_game, last3_avg, avg_points from public.player_projections where league_id = $1`, [league.id]);
+    const projections = new Map(projRows.map((r) => [r.player_id, r]));
+
     const byPlayer = new Map<string, StatRow[]>();
     for (const r of rows) byPlayer.set(r.player_id, [...(byPlayer.get(r.player_id) ?? []), r]);
     const due = [...byPlayer.entries()]
@@ -194,10 +213,22 @@ export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; par
           const w = weekly.get(r.week) ?? { points: 0, games: 0 };
           weekly.set(r.week, { points: w.points + Number(r.points ?? 0), games: w.games + 1 });
         }
+        const pr = projections.get(pid);
         const extra: NewsExtra = {
           weekDates: `${formatDate(wk.starts_on, { month: "short", day: "numeric" })} to ${formatDate(wk.ends_on, { month: "short", day: "numeric" })}`,
           weeklyPoints: [...weekly.entries()].sort((a, b) => a[0] - b[0]).map(([week, v]) => ({ week, ...v })),
+          nextWeek: nextWk ? {
+            week: nextWk.week,
+            dates: `${formatDate(nextWk.starts_on, { month: "short", day: "numeric" })} to ${formatDate(nextWk.ends_on, { month: "short", day: "numeric" })}`,
+            matches: upcoming.filter((m) => m.home_university_id === first.university_id || m.away_university_id === first.university_id).map((m) => {
+              const home = m.home_university_id === first.university_id;
+              const opp = home ? m.away_university_id : m.home_university_id;
+              return { date: m.match_date, opponent: opp ? uniName.get(opp) ?? "?" : "?", home: m.home_away_known ? home : null };
+            }),
+          } : null,
+          projection: pr ? { perGame: num(pr.proj_per_game), last3Avg: num(pr.last3_avg), seasonAvg: num(pr.avg_points) } : null,
         };
+        input.next = extra.nextWeek ? { matches: extra.nextWeek.matches.length, opponents: extra.nextWeek.matches.map((m) => m.opponent), projPerGame: extra.projection?.perGame ?? null } : null;
         if (writer) {
           try {
             const s = await writer.write(newsFacts(input, extra), { usedHeadlines, herPrevious: previousOf.get(pid) ?? [] });
@@ -226,6 +257,8 @@ export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; par
   result.remaining = result.due - result.written;
   return result;
 }
+
+const num = (v: string | null) => (v === null ? null : Number(v));
 
 function weekPoints(rs: StatRow[], wk: { starts_on: string; ends_on: string }): number {
   return rs.filter((r) => r.match_date >= wk.starts_on && r.match_date <= wk.ends_on).reduce((a, r) => a + Number(r.points ?? 0), 0);
