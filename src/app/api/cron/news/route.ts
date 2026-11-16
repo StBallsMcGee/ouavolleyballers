@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { getPool } from "@/lib/db/pg";
+import { GoogleGenAI } from "@google/genai";
+import { geminiModels } from "@/lib/news/gemini";
 import { runNewsWriter } from "@/lib/news/writer";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +28,9 @@ export async function GET(req: NextRequest) {
     deadline: Date.now() + 42_000, // every request finishes by then (Vercel stops the function at 60 s)
     maxStories: Number.isFinite(max) && max > 0 ? max : undefined,
   });
-  return NextResponse.json({ ok: true, ...result });
+  // Which Gemini models this key can use, in the order they're tried (for checking a run).
+  const models = process.env.GEMINI_API_KEY ? await geminiModels(new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })).catch(() => []) : [];
+  return NextResponse.json({ ok: true, ...result, models: models.slice(0, 6) });
 }
 
 export const POST = GET;

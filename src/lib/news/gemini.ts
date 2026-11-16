@@ -12,8 +12,8 @@ export class GeminiRateLimited extends Error {}
 let candidates: string[] | null = null;
 
 /**
- * Models to try, best first: GEMINI_MODEL if set, then the stable Flash models this key can use
- * (newest first), then the Flash-Lite ones. When one is overloaded the next is tried.
+ * Models to try, best first: GEMINI_MODEL if set, then the stable Flash-Lite and Flash models this
+ * key can use (newest first, Lite before Flash). When one is overloaded or at its limit, the next is tried.
  */
 export async function geminiModels(ai: GoogleGenAI): Promise<string[]> {
   if (candidates) return candidates;
@@ -26,11 +26,17 @@ export async function geminiModels(ai: GoogleGenAI): Promise<string[]> {
       .map((m) => (m.name ?? "").replace(/^models\//, ""));
     const version = (n: string) => Number.parseFloat(n.split("-")[1] ?? "0");
     const pick = (re: RegExp) => names.filter((n) => re.test(n)).sort((a, b) => version(b) - version(a));
-    list.push(...pick(/^gemini-\d+(\.\d+)?-flash$/), ...pick(/^gemini-\d+(\.\d+)?-flash-lite$/));
+    // Flash-Lite first (fast, less in demand, bigger free allowance), alternating with Flash.
+    const lite = pick(/^gemini-\d+(\.\d+)?-flash-lite$/);
+    const flash = pick(/^gemini-\d+(\.\d+)?-flash$/);
+    for (let i = 0; i < Math.max(lite.length, flash.length); i++) {
+      if (lite[i]) list.push(lite[i]!);
+      if (flash[i]) list.push(flash[i]!);
+    }
   } catch {
     // Listing failed: use known names.
   }
-  if (!list.length) list.push("gemini-2.5-flash", "gemini-2.5-flash-lite");
+  if (!list.length) list.push("gemini-2.5-flash-lite", "gemini-2.5-flash");
   candidates = [...new Set(list)];
   return candidates;
 }
@@ -95,7 +101,7 @@ function quotaNote(message: string): string {
 
 /** Short notes don't need long reasoning: turn thinking off (2.5 models) or down (newer ones). */
 function thinkingFor(model: string): ThinkingConfig {
-  return /^gemini-2\.5/.test(model) ? { thinkingBudget: 0 } : { thinkingLevel: ThinkingLevel.LOW };
+  return /^gemini-2\.5/.test(model) ? { thinkingBudget: 0 } : { thinkingLevel: /lite/.test(model) ? ThinkingLevel.MINIMAL : ThinkingLevel.LOW };
 }
 
 async function writeOnce(ai: GoogleGenAI, model: string, styleGuide: string, prompt: string): Promise<NewsStory | null> {
