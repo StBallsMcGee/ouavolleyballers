@@ -10,7 +10,7 @@ export default async function AccountPage() {
   const ctx = await requireLeague();
   return (
     <>
-      <PageHeader title="Account" subtitle={ctx.user.email} />
+      <PageHeader tone="gold" title="Account" subtitle={ctx.user.email} />
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="Profile"><AccountForms displayName={ctx.profile?.display_name ?? ""} team={ctx.myTeam ? { id: ctx.myTeam.id, name: ctx.myTeam.name } : null} /></Card>
         <Card title="Security">

@@ -7,25 +7,27 @@ const ICONS = {
   trades: "M7 7h11l-3-3 1.4-1.4L21.8 8l-5.4 5.4L15 12l3-3H7V7zm10 10H6l3 3-1.4 1.4L2.2 16l5.4-5.4L9 12l-3 3h11v2z",
 };
 
-/** The row of tiles at the top of the Players tab. */
+/** The row of pastel squares at the top of the Players tab (like the Home screen's tiles). */
 export function PlayersNav({ active }: { active: "leaders" | "search" }) {
-  const tile = (key: keyof typeof ICONS, label: string, href: string, on: boolean) => (
+  const tile = (key: keyof typeof ICONS, label: string, href: string, color: string, on: boolean) => (
     <Link
       href={href}
       scroll={false}
-      className={`flex flex-col items-center gap-1 rounded-xl py-2 text-[11px] font-bold transition active:scale-95 ${on ? "text-gold-300" : "text-gray-500 hover:text-gray-800"}`}
+      className={`${color} flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl text-[12px] font-extrabold text-charcoal shadow-lg shadow-black/30 transition duration-200 active:scale-95 ${on ? "scale-[1.04] ring-[3px] ring-white/80" : "opacity-90 hover:opacity-100"}`}
       aria-current={on ? "page" : undefined}
     >
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden><path d={ICONS[key]} /></svg>
+      <span className={`grid h-9 w-9 place-items-center rounded-xl ${on ? "bg-charcoal text-gold-300" : "bg-white/35"}`}>
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden><path d={ICONS[key]} /></svg>
+      </span>
       {label}
     </Link>
   );
   return (
-    <nav className="mx-3 mb-3 grid grid-cols-4 rounded-2xl bg-surface px-1 shadow-lg shadow-black/20 sm:mx-0" aria-label="Players">
-      {tile("leaders", "Leaders", "/players", active === "leaders")}
-      {tile("search", "Search", "/players?view=search", active === "search")}
-      {tile("available", "Available", "/free-agents", false)}
-      {tile("trades", "Trades", "/trades", false)}
+    <nav className="mx-3 mb-3 grid grid-cols-4 gap-2.5 sm:mx-0" aria-label="Players">
+      {tile("leaders", "Leaders", "/players", "tile-gold", active === "leaders")}
+      {tile("search", "Search", "/players?view=search", "tile-violet", active === "search")}
+      {tile("available", "Available", "/free-agents", "tile-green", false)}
+      {tile("trades", "Trades", "/trades", "tile-orange", false)}
     </nav>
   );
 }

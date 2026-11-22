@@ -23,7 +23,7 @@ export default async function AdminPage() {
   const stale = !lastOk?.finished_at || Date.now() - new Date(lastOk.finished_at).getTime() > 36 * 3600 * 1000;
   return (
     <>
-      <PageHeader title="Admin" subtitle={`${league.name} · ${league.season_label}`} />
+      <PageHeader tone="gold" title="Admin" subtitle={`${league.name} · ${league.season_label}`} />
       <AdminNav current="/admin" />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="League status">

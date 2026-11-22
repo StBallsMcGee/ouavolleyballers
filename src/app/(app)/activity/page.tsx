@@ -19,7 +19,7 @@ export default async function ActivityPage() {
   const team = new Map(ctx.teams.map((t) => [t.id, t]));
   return (
     <>
-      <PageHeader title="League activity" subtitle="Every add, drop and trade since the league moved to Sideout." />
+      <PageHeader tone="pink" title="League activity" subtitle="Every add, drop and trade since the league moved to Sideout." />
       <Card>
         {(data ?? []).length === 0 ? <Empty>No roster moves yet.</Empty> : (
           <ul className="divide-y divide-gray-100">

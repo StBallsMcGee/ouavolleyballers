@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { GameLine, type GameLineChip } from "@/components/ui";
 import { PlayerPhoto } from "@/components/player-photo";
-import { positionText } from "@/components/position";
+import { positionText, positionTileClass } from "@/components/position";
 import type { StatCell } from "@/lib/players/leaders";
 
 export interface LeaderRow {
@@ -40,9 +40,9 @@ export function LeadersList({ rows, showStats, pointsLabel }: { rows: LeaderRow[
               </div>
               <div className="truncate text-[12px] leading-snug"><GameLine chips={p.games} compact /></div>
             </div>
-            <div className="w-16 shrink-0 rounded-xl bg-surface-2 px-2 py-1 text-center">
-              <div className="text-[9px] font-extrabold uppercase tracking-wide text-gray-400">{pointsLabel}</div>
-              <div className={`text-[16px] font-black tabular-nums leading-tight ${p.points < 0 ? "text-red-600" : "text-gray-900"}`}>{p.points.toFixed(1)}</div>
+            <div className={`w-16 shrink-0 rounded-xl px-2 py-1 text-center text-charcoal shadow-md shadow-black/30 ${positionTileClass(p.position)}`}>
+              <div className="text-[9px] font-extrabold uppercase tracking-wide opacity-70">{pointsLabel}</div>
+              <div className="text-[16px] font-black tabular-nums leading-tight">{p.points.toFixed(1)}</div>
             </div>
           </div>
           {showStats ? (

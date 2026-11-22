@@ -12,6 +12,7 @@ import { LeadersList, type LeaderRow } from "@/components/players/leaders-list";
 import { AddPlayerButton } from "@/components/add-player-button";
 import { parsePeriod, positionGroup, STAT_KEY_HELP, statCells, totalsFor, type WeekStatRow } from "@/lib/players/leaders";
 import { formatDate } from "@/lib/time";
+import { positionChipClass } from "@/components/position";
 
 export const metadata = { title: "Players" };
 
@@ -25,7 +26,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
   const searching = sp.view === "search" || !!(sp.q || sp.uni || sp.week || sp.sort || sp.status);
   return (
     <>
-      <PageHeader title="Players" />
+      <PageHeader title="Players" tone="blue" />
       <PlayersNav active={searching ? "search" : "leaders"} />
       {searching ? <SearchView ctx={ctx} sp={sp} /> : <LeadersView ctx={ctx} sp={sp} />}
     </>
@@ -145,9 +146,8 @@ async function LeadersView({ ctx, sp }: { ctx: LeagueContext; sp: Sp }) {
     const qs = next.toString();
     return `/players${qs ? `?${qs}` : ""}`;
   };
-  const chip = (label: string, href: string, on: boolean, title?: string) => (
-    <Link key={label} href={href} scroll={false} title={title} aria-current={on ? "true" : undefined}
-      className={`shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-extrabold transition active:scale-95 ${on ? "tile-gold shadow-md shadow-gold-500/20" : "bg-surface-2 text-gray-600 hover:text-gray-900"}`}>
+  const chip = (label: string, href: string, on: boolean, className: string, title?: string) => (
+    <Link key={label} href={href} scroll={false} title={title} aria-current={on ? "true" : undefined} className={className}>
       {label}
     </Link>
   );
@@ -165,7 +165,7 @@ async function LeadersView({ ctx, sp }: { ctx: LeagueContext; sp: Sp }) {
       {statRows.missingView ? (
         <div className="mb-3"><Notice tone="amber">Showing points only. Run <code>supabase/migrations/20261122000100_player_week_stats.sql</code> in Supabase to add the stats under each player.</Notice></div>
       ) : null}
-      <section className="mx-3 rounded-2xl bg-surface shadow-lg shadow-black/20 sm:mx-0">
+      <section className="mx-3 overflow-hidden rounded-2xl bg-surface shadow-lg shadow-black/20 sm:mx-0">
         <div className="flex items-center justify-between gap-2 px-4 pt-3">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-extrabold">Leaders</h2>
@@ -178,9 +178,11 @@ async function LeadersView({ ctx, sp }: { ctx: LeagueContext; sp: Sp }) {
           <PeriodSelect value={String(period)} options={options} />
         </div>
         <div className="flex gap-2 overflow-x-auto px-3 py-3 [scrollbar-width:none]">
-          {chip("☆ FA", link({ fa: faOnly ? undefined : "1" }), faOnly, "Free agents only")}
-          {chip("ALL", link({ pos: undefined }), pos === "ALL")}
-          {POSITIONS.map((x) => chip(x, link({ pos: x }), pos === x))}
+          {chip("☆ FA", link({ fa: faOnly ? undefined : "1" }), faOnly,
+            `shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-extrabold transition active:scale-95 ${faOnly ? "tile-green text-charcoal shadow-md shadow-black/30 ring-2 ring-white/70" : "border border-current bg-surface-2 text-emerald-700 hover:bg-surface-3"}`,
+            "Free agents only")}
+          {chip("ALL", link({ pos: undefined }), pos === "ALL", positionChipClass("ALL", pos === "ALL"))}
+          {POSITIONS.map((x) => chip(x, link({ pos: x }), pos === x, positionChipClass(x, pos === x)))}
         </div>
         {rows.length === 0 ? (
           <Empty>{period === "season" ? "No stats yet this season." : `No ${pos === "ALL" ? "players" : POSITION_NAMES[pos]}${faOnly ? " available" : ""} have played in week ${period} yet.`}</Empty>

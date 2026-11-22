@@ -18,7 +18,7 @@ export default async function MatchupsPage({ searchParams }: { searchParams: Pro
   const team = new Map(ctx.teams.map((t) => [t.id, t]));
   return (
     <>
-      <PageHeader title="Matchups" subtitle={info ? `Week ${week}: ${formatDate(info.starts_on)} – ${formatDate(info.ends_on)}${info.is_playoff ? " · Playoffs" : ""}` : `Week ${week}`} />
+      <PageHeader tone="blue" title="Matchups" subtitle={info ? `Week ${week}: ${formatDate(info.starts_on)} – ${formatDate(info.ends_on)}${info.is_playoff ? " · Playoffs" : ""}` : `Week ${week}`} />
       <div className="mb-3 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:flex-wrap sm:px-0 [scrollbar-width:none]">
         {ctx.weeks.map((w) => (
           <Link key={w.week} href={`/matchups?week=${w.week}`} className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-bold ${w.week === week ? "bg-gold-400 text-charcoal" : "bg-surface text-gray-700 hover:bg-surface-3"}`}>

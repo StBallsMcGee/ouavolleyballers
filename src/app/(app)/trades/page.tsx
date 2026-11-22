@@ -49,7 +49,7 @@ export default async function TradesPage() {
 
   return (
     <>
-      <PageHeader title="Trades" actions={myTeam && league.settings.trades.enabled ? <Link href="/trades/new" className="btn-primary">Propose a trade</Link> : null} />
+      <PageHeader tone="orange" title="Trades" actions={myTeam && league.settings.trades.enabled ? <Link href="/trades/new" className="btn-primary">Propose a trade</Link> : null} />
       {!league.settings.trades.enabled ? <div className="mb-4"><Notice tone="amber">Trading is currently closed by the league administrator.</Notice></div> : null}
       {league.settings.trades.enabled ? (
         <p className="mb-3 px-4 text-sm text-gray-500 sm:px-0">

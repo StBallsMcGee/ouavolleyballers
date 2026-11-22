@@ -11,7 +11,7 @@ export default async function NewTradePage({ searchParams }: { searchParams: Pro
   const ctx = await requireLeague();
   if (!ctx.myTeam) redirect("/trades");
   const { supabase: sb, league } = ctx;
-  if (!league.settings.trades.enabled) return <><PageHeader title="Propose a trade" /><Notice tone="amber">Trading is currently closed.</Notice></>;
+  if (!league.settings.trades.enabled) return <><PageHeader tone="orange" title="Propose a trade" /><Notice tone="amber">Trading is currently closed.</Notice></>;
   const [rows, season] = await Promise.all([
     fetchAll<{ fantasy_team_id: string; player_id: string; players: { display_name: string; position_label: string | null } }>((from, to) =>
       sb.from("roster_assignments").select("fantasy_team_id, player_id, players(display_name, position_label)").eq("league_id", league.id).is("released_at", null).range(from, to) as never),
@@ -24,7 +24,7 @@ export default async function NewTradePage({ searchParams }: { searchParams: Pro
   for (const list of Object.values(rosters)) list.sort((a, b) => b.pts - a.pts);
   return (
     <>
-      <PageHeader title="Propose a trade" subtitle="Pick a team, then tick the players on each side. The other manager can accept or decline." />
+      <PageHeader tone="orange" title="Propose a trade" subtitle="Pick a team, then tick the players on each side. The other manager can accept or decline." />
       <TradeBuilder myTeamId={ctx.myTeam.id} teams={ctx.teams} rosters={rosters} initialTeam={ctx.teams.some((t) => t.id === sp.with) ? sp.with! : ""} limit={league.settings.roster.TOTAL} />
     </>
   );

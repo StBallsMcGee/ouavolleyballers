@@ -26,6 +26,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   return (
     <>
       <PageHeader
+        tone="teal"
         title={`${unis.get(m.home_university_id)?.name} ${m.home_away_known ? "vs" : "&"} ${unis.get(m.away_university_id)?.name}`}
         subtitle={<>{formatDate(m.match_date, { weekday: "short", month: "short", day: "numeric" })} · locks {formatDateTime(m.lock_at)}{!m.counts_for_fantasy ? " · not counted" : ""}</>}
         actions={<div className="flex flex-col items-end gap-1"><MatchStatus status={m.status} statsAvailable={m.stats_available} /><Freshness at={m.last_updated_at} />{m.status !== "final" ? <a href={ouaTvUrl(unis.get(m.home_university_id)?.name)} target="_blank" rel="noopener noreferrer" className="btn-primary mt-1 min-h-[32px] px-3 py-1 text-xs">▶ Watch on OUA.TV</a> : null}</div>}

@@ -49,7 +49,7 @@ export default async function MatchesPage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <PageHeader title="Match centre" subtitle={`${formatDate(from, { month: "short", day: "numeric" })} – ${formatDate(to, { month: "short", day: "numeric" })}`} actions={<Freshness label="Checked" at={newest} />} />
+      <PageHeader tone="teal" title="Match centre" subtitle={`${formatDate(from, { month: "short", day: "numeric" })} – ${formatDate(to, { month: "short", day: "numeric" })}`} actions={<Freshness label="Checked" at={newest} />} />
       <div className="mb-3 flex gap-2 px-4 sm:px-0">
         <Link href={`/matches?from=${addDays(from, -7)}`} className="btn-secondary min-h-[34px] px-3 py-1 text-xs">← Earlier</Link>
         <Link href="/matches" className="btn-ghost min-h-[34px] px-3 py-1 text-xs">Today</Link>

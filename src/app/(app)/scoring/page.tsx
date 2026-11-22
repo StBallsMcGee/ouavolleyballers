@@ -12,7 +12,7 @@ export default async function ScoringPage() {
   const current = ruleSetInForce(sets, ctx.currentWeek ?? 1);
   return (
     <>
-      <PageHeader title="Scoring" subtitle="Fantasy points = each statistic × its value, added up. Only starters score." actions={ctx.isAdmin ? <Link href="/admin/scoring" className="btn-secondary">Edit scoring</Link> : null} />
+      <PageHeader tone="violet" title="Scoring" subtitle="Fantasy points = each statistic × its value, added up. Only starters score." actions={ctx.isAdmin ? <Link href="/admin/scoring" className="btn-secondary">Edit scoring</Link> : null} />
       {!current ? <Empty>No scoring rules yet.</Empty> : (
         <Card title={`In force now · version ${current.version}`}>
           <table className="table">

@@ -1,15 +1,47 @@
 import Link from "next/link";
 import { formatDateTime, timeAgo } from "@/lib/time";
 
-export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: React.ReactNode; actions?: React.ReactNode }) {
+export type Tone = "blue" | "violet" | "green" | "orange" | "teal" | "pink" | "gold";
+const TONES: Tone[] = ["blue", "violet", "green", "orange", "teal", "pink", "gold"];
+/** Written out in full so the styles are always included. */
+export const TONE_CLASS: Record<Tone, string> = {
+  blue: "tile-blue", violet: "tile-violet", green: "tile-green", orange: "tile-orange", teal: "tile-teal", pink: "tile-pink", gold: "tile-gold",
+};
+
+/** Faint volleyball-court lines, drawn over the pastel headers (like the Home and Matchup courts). */
+export function CourtLines({ className = "" }: { className?: string }) {
   return (
-    <div className="mb-3 flex flex-wrap items-end justify-between gap-2 px-4 pt-4 sm:px-0">
-      <div className="min-w-0">
-        <h1 className="truncate text-xl font-extrabold tracking-tight sm:text-2xl">{title}</h1>
-        {subtitle ? <p className="mt-0.5 text-sm text-gray-500">{subtitle}</p> : null}
+    <svg viewBox="0 0 200 110" className={`pointer-events-none ${className}`} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <rect x="4" y="4" width="192" height="102" rx="3" />
+      <line x1="100" y1="0" x2="100" y2="110" strokeWidth="3.5" />
+      <line x1="68" y1="4" x2="68" y2="106" strokeDasharray="5 4" />
+      <line x1="132" y1="4" x2="132" y2="106" strokeDasharray="5 4" />
+      <circle cx="100" cy="55" r="3" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/**
+ * Every screen's title: a bright pastel card with court lines, like the Home and Matchup screens.
+ * Each screen has its own colour (`tone`); without one, the title picks a steady colour.
+ */
+export function PageHeader({ title, subtitle, actions, tone }: { title: string; subtitle?: React.ReactNode; actions?: React.ReactNode; tone?: Tone }) {
+  const t = tone ?? TONES[[...title].reduce((a, c) => a + c.charCodeAt(0), 0) % TONES.length]!;
+  return (
+    <header className={`${TONE_CLASS[t]} relative mx-3 mb-3 mt-1 overflow-hidden rounded-3xl px-5 py-4 shadow-lg shadow-black/30 sm:mx-0 sm:mt-4`}>
+      <CourtLines className="absolute right-3 top-1/2 h-[78%] max-h-24 -translate-y-1/2 -rotate-6 text-white/40" />
+      <div className="relative flex flex-wrap items-end justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-black tracking-tight text-charcoal">{title}</h1>
+          {subtitle ? <p className="mt-0.5 text-sm font-semibold text-charcoal/70 [&_*]:text-charcoal/70">{subtitle}</p> : null}
+        </div>
+        {actions ? (
+          <div className="flex flex-wrap gap-2 [&_.btn-primary]:bg-charcoal [&_.btn-primary]:bg-none [&_.btn-primary]:text-gold-300 [&_.btn-secondary]:bg-charcoal/15 [&_.btn-secondary]:text-charcoal [&_.text-gray-500]:text-charcoal/70 [&_.text-gray-400]:text-charcoal/60">
+            {actions}
+          </div>
+        ) : null}
       </div>
-      {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
-    </div>
+    </header>
   );
 }
 
@@ -64,7 +96,17 @@ export function Points({ value, className = "" }: { value: number | null | undef
 }
 
 export function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="px-4 py-8 text-center text-sm text-gray-500">{children}</p>;
+  return (
+    <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+      <span className="tile-gold grid h-11 w-11 place-items-center rounded-2xl text-charcoal shadow-md shadow-black/30" aria-hidden>
+        <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 3c-1 4 0 7 4 9M3.5 9c4-1 7 0 8.5 3M7 20c1-4 3-6 5-8M20.5 15c-4 1-7 0-8.5-3" />
+        </svg>
+      </span>
+      <p className="text-sm font-semibold text-gray-500">{children}</p>
+    </div>
+  );
 }
 
 /** Shows how fresh data is. Never presents old data as current. */
