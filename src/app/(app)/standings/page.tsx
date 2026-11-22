@@ -24,7 +24,7 @@ export default async function StandingsPage() {
   const form = new Map(rows.map((r) => [r.teamId, weeks.map((w) => weekScore(r.teamId, w)?.result).filter(Boolean).slice(-5) as Array<"W" | "L" | "T">]));
   return (
     <>
-      <PageHeader title="Standings" />
+      <PageHeader title="Standings" tone="violet" />
       <Card flush>
         <StandingsTable rows={rows} teams={team} myTeamId={myTeam?.id} form={form} odds={league.settings.playoffs.enabled ? leaguePlayoffOdds({ matchups: all, standings: rows, weeks: ctx.weeks, startWeek: league.settings.playoffs.startWeek, spots: 8, today: ctx.today }) : undefined} />
       </Card>

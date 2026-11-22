@@ -43,3 +43,19 @@ export function PositionTile({ label, size = "md" }: { label: string; size?: "sm
 export function positionText(label: string | null | undefined): string {
   return TEXT[key(label)] ?? "text-gray-500";
 }
+
+/**
+ * A position filter chip in that position's colour: filled when chosen, outlined otherwise.
+ * "ALL" (or anything else) uses gold.
+ */
+export function positionChipClass(label: string, on: boolean): string {
+  const k = key(label);
+  const base = "shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-extrabold transition active:scale-95";
+  if (on) return `${base} ${TILE[k] && k !== "BN" ? TILE[k] : "tile-gold"} shadow-md shadow-black/30 ring-2 ring-white/70`;
+  return `${base} border border-current bg-surface-2 ${TEXT[k] ?? "text-gold-300"} hover:bg-surface-3`;
+}
+
+/** The soft position-coloured background used behind a player's points. */
+export function positionTileClass(label: string | null | undefined): string {
+  return TILE[key(label)] ?? "tile-gold";
+}

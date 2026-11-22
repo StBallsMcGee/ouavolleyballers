@@ -52,7 +52,7 @@ export default async function FreeAgentsPage({ searchParams }: { searchParams: P
     .sort((a, b) => Number(a.slot !== "BENCH") - Number(b.slot !== "BENCH") || a.points - b.points); // bench and low scorers first
   return (
     <>
-      <PageHeader title="Free agents" subtitle={myTeam ? `Your roster ${roster.length}/${limit}` : undefined} />
+      <PageHeader tone="green" title="Free agents" subtitle={myTeam ? `Your roster ${roster.length}/${limit}` : undefined} />
       {!enabled ? <div className="mb-3"><Notice tone="amber">Free agency is currently closed by the league administrator.</Notice></div> : (
         <div className="mb-3"><Notice tone="slate"><b>Add</b> a free agent whose game today hasn&apos;t started and she joins your bench right away. Once her game has started she can only be <b>claimed</b>: claims are decided at midnight, in waiver order. The team highest in the order gets her, and winning a claim moves that team to the back.</Notice></div>
       )}

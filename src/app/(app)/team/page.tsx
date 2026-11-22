@@ -12,7 +12,7 @@ export default async function MyTeamPage({ searchParams }: { searchParams: Promi
   if (!ctx.myTeam) {
     return (
       <>
-        <PageHeader title="My Team" />
+        <PageHeader title="My Team" tone="blue" />
         <Empty>No team is linked to your account. {ctx.isAdmin ? <Link href="/admin/teams" className="link">Assign teams</Link> : "Ask the league administrator to link your team."}</Empty>
       </>
     );
