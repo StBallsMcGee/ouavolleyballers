@@ -1,11 +1,12 @@
 import type { University } from "@/lib/data/queries";
 
 /** Search box plus a collapsible "Filters" panel. Plain GET form: works without JavaScript. */
-export function PlayerFilters({ unis, sp, showStatus = true }: { unis: University[]; sp: Record<string, string | undefined>; showStatus?: boolean }) {
+export function PlayerFilters({ unis, sp, showStatus = true, hidden }: { unis: University[]; sp: Record<string, string | undefined>; showStatus?: boolean; hidden?: Record<string, string> }) {
   const oua = unis.filter((u) => u.short_name && u.short_name.length <= 4);
   const active = [sp.pos, sp.uni, sp.week, sp.sort, showStatus && sp.status && sp.status !== "active" ? sp.status : undefined].filter(Boolean).length;
   return (
     <form className="mx-3 mb-3 rounded-2xl bg-surface px-4 py-3 shadow-lg shadow-black/20 sm:mx-0" method="get">
+      {Object.entries(hidden ?? {}).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
       <div className="flex gap-2">
         <input name="q" defaultValue={sp.q ?? ""} placeholder="Search players" className="input min-w-0 flex-1" />
         <button className="btn-primary shrink-0 px-4">Go</button>
