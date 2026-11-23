@@ -49,8 +49,11 @@ async function SearchView({ ctx, sp }: { ctx: LeagueContext; sp: Sp }) {
   const rows = players
     .filter((p) => (status === "available" ? !owner.has(p.id) && !p.duplicate_of : status === "rostered" ? owner.has(p.id) : true))
     .filter((p) => (sp.week === "playing" ? sched.playsThisWeek(p.university_id) : true))
-    .map((p) => ({ ...p, pts: season.get(p.id)?.points ?? 0, gp: season.get(p.id)?.games ?? 0, proj: proj.get(p.id)?.perGame ?? null }))
-    .sort((a, b) => (sp.sort === "proj" ? (b.proj ?? -999) - (a.proj ?? -999) : 0) || b.pts - a.pts || a.display_name.localeCompare(b.display_name));
+    .map((p) => ({ ...p, pts: season.get(p.id)?.points ?? 0, gp: season.get(p.id)?.games ?? 0, proj: proj.get(p.id)?.perGame ?? null, last3: proj.get(p.id)?.last3 ?? null }))
+    .sort((a, b) => {
+      const v = (x: typeof a) => (sp.sort === "proj" ? x.proj : sp.sort === "last3" ? x.last3 : sp.sort === "pergame" ? (x.gp ? x.pts / x.gp : null) : 0);
+      return ((v(b) ?? -999) - (v(a) ?? -999)) || b.pts - a.pts || a.display_name.localeCompare(b.display_name);
+    });
   return (
     <>
       <PlayerFilters unis={[...sched.unis.values()]} sp={sp} hidden={{ view: "search" }} />
