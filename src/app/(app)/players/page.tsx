@@ -13,6 +13,8 @@ import { AddPlayerButton } from "@/components/add-player-button";
 import { parsePeriod, positionGroup, STAT_KEY_HELP, statCells, totalsFor, type WeekStatRow } from "@/lib/players/leaders";
 import { formatDate } from "@/lib/time";
 import { positionChipClass } from "@/components/position";
+import { FreeAgentsView } from "@/components/views/free-agents-view";
+import { TradesView } from "@/components/views/trades-view";
 
 export const metadata = { title: "Players" };
 
@@ -22,13 +24,18 @@ type LeagueContext = Awaited<ReturnType<typeof requireLeague>>;
 export default async function PlayersPage({ searchParams }: { searchParams: Promise<Sp> }) {
   const sp = await searchParams;
   const ctx = await requireLeague();
-  // Search keeps every filter it had; a search or filter in the address opens it directly.
-  const searching = sp.view === "search" || !!(sp.q || sp.uni || sp.week || sp.sort || sp.status);
+  // The tiles switch what's shown underneath: Leaders, Search, Available (free agents) or Trades.
+  // A search or filter in the address opens Search directly (as before).
+  const view = sp.view === "available" || sp.view === "trades" || sp.view === "search" ? sp.view
+    : sp.q || sp.uni || sp.week || sp.sort || sp.status ? "search" : "leaders";
   return (
     <>
       <PageHeader title="Players" tone="blue" />
-      <PlayersNav active={searching ? "search" : "leaders"} />
-      {searching ? <SearchView ctx={ctx} sp={sp} /> : <LeadersView ctx={ctx} sp={sp} />}
+      <PlayersNav active={view} />
+      {view === "search" ? <SearchView ctx={ctx} sp={sp} />
+        : view === "available" ? <FreeAgentsView sp={sp} basePath="/players" keep={{ view: "available" }} embedded />
+        : view === "trades" ? <TradesView embedded />
+        : <LeadersView ctx={ctx} sp={sp} />}
     </>
   );
 }

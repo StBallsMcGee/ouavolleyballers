@@ -1,18 +1,76 @@
 "use client";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DayTab } from "@/lib/data/days";
 
+const STORE_PREFIX = "sideout:day:";
+
+/** The day last chosen on this screen in this app session (sessionStorage ends when the app is closed). */
+function storedDay(path: string): string | null {
+  try {
+    return window.sessionStorage.getItem(STORE_PREFIX + path);
+  } catch {
+    return null;
+  }
+}
+function storeDay(path: string, day: string) {
+  try {
+    window.sessionStorage.setItem(STORE_PREFIX + path, day);
+  } catch {
+    // Private browsing etc.: the day just isn't remembered.
+  }
+}
+
 /**
  * The selected day, kept in the address bar (?day=) so a refresh or shared link opens the same
- * day. Switching days within the week is instant: everything for the week is already on the page.
- * The content slides in from the side you moved towards.
+ * day, and remembered for the rest of the app session: going to a player's page and back keeps
+ * the day you were on; closing the app starts again on today. Switching days within the week is
+ * instant: everything for the week is already on the page. The content slides in from the side
+ * you moved towards.
  */
 export function useDaySwitch(days: readonly DayTab[], initial: string) {
   const [day, setDay] = useState(initial);
   const ref = useRef<HTMLDivElement>(null);
   const prev = useRef(initial);
-  useEffect(() => setDay(initial), [initial]);
+  const router = useRouter();
+  const path = usePathname();
+  useEffect(() => {
+    // Opened without a day in the address (e.g. back from a player's page, or the tab bar):
+    // return to the day chosen earlier in this session.
+    let urlDay: string | null = null;
+    try {
+      urlDay = new URL(window.location.href).searchParams.get("day");
+    } catch {
+      // ignore
+    }
+    // The day in the address wins (going back can show an earlier copy of the page built for
+    // another day); otherwise the day remembered from earlier in this session.
+    const want = urlDay ?? storedDay(path);
+    if (want && want !== initial) {
+      if (days.some((d) => d.date === want)) {
+        setDay(want);
+        storeDay(path, want);
+        if (!urlDay) {
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.set("day", want);
+            window.history.replaceState(window.history.state, "", url);
+          } catch {
+            // The address bar is a convenience.
+          }
+        }
+        return;
+      }
+      if (!urlDay) {
+        // A day in another week: load that week.
+        router.replace(`${path}?day=${want}`, { scroll: false });
+        return;
+      }
+    }
+    setDay(initial);
+    storeDay(path, initial);
+  }, [initial, path]);
   useEffect(() => {
     const from = prev.current;
     prev.current = day;
@@ -27,6 +85,7 @@ export function useDaySwitch(days: readonly DayTab[], initial: string) {
   const select = useCallback((d: string) => {
     if (!days.some((x) => x.date === d)) return;
     setDay(d);
+    storeDay(path, d);
     try {
       const url = new URL(window.location.href);
       url.searchParams.set("day", d);
@@ -34,7 +93,7 @@ export function useDaySwitch(days: readonly DayTab[], initial: string) {
     } catch {
       // The address bar is a convenience; the day still changes.
     }
-  }, [days]);
+  }, [days, path]);
   return { day, select, ref };
 }
 
