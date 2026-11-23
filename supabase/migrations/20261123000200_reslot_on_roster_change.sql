@@ -45,7 +45,7 @@ begin
     nxt := public.remap_lineup_slots(slots, cur);
     -- Close every entry whose slot changes, then open the new ones (avoids slot clashes).
     create temporary table if not exists _reslot (player_id uuid, slot text) on commit drop;
-    delete from _reslot;
+    delete from _reslot where true; -- (Supabase refuses a delete without a where clause)
     insert into _reslot
     select (n ->> 'player_id')::uuid, n ->> 'slot'
       from jsonb_array_elements(nxt) n

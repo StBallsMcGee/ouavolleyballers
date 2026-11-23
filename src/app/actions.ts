@@ -28,7 +28,9 @@ async function rpc(name: string, args: Record<string, unknown>) {
 }
 
 function refresh(...paths: string[]) {
-  for (const p of ["/", ...paths]) revalidatePath(p);
+  // The Players tab shows the free agents and trades lists too.
+  const extra = paths.some((p) => p === "/free-agents" || p === "/trades") ? ["/players"] : [];
+  for (const p of ["/", ...paths, ...extra]) revalidatePath(p);
 }
 
 /* ---------------------------------------------------------------- Manager actions */
