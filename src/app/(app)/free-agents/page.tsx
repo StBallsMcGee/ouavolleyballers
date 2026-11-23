@@ -7,8 +7,19 @@ import { PlayerFilters } from "@/components/player-filters";
 import { PlayerList } from "@/components/player-list";
 import { AddPlayerButton } from "@/components/add-player-button";
 import { WaiverClaims, type ClaimRow } from "@/components/waiver-claims";
+import { positionChipClass } from "@/components/position";
+import Link from "next/link";
 
 export const metadata = { title: "Free agents" };
+
+/** The sort buttons above the list ("" = total season points). */
+const SORTS: Array<{ key: string; label: string; value?: (p: { pts: number; perGame: number | null; proj: number | null; last3: number | null }) => number | null }> = [
+  { key: "", label: "Total pts" },
+  { key: "pergame", label: "Per game", value: (p) => p.perGame },
+  { key: "proj", label: "Projected", value: (p) => p.proj },
+  { key: "last3", label: "Last 3", value: (p) => p.last3 },
+];
+const POSITIONS = ["", "OH", "M", "S", "L"];
 
 export default async function FreeAgentsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
@@ -43,8 +54,15 @@ export default async function FreeAgentsPage({ searchParams }: { searchParams: P
   const rows = players
     .filter((p) => !owner.has(p.id) && !p.duplicate_of)
     .filter((p) => (sp.week === "playing" ? sched.playsThisWeek(p.university_id) : true))
-    .map((p) => ({ ...p, pts: season.get(p.id)?.points ?? 0, gp: season.get(p.id)?.games ?? 0, proj: proj.get(p.id)?.perGame ?? null }))
-    .sort((a, b) => (sp.sort === "proj" ? (b.proj ?? -999) - (a.proj ?? -999) : 0) || b.pts - a.pts || a.display_name.localeCompare(b.display_name));
+    .map((p) => {
+      const pts = season.get(p.id)?.points ?? 0;
+      const gp = season.get(p.id)?.games ?? 0;
+      return { ...p, pts, gp, perGame: gp ? pts / gp : null, proj: proj.get(p.id)?.perGame ?? null, last3: proj.get(p.id)?.last3 ?? null };
+    })
+    .sort((a, b) => {
+      const key = SORTS.find((x) => x.key === sp.sort)?.value;
+      return (key ? (key(b) ?? -999) - (key(a) ?? -999) : 0) || b.pts - a.pts || a.display_name.localeCompare(b.display_name);
+    });
   const limit = league.settings.roster.TOTAL;
   const enabled = league.settings.freeAgency.enabled;
   const myRoster = roster
@@ -74,7 +92,30 @@ export default async function FreeAgentsPage({ searchParams }: { searchParams: P
       ) : null}
       {claims.length ? <Card flush title="Your waiver claims" className="mb-3"><WaiverClaims claims={claims} /></Card> : null}
       <PlayerFilters unis={[...sched.unis.values()]} sp={sp} showStatus={false} />
-      <Card flush title={`${rows.length} available`}>
+      <nav className="mx-3 mb-3 space-y-2 sm:mx-0" aria-label="Sort and filter">
+        <div className="flex gap-2 overflow-x-auto [scrollbar-width:none]">
+          <span className="shrink-0 self-center text-[11px] font-extrabold uppercase tracking-wide text-gray-500">Sort</span>
+          {SORTS.map((o) => {
+            const on = (sp.sort ?? "") === o.key;
+            return (
+              <Link key={o.key || "total"} href={hrefWith(sp, { sort: o.key || undefined })} scroll={false} aria-current={on ? "true" : undefined}
+                className={`shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-extrabold transition active:scale-95 ${on ? "tile-gold text-charcoal shadow-md shadow-black/30 ring-2 ring-white/70" : "border border-gold-400/60 bg-surface-2 text-gold-300 hover:bg-surface-3"}`}>
+                {o.label}
+              </Link>
+            );
+          })}
+        </div>
+        <div className="flex gap-2 overflow-x-auto [scrollbar-width:none]">
+          <span className="shrink-0 self-center text-[11px] font-extrabold uppercase tracking-wide text-gray-500">Position</span>
+          {POSITIONS.map((x) => (
+            <Link key={x || "all"} href={hrefWith(sp, { pos: x || undefined })} scroll={false} aria-current={(sp.pos ?? "") === x ? "true" : undefined}
+              className={positionChipClass(x || "ALL", (sp.pos ?? "") === x)}>
+              {x || "All"}
+            </Link>
+          ))}
+        </div>
+      </nav>
+      <Card flush title={`${rows.length} available${sortLabel(sp.sort)}`}>
         {rows.length === 0 ? <Empty>No free agents match these filters.</Empty> : (
           <PlayerList
             showOwner={false}
@@ -88,4 +129,17 @@ export default async function FreeAgentsPage({ searchParams }: { searchParams: P
       </Card>
     </>
   );
+}
+
+/** This page's address with some choices changed (search and filters are kept). */
+function hrefWith(sp: Record<string, string | undefined>, changes: Record<string, string | undefined>): string {
+  const next = new URLSearchParams();
+  for (const [k, v] of Object.entries({ ...sp, ...changes })) if (v) next.set(k, v);
+  const qs = next.toString();
+  return `/free-agents${qs ? `?${qs}` : ""}`;
+}
+
+function sortLabel(sort: string | undefined): string {
+  const o = SORTS.find((x) => x.key === (sort ?? "") && x.key);
+  return o ? ` · by ${o.label.toLowerCase()}` : "";
 }

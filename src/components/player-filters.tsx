@@ -29,6 +29,8 @@ export function PlayerFilters({ unis, sp, showStatus = true, hidden }: { unis: U
           <select name="sort" defaultValue={sp.sort ?? ""} className="input">
             <option value="">Sort: season points</option>
             <option value="proj">Sort: projected</option>
+            <option value="pergame">Sort: points per game</option>
+            <option value="last3">Sort: last 3 games</option>
           </select>
           {showStatus ? (
             <select name="status" defaultValue={sp.status ?? "active"} className="input">

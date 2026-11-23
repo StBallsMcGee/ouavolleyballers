@@ -26,7 +26,7 @@ export function SettingsForm({ name, status, settings }: { name: string; status:
             <div key={k}><label className="label">{k === "TOTAL" ? "Total size" : `${k} slots`}</label><input type="number" min={0} max={k === "TOTAL" ? 30 : 10} className="input" value={s.roster[k]} onChange={(e) => setS({ ...s, roster: { ...s.roster, [k]: num(e.target.value) } })} /></div>
           ))}
         </div>
-        <p className="mt-2 text-xs text-gray-500">{starters} starting slots + {Math.max(0, s.roster.TOTAL - starters)} bench spots. The total can&apos;t be set below the largest current roster.</p>
+        <p className="mt-2 text-xs text-gray-500">{starters} starting slots + {Math.max(0, s.roster.TOTAL - starters)} bench spots. The total can&apos;t be set below the largest current roster. Removing a slot (e.g. setting UTIL to 0) moves whoever is in it to the bench, in current and saved future lineups; points already scored don&apos;t change.</p>
       </section>
 
       <section className="card grid gap-4 p-4 sm:grid-cols-2">
