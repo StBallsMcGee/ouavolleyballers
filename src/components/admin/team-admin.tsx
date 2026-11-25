@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { adminJoinCode, adminMovePlayer, inviteManager, setMemberRole, unassignOwner } from "@/app/actions";
+import { adminSetPassword } from "@/app/auth-actions";
 
 type Msg = { ok: boolean; text: string } | null;
 const Result = ({ m }: { m: Msg }) => (m ? <span className={`text-xs ${m.ok ? "text-emerald-600" : "text-red-600"}`}>{m.text}</span> : null);
@@ -31,6 +32,42 @@ export function TeamOwnerButtons({ teamId, ownerId, isAdmin }: { teamId: string;
       <button className="btn-ghost px-2 py-1 text-xs text-red-600" disabled={pending} onClick={() => confirm("Remove this manager from the team? The roster is not changed.") && start(async () => { const r = await unassignOwner(teamId); setMsg({ ok: r.ok, text: r.ok ? r.message ?? "" : r.error }); })}>Unassign</button>
       <Result m={msg} />
     </span>
+  );
+}
+
+/** Easy to read out or text: no 0/O, 1/l/I. */
+function tempPassword(): string {
+  const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+  const bytes = new Uint32Array(10);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+}
+
+/** For a manager who can't sign in (e.g. emails not arriving): set a temporary password to text them. */
+export function SetPasswordButton({ userId, name }: { userId: string; name: string }) {
+  const [open, setOpen] = useState(false);
+  const [pw, setPw] = useState("");
+  const [msg, setMsg] = useState<Msg>(null);
+  const [pending, start] = useTransition();
+  if (!open) {
+    return (
+      <span className="flex flex-wrap items-center gap-2">
+        <button type="button" className="btn-ghost px-2 py-1 text-xs" onClick={() => { setPw(tempPassword()); setMsg(null); setOpen(true); }}>Set password</button>
+        <Result m={msg} />
+      </span>
+    );
+  }
+  return (
+    <form className="flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); start(async () => {
+      const r = await adminSetPassword(userId, pw);
+      setMsg({ ok: r.ok, text: r.ok ? `${r.message} Password: ${pw}` : r.error });
+      if (r.ok) setOpen(false);
+    }); }}>
+      <input className="input w-40 py-1 font-mono text-sm" value={pw} onChange={(e) => setPw(e.target.value)} minLength={8} maxLength={72} aria-label={`New password for ${name}`} required />
+      <button className="btn-secondary min-h-[32px] px-3 py-1 text-xs" disabled={pending}>{pending ? "…" : "Save"}</button>
+      <button type="button" className="btn-ghost px-2 py-1 text-xs" onClick={() => setOpen(false)}>Cancel</button>
+      <Result m={msg} />
+    </form>
   );
 }
 
