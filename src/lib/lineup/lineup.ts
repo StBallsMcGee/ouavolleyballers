@@ -72,8 +72,10 @@ export function autofillLineup(players: readonly LineupPlayer[], slots: readonly
     .filter((p) => p.slot === BENCH && !p.locked)
     .sort((a, b) => Number(b.playsToday ?? false) - Number(a.playsToday ?? false) || a.positions.length - b.positions.length);
 
-  // Fill specific-position slots first, UTIL last, so UTIL takes whoever is left over.
-  const ordered = [...slots].sort((a, b) => Number(slotGroup(a) === "UTIL") - Number(slotGroup(b) === "UTIL"));
+  // Fill specific-position slots first, then FLEX (OH or M), then UTIL, so the flexible slots
+  // take whoever is left over.
+  const rank = (s: string) => (slotGroup(s) === "UTIL" ? 2 : slotGroup(s) === "FLEX" ? 1 : 0);
+  const ordered = [...slots].sort((a, b) => rank(a) - rank(b));
   for (const slot of ordered) {
     if (occupied.has(slot)) continue;
     const pick = candidates.find((c) => c.slot === BENCH && isEligibleForSlot(c.positions, slot));

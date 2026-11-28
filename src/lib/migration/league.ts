@@ -119,7 +119,7 @@ export function validateLeagueSource(
   const dupIds = new Set(feed.players.filter((p) => p.duplicateOfSourceId).map((p) => p.sourceId));
   const teamIds = new Set(teams.map((t) => t.publicId));
   const excluded = new Set(opts.excludeTeamIds);
-  const roster = { ...league.criticalSettings.roster };
+  const roster = { FLEX: 0, ...league.criticalSettings.roster };
   const slots = startingSlots(roster);
 
   // League-level checks
@@ -289,7 +289,7 @@ export async function writeLeague(
 ): Promise<WriteSummary> {
   const timezone = opts.timezone ?? "America/Toronto";
   const excluded = new Set(opts.excludeTeamIds);
-  const settings: LeagueSettings = { ...DEFAULT_SETTINGS, roster: { ...league.criticalSettings.roster } };
+  const settings: LeagueSettings = { ...DEFAULT_SETTINGS, roster: { FLEX: 0, ...league.criticalSettings.roster } };
 
   // 1. League (existing leagues keep their settings; the administrator may have changed them)
   const lg = await db.query<{ id: string; inserted: boolean }>(
@@ -617,7 +617,7 @@ export function reportToMarkdown(r: LeagueImportReport): string {
     lines.push("### Excluded teams", ...c.excludedTeams.map((t) => `- ${t.name} (${t.players} players)`), "");
   }
   lines.push("### Scoring", "| Category | Points |", "|---|---:|", ...r.scoring.map((s) => `| ${s.label} | ${s.points} |`), "");
-  lines.push(`### Roster: ${r.roster.S} S, ${r.roster.OH} OH, ${r.roster.M} M, ${r.roster.L} L, ${r.roster.UTIL} UTIL, ${r.roster.TOTAL} total`, "");
+  lines.push(`### Roster: ${r.roster.S} S, ${r.roster.OH} OH, ${r.roster.M} M, ${r.roster.L} L, ${r.roster.UTIL} UTIL, ${r.roster.FLEX ?? 0} FLEX, ${r.roster.TOTAL} total`, "");
   if (r.draftVsRoster.droppedSinceDraft.length) {
     lines.push("### Changes since the draft",
       `- Dropped: ${r.draftVsRoster.droppedSinceDraft.join(", ")}`,

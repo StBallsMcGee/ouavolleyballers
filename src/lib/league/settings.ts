@@ -4,8 +4,10 @@ import { z } from "zod";
 export const POSITIONS = ["S", "OH", "M", "L"] as const;
 export type Position = (typeof POSITIONS)[number];
 
-/** Order in which starting slot groups are displayed. UTIL accepts any position. */
-export const SLOT_GROUPS = ["S", "OH", "M", "L", "UTIL"] as const;
+/** Order in which starting slot groups are displayed. FLEX takes an OH or an M; UTIL takes anyone. */
+export const SLOT_GROUPS = ["S", "OH", "M", "FLEX", "L", "UTIL"] as const;
+/** Positions a FLEX slot accepts. */
+export const FLEX_POSITIONS: readonly string[] = ["OH", "M"];
 export type SlotGroup = (typeof SLOT_GROUPS)[number];
 export const BENCH = "BENCH";
 
@@ -16,9 +18,11 @@ export const rosterSettingsSchema = z
     M: z.number().int().min(0).max(10),
     L: z.number().int().min(0).max(10),
     UTIL: z.number().int().min(0).max(10),
+    /** OH-or-M slots. Leagues saved before FLEX existed have none. */
+    FLEX: z.number().int().min(0).max(10).default(0),
     TOTAL: z.number().int().min(1).max(30),
   })
-  .refine((r) => r.TOTAL >= r.S + r.OH + r.M + r.L + r.UTIL, {
+  .refine((r) => r.TOTAL >= r.S + r.OH + r.M + r.L + r.UTIL + r.FLEX, {
     message: "Total roster size must be at least the number of starting slots.",
   });
 
@@ -55,7 +59,7 @@ export type LeagueSettings = z.infer<typeof leagueSettingsSchema>;
  * format, because the existing league's playoff rules have not been verified.
  */
 export const DEFAULT_SETTINGS: LeagueSettings = {
-  roster: { S: 1, OH: 3, M: 2, L: 1, UTIL: 1, TOTAL: 11 },
+  roster: { S: 1, OH: 3, M: 2, L: 1, UTIL: 1, FLEX: 0, TOTAL: 11 },
   freeAgency: { enabled: true },
   trades: { enabled: true, review: "none", deadlineWeek: null },
   lineupLock: { fallbackLocalTime: "18:00" },
@@ -75,7 +79,7 @@ export function parseSettings(raw: unknown): LeagueSettings {
 }
 
 /**
- * Starting slot names, e.g. ["S","OH1","OH2","OH3","M1","M2","L","UTIL"].
+ * Starting slot names, e.g. ["S","OH1","OH2","OH3","M1","M2","FLEX","L","UTIL"].
  * Must match public.league_starting_slots() in the database.
  */
 export function startingSlots(roster: RosterSettings): string[] {
@@ -107,5 +111,6 @@ export function parsePositions(label: string | null | undefined): Position[] {
 export function isEligibleForSlot(positions: readonly string[], slot: string): boolean {
   const group = slotGroup(slot);
   if (group === BENCH || group === "UTIL") return true;
+  if (group === "FLEX") return positions.some((p) => FLEX_POSITIONS.includes(p));
   return positions.includes(group);
 }

@@ -35,7 +35,7 @@ function refresh(...paths: string[]) {
 
 /* ---------------------------------------------------------------- Manager actions */
 
-const lineupSchema = z.array(z.object({ player_id: uuid, slot: z.string().regex(/^(BENCH|UTIL\d*|S\d*|L\d*|OH\d*|M\d*)$/) })).max(40);
+const lineupSchema = z.array(z.object({ player_id: uuid, slot: z.string().regex(/^(BENCH|UTIL\d*|FLEX\d*|S\d*|L\d*|OH\d*|M\d*)$/) })).max(40);
 
 export async function saveLineup(teamId: string, lineup: Array<{ player_id: string; slot: string }>): Promise<ActionResult> {
   try {

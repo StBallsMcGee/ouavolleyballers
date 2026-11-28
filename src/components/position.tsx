@@ -8,6 +8,7 @@ const TILE: Record<string, string> = {
   M: "bg-[#7fe0a6] text-charcoal",
   L: "bg-[#ffc785] text-charcoal",
   UTIL: "bg-gradient-to-r from-[#8fc0ff] via-[#7fe0a6] to-[#ffc785] text-charcoal",
+  FLEX: "bg-gradient-to-r from-[#8fc0ff] to-[#7fe0a6] text-charcoal",
   BN: "bg-surface-3 text-gray-500",
 };
 const TEXT: Record<string, string> = {
@@ -16,12 +17,14 @@ const TEXT: Record<string, string> = {
   M: "text-[#7fe0a6]",
   L: "text-[#ffc785]",
   UTIL: "text-[#c3adff]",
+  FLEX: "bg-gradient-to-r from-[#8fc0ff] to-[#7fe0a6] bg-clip-text text-transparent",
 };
 
 function key(label: string | null | undefined): string {
   const k = (label ?? "").trim().toUpperCase().split(/[\s/,]+/)[0] ?? "";
   if (k === "BENCH") return "BN";
   if (k.startsWith("UTIL")) return "UTIL";
+  if (k.startsWith("FLEX")) return "FLEX";
   if (k === "LIB" || k === "LIBERO") return "L";
   if (k === "MB" || k === "MIDDLE") return "M";
   if (k === "SETTER") return "S";
@@ -29,12 +32,12 @@ function key(label: string | null | undefined): string {
   return k;
 }
 
-/** The coloured slot tile in a lineup row (OH, M, S, L, UTIL, BN). */
+/** The coloured slot tile in a lineup row (OH, M, S, L, FLEX shown as "OH/M", UTIL, BN). */
 export function PositionTile({ label, size = "md" }: { label: string; size?: "sm" | "md" }) {
   const k = key(label);
   return (
     <span className={`grid shrink-0 place-items-center rounded-lg font-extrabold shadow-sm ${TILE[k] ?? "bg-surface-3 text-gray-700"} ${size === "sm" ? "h-6 w-9 text-[10px]" : "h-8 w-11 text-[11px]"}`}>
-      {k === "BN" ? "BN" : label}
+      {k === "BN" ? "BN" : k === "FLEX" ? "OH/M" : label}
     </span>
   );
 }
