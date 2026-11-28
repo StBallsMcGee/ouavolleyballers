@@ -49,6 +49,8 @@ export async function runSync(opts: {
       opts.feed ? Promise.resolve(undefined) : (async () => {
         const school = await (await import("@/lib/ingest/boxscores")).runBoxScoreSync({ pool: opts.pool });
         const oua = await (await import("@/lib/ingest/oua-boxscores")).runOuaBoxScoreSync({ pool: opts.pool }).catch(() => undefined);
+        // Guest players from men's teams: their own schedule and box scores (school site).
+        await (await import("@/lib/ingest/guest-men")).runGuestMenSync({ pool: opts.pool }).catch(() => undefined);
         return { school, oua };
       })(),
     ]);

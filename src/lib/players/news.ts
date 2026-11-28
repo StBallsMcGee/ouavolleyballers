@@ -30,6 +30,8 @@ export interface NewsInput {
   week: NewsGame[];
   /** Her earlier games this season (before that week), newest first. */
   before: NewsGame[];
+  /** A guest player from a men's team: written with he/him. */
+  he?: boolean;
   /** The coming week, for a closing outlook (optional). */
   next?: { matches: number; opponents: string[]; projPerGame: number | null } | null;
 }
@@ -97,8 +99,22 @@ function resultPhrase(g: NewsGame, pick: ReturnType<typeof picker>): string | nu
   return `a ${g.setsAgainst}-${g.setsFor} loss to ${g.opponent}`;
 }
 
-/** The template version (used when Claude isn't set up). `salt` gives a different wording. */
+/** he/him/his in place of she/her (guest players from men's teams). */
+export function heify(text: string): string {
+  return text
+    .replace(/\bShe\b/g, "He").replace(/\bshe\b/g, "he")
+    .replace(/\bHer\b/g, "His").replace(/\bher\b/g, "his")
+    .replace(/\bherself\b/g, "himself");
+}
+
+/** The template version (used when no AI writer is set up). `salt` gives a different wording. */
 export function buildWeeklyNews(input: NewsInput, salt = ""): NewsStory | null {
+  const s = buildStory(input, salt);
+  if (!s || !input.he) return s;
+  return { headline: heify(s.headline), paragraphs: s.paragraphs.map(heify) };
+}
+
+function buildStory(input: NewsInput, salt: string): NewsStory | null {
   const { week, before } = input;
   if (week.length === 0) return null;
   const pick = picker(`${input.playerId}|${input.weekLabel}|${salt}`);

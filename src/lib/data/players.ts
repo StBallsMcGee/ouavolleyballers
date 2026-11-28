@@ -16,7 +16,7 @@ export interface PlayerListRow {
 
 export async function listPlayers(sb: SupabaseClient, f: { q?: string; uni?: string; pos?: string; activeOnly?: boolean }) {
   const rows = await fetchAll<Omit<PlayerListRow, "photo"> & { player_profiles: { photo_url: string | null } | Array<{ photo_url: string | null }> | null }>((from, to) => {
-    let q = sb.from("players").select("id, display_name, position_label, positions, university_id, jersey_number, active, duplicate_of, player_profiles(photo_url)").eq("gender", "womens").eq("conference", "OUA");
+    let q = sb.from("players").select("id, display_name, position_label, positions, university_id, jersey_number, active, duplicate_of, player_profiles(photo_url)").in("gender", ["womens", "mens"]) /* "mens": guest players (guest-men.ts) */.eq("conference", "OUA");
     if (f.q) q = q.ilike("display_name", `%${f.q.replace(/[%_,()]/g, "")}%`);
     if (f.uni) q = q.eq("university_id", f.uni);
     if (f.pos) q = q.contains("positions", [f.pos]);

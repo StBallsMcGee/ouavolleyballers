@@ -42,7 +42,7 @@ How to do that:
 Strict rules:
 - Use ONLY facts from the fact sheet. Never invent quotes, coach comments, injuries, crowd details, rankings, records, streaks, standings, or anything about the opponents beyond their names. If a number isn't on the sheet, don't state it.
 - Don't do new arithmetic; use the figures given. Write hitting percentage the volleyball way (.312, not 31.2%).
-- Use she/her. Canadian spelling (offence, defence).
+- Use she/her, unless the fact sheet gives other pronouns (guest players from men's teams use he/him). Canadian spelling (offence, defence).
 - Plain text only: no markdown, no emoji, no hashtags.
 - Headline: under 10 words, specific to her week, in headline style, and different in wording and pattern from every headline listed as already used (no shared templates like "X heating up" or "Big week for X").
 - Avoid stock phrases: "on fire", "stuffed the stat sheet", "made her presence felt", "a force to be reckoned with", "showcased", "proved", "in a big way", "turned heads", "electric", "dominant performance", "look to build on", "carry that momentum".`;
@@ -102,7 +102,7 @@ export async function writeWithClaude(client: Anthropic, facts: string, avoid: A
 }
 
 interface StatRow {
-  player_id: string; first_name: string; last_name: string; position_label: string | null; university_id: string | null;
+  player_id: string; first_name: string; last_name: string; position_label: string | null; university_id: string | null; gender: string;
   match_id: string; match_date: string; home_university_id: string | null; away_university_id: string | null;
   home_sets: number | null; away_sets: number | null; sets_played: number | null; points: string | null; week: number | null;
   [k: string]: unknown;
@@ -140,7 +140,7 @@ export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; par
 
     const statCols = CORE_STAT_KEYS.map((k) => `s.${k}`).join(", ");
     const { rows } = await pool.query<StatRow>(
-      `select s.player_id, p.first_name, p.last_name, p.position_label, p.university_id, ${statCols}, s.sets_played,
+      `select s.player_id, p.first_name, p.last_name, p.position_label, p.university_id, p.gender, ${statCols}, s.sets_played,
               m.id as match_id, m.match_date::text, m.home_university_id, m.away_university_id, m.home_sets, m.away_sets,
               pmp.points, pmp.week
          from public.player_match_statistics s
@@ -202,7 +202,7 @@ export async function runNewsWriter(pool: pg.Pool, opts: { deadline: number; par
       const stories = await Promise.all(batch.map(async ([pid, rs]) => {
         const first = rs[0]!;
         const input: NewsInput = {
-          playerId: pid, firstName: first.first_name, lastName: first.last_name, position: first.position_label,
+          playerId: pid, firstName: first.first_name, lastName: first.last_name, position: first.position_label, he: first.gender === "mens",
           school: first.university_id ? uniName.get(first.university_id) ?? "her school" : "her school",
           weekLabel: `Week ${wk.week}`,
           week: rs.filter((r) => r.match_date >= wk.starts_on && r.match_date <= wk.ends_on).sort((a, b) => a.match_date.localeCompare(b.match_date)).map(toGame),

@@ -61,6 +61,7 @@ export function newsFacts(input: NewsInput, extra: NewsExtra): string {
   const hp = hittingPct(week);
   const lines: string[] = [
     `Player: ${input.firstName} ${input.lastName}`,
+    ...(input.he ? ["Pronouns: he/him. He is a guest player from the men's team; write about him with he/him/his, not she/her."] : []),
     `School: ${input.school}`,
     `Position: ${input.position ?? "unknown"} (what matters most for her: ${ROLE_STATS[role]})`,
     `Story covers: ${input.weekLabel} of the fantasy season (${extra.weekDates})`,

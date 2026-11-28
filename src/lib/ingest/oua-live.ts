@@ -87,9 +87,12 @@ export async function runOuaLiveSync(opts: { pool?: pg.Pool; fetchText?: FetchTe
     const lastRead = new Map(linkRows.map((l) => [l.match_id, l.fetched_at ? new Date(l.fetched_at).getTime() : 0]));
 
     // Today's game links come from the composite page (read only when a game has no link yet).
-    if (games.some((g) => !links.has(g.id))) {
-      const entries = parseOuaComposite(await politeFetch(`${OUA_BASE}/composite?sport=wvball`));
-      for (const g of games.filter((x) => !links.has(x.id))) {
+    // Men's games (guest players) are on the men's composite page.
+    for (const sport of ["wvball", "mvball"] as const) {
+      const need = games.filter((x) => !links.has(x.id) && (sport === "mvball") === / \(Men\)$/.test(x.home_name));
+      if (need.length === 0) continue;
+      const entries = parseOuaComposite(await politeFetch(`${OUA_BASE}/composite?sport=${sport}`), sport);
+      for (const g of need) {
         const home = { name: g.home_name, short_name: g.home_short };
         const away = { name: g.away_name, short_name: g.away_short };
         const e = entries.find((x) => x.date === g.match_date &&

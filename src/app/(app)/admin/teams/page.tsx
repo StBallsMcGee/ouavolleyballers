@@ -15,7 +15,7 @@ export default async function AdminTeamsPage() {
     sb.from("team_invitations").select("fantasy_team_id, email, display_name, claimed_at"),
     sb.from("league_members").select("user_id, role").eq("league_id", league.id),
     getOwnership(sb, league.id),
-    fetchAll<{ id: string; display_name: string }>((from, to) => sb.from("players").select("id, display_name").eq("active", true).eq("conference", "OUA").eq("gender", "womens").is("duplicate_of", null).order("display_name").range(from, to) as never),
+    fetchAll<{ id: string; display_name: string }>((from, to) => sb.from("players").select("id, display_name").eq("active", true).eq("conference", "OUA").in("gender", ["womens", "mens"]) /* "mens": guest players (guest-men.ts) */.is("duplicate_of", null).order("display_name").range(from, to) as never),
     sb.rpc("admin_join_code", { p_league: league.id, p_reset: false }),
     headers(),
     checkServiceKey(),
