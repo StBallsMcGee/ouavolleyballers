@@ -20,9 +20,11 @@ export interface DropCandidate {
  * ("ADD"). If it has (she's locked), the claim is decided at midnight ("CLAIM"); the team lowest
  * in the standings wins a contested player.
  */
-export function AddPlayerButton({ teamId, playerId, playerName, rosterFull, roster, claimed = false, locked = false }: {
+export function AddPlayerButton({ teamId, playerId, playerName, rosterFull, roster, claimed = false, locked = false, waiverUntil = null }: {
   teamId: string; playerId: string; playerName: string; rosterFull: boolean;
   roster: DropCandidate[]; claimed?: boolean; locked?: boolean;
+  /** On waivers (dropped recently): claims only, decided at this time (e.g. "Thu 12:00 a.m."). */
+  waiverUntil?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [drop, setDrop] = useState("");
@@ -36,14 +38,16 @@ export function AddPlayerButton({ teamId, playerId, playerName, rosterFull, rost
     });
   if (msg?.ok && msg.text === "added") return <span className="animate-pop rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-extrabold text-emerald-800">ADDED</span>;
   if (claimed || msg?.ok) return <span className="animate-pop rounded-full bg-gold-100 px-2.5 py-1 text-[11px] font-extrabold text-gold-800" title="Decided at midnight">CLAIMED</span>;
-  const verb = locked ? "Claim" : "Add";
+  const verb = locked || waiverUntil ? "Claim" : "Add";
   if (!open) {
     return (
       <span className="flex flex-col items-end">
         <button
           aria-label={`${verb} ${playerName}`}
-          className={`rounded-full px-3 py-1.5 text-[11px] font-extrabold shadow-sm active:scale-95 disabled:opacity-50 ${locked ? "bg-gold-400 text-brand-950" : "bg-brand-600 text-white"}`}
-          onClick={() => (rosterFull ? setOpen(true) : confirm(locked
+          className={`rounded-full px-3 py-1.5 text-[11px] font-extrabold shadow-sm active:scale-95 disabled:opacity-50 ${locked || waiverUntil ? "bg-gold-400 text-brand-950" : "bg-brand-600 text-white"}`}
+          onClick={() => (rosterFull ? setOpen(true) : confirm(waiverUntil
+            ? `Claim ${playerName}? She's on waivers after being dropped, so claims are decided ${waiverUntil}, in waiver order; she joins your bench if yours wins.`
+            : locked
             ? `Claim ${playerName}? Her game today has started, so the claim is decided at midnight; she joins your bench if yours wins.`
             : `Add ${playerName} to your bench now?`) && run())}
           disabled={pending}

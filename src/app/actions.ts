@@ -264,6 +264,21 @@ export async function joinCreateAccount(input: { code: string; name: string; ema
   }
 }
 
+/**
+ * Commissioner: dissolve a team. Every player goes to waivers (claims decided at the second
+ * midnight), the manager is removed, and the team stays with its record; its remaining matchups
+ * are still played, so results against it keep counting.
+ */
+export async function adminDissolveTeam(teamId: string): Promise<ActionResult> {
+  try {
+    const n = Number(await rpc("admin_dissolve_team", { p_team: uuid.parse(teamId) }));
+    refresh("/admin/teams", "/team", "/free-agents", "/trades", "/standings", "/activity", "/matchup");
+    return { ok: true, message: `Team dissolved: ${n} player${n === 1 ? "" : "s"} sent to waivers.` };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 /** From the invite link, signed in: take an unclaimed team. */
 export async function joinClaimTeam(code: string, teamId: string, name: string): Promise<ActionResult> {
   try {

@@ -3,7 +3,7 @@ import { fetchAll, getOwnership } from "@/lib/data/queries";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { headers } from "next/headers";
 import { checkServiceKey } from "@/lib/supabase/server";
-import { InviteForm, InviteLinkCard, RosterCorrection, SetPasswordButton, TeamOwnerButtons } from "@/components/admin/team-admin";
+import { DissolveTeamButton, InviteForm, InviteLinkCard, RosterCorrection, SetPasswordButton, TeamOwnerButtons } from "@/components/admin/team-admin";
 import { Badge, Card, PageHeader, TeamLink } from "@/components/ui";
 
 export const metadata = { title: "Teams & managers" };
@@ -11,7 +11,7 @@ export const metadata = { title: "Teams & managers" };
 export default async function AdminTeamsPage() {
   const ctx = await requireAdmin();
   const { supabase: sb, league, teams } = ctx;
-  const [{ data: invites }, { data: members }, owner, players, joinCode, h, keyCheck] = await Promise.all([
+  const [{ data: invites }, { data: members }, owner, players, joinCode, h, keyCheck, { data: dissolvedRows }] = await Promise.all([
     sb.from("team_invitations").select("fantasy_team_id, email, display_name, claimed_at"),
     sb.from("league_members").select("user_id, role").eq("league_id", league.id),
     getOwnership(sb, league.id),
@@ -19,7 +19,9 @@ export default async function AdminTeamsPage() {
     sb.rpc("admin_join_code", { p_league: league.id, p_reset: false }),
     headers(),
     checkServiceKey(),
+    sb.from("fantasy_teams").select("id").eq("league_id", league.id).not("dissolved_at", "is", null),
   ]);
+  const dissolved = new Set((dissolvedRows ?? []).map((r) => r.id as string));
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
   // The address the admin is using right now, so the link always points at this site.
   const origin = host ? `${h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")}://${host}` : process.env.NEXT_PUBLIC_SITE_URL ?? "";
@@ -47,14 +49,15 @@ export default async function AdminTeamsPage() {
                     <div className="truncate"><TeamLink id={t.id} name={t.name} /></div>
                     <div className="truncate text-xs text-gray-500">{t.manager}{t.owner_user_id && role.get(t.owner_user_id) === "admin" ? " · admin" : ""}</div>
                   </div>
-                  <div className="shrink-0">{t.owner_user_id ? <Badge tone="mint">Claimed</Badge> : i ? <Badge tone="amber">Invited</Badge> : <Badge>Not invited</Badge>}</div>
+                  <div className="shrink-0">{dissolved.has(t.id) ? <Badge tone="red">Dissolved</Badge> : t.owner_user_id ? <Badge tone="mint">Claimed</Badge> : i ? <Badge tone="amber">Invited</Badge> : <Badge>Not invited</Badge>}</div>
                 </div>
                 <details className="group">
                   <summary className="cursor-pointer list-none text-xs font-bold text-brand-300">{t.owner_user_id ? "Manage" : i ? `Invited: ${i.email} · change` : "Invite manager"} <span className="inline-block transition group-open:rotate-90">›</span></summary>
                   <div className="mt-2 space-y-2">
                     {t.owner_user_id ? <TeamOwnerButtons teamId={t.id} ownerId={t.owner_user_id} isAdmin={role.get(t.owner_user_id) === "admin"} /> : null}
                     {t.owner_user_id ? <SetPasswordButton userId={t.owner_user_id} name={t.manager ?? t.name} /> : null}
-                    <InviteForm teamId={t.id} email={i?.email ?? ""} name={i?.display_name ?? t.manager_display_name ?? ""} claimed={!!t.owner_user_id} />
+                    {!dissolved.has(t.id) ? <DissolveTeamButton teamId={t.id} name={t.name} /> : <p className="text-xs text-gray-500">Dissolved: its players went to waivers. The team keeps its record and its remaining matchups still count.</p>}
+                    {!dissolved.has(t.id) ? <InviteForm teamId={t.id} email={i?.email ?? ""} name={i?.display_name ?? t.manager_display_name ?? ""} claimed={!!t.owner_user_id} /> : null}
                   </div>
                 </details>
               </li>

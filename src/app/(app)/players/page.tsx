@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireLeague } from "@/lib/data/context";
-import { fetchAll, getMatchesBetween, getOwnership, getProjections, getRoster, getSeasonPlayerPoints, lockedUniversities } from "@/lib/data/queries";
+import { fetchAll, getMatchesBetween, getOwnership, getProjections, getRoster, getSeasonPlayerPoints, getWaivers, lockedUniversities, waiverLabel } from "@/lib/data/queries";
 import { listPlayers } from "@/lib/data/players";
 import { loadScheduleContext } from "@/lib/data/schedule-context";
 import { Card, Empty, Notice, PageHeader } from "@/components/ui";
@@ -91,7 +91,7 @@ const POSITION_NAMES: Record<string, string> = { OH: "outside hitters", M: "midd
 
 async function LeadersView({ ctx, sp }: { ctx: LeagueContext; sp: Sp }) {
   const { supabase: sb, league, myTeam, today } = ctx;
-  const [sched, players, owner, statRows, roster, todays, { data: pendingClaims }] = await Promise.all([
+  const [sched, players, owner, statRows, roster, todays, { data: pendingClaims }, waivers] = await Promise.all([
     loadScheduleContext(sb, ctx.weeks, ctx.currentWeek, today),
     listPlayers(sb, { activeOnly: false }),
     getOwnership(sb, league.id),
@@ -101,6 +101,7 @@ async function LeadersView({ ctx, sp }: { ctx: LeagueContext; sp: Sp }) {
     myTeam
       ? sb.from("waiver_claims").select("player_id").eq("fantasy_team_id", myTeam.id).eq("status", "pending")
       : Promise.resolve({ data: [] as Array<{ player_id: string }> }),
+    getWaivers(sb, league.id),
   ]);
 
   // Weeks that have started, newest first; the default is the newest one with stats.
@@ -135,7 +136,7 @@ async function LeadersView({ ctx, sp }: { ctx: LeagueContext; sp: Sp }) {
     const mine = !!o && o === myTeam?.id;
     let action: React.ReactNode = null;
     if (!o && myTeam && enabled) {
-      action = <AddPlayerButton teamId={myTeam.id} playerId={p.id} playerName={p.display_name} rosterFull={roster.length >= limit} roster={myRoster} claimed={claimed.has(p.id)} locked={!!p.university_id && locked.has(p.university_id)} />;
+      action = <AddPlayerButton teamId={myTeam.id} playerId={p.id} playerName={p.display_name} rosterFull={roster.length >= limit} roster={myRoster} claimed={claimed.has(p.id)} locked={!!p.university_id && locked.has(p.university_id)} waiverUntil={waivers.has(p.id) ? waiverLabel(waivers.get(p.id)!) : null} />;
     } else if (mine) {
       action = <RoundLink href="/team" label={`Manage ${p.display_name} on your team`} tone="red">−</RoundLink>;
     } else if (o && myTeam) {
