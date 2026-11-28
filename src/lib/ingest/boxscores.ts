@@ -269,6 +269,7 @@ export async function findCandidates(pool: pg.Pool, today: string, lookbackDays:
        and m.counts_for_fantasy and m.status not in ('cancelled', 'postponed')
        and coalesce(m.start_time, m.lock_at) + interval '2 hours' < now()
        and not exists (select 1 from public.player_match_statistics s where s.match_id = m.id)
+       and m.source_system <> 'guest-men' -- men's games for guest players have their own job (guest-men.ts)
      order by m.match_date`,
     [addDays(today, -lookbackDays), today])).rows;
 }

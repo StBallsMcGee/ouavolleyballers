@@ -28,7 +28,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
     getSeasonPlayerPoints(sb, league.id),
     p.university_id ? sb.from("players").select("id").eq("university_id", p.university_id).is("duplicate_of", null) : Promise.resolve({ data: [] as Array<{ id: string }> }),
     getProjections(sb, league.id),
-    sb.from("players").select("id, position_label").eq("gender", "womens").eq("conference", "OUA").is("duplicate_of", null),
+    sb.from("players").select("id, position_label").in("gender", ["womens", "mens"]) /* "mens": guest players (guest-men.ts) */.eq("conference", "OUA").is("duplicate_of", null),
     getMatchesBetween(sb, ctx.today, weekEnd),
   ]);
   const official = new Map((leaguePts ?? []).map((r) => [r.match_id, r]));
@@ -86,6 +86,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   const news = saved ? { headline: saved.headline as string, paragraphs: saved.paragraphs as string[] } : newsWeek ? buildWeeklyNews({
     playerId: id,
     firstName: p.first_name,
+    he: p.gender === "mens",
     lastName: p.last_name,
     position: p.position_label,
     school: uniShort(p.university_id),

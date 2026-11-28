@@ -18,6 +18,7 @@ const MORE = [
   { href: "/free-agents", label: "Free agents" },
   { href: "/trades", label: "Trades" },
   { href: "/activity", label: "League activity" },
+  { href: "/help", label: "How it works" },
   { href: "/scoring", label: "Scoring rules" },
 ];
 

@@ -21,3 +21,17 @@ describe("league settings", () => {
     expect(isEligibleForSlot([], "BENCH")).toBe(true);
   });
 });
+
+describe("FLEX slot", () => {
+  it("takes an outside hitter or a middle, nobody else", async () => {
+    const { isEligibleForSlot: ok, startingSlots: slots, rosterSettingsSchema } = await import("./settings");
+    expect(ok(["OH"], "FLEX")).toBe(true);
+    expect(ok(["M"], "FLEX2")).toBe(true);
+    expect(ok(["S"], "FLEX")).toBe(false);
+    expect(ok(["L"], "FLEX")).toBe(false);
+    const r = rosterSettingsSchema.parse({ S: 1, OH: 2, M: 2, L: 1, UTIL: 0, FLEX: 1, TOTAL: 10 });
+    expect(slots(r)).toEqual(["S", "OH1", "OH2", "M1", "M2", "FLEX", "L"]);
+    // Leagues saved before FLEX existed have none.
+    expect(rosterSettingsSchema.parse({ S: 1, OH: 3, M: 2, L: 1, UTIL: 1, TOTAL: 11 }).FLEX).toBe(0);
+  });
+});

@@ -80,17 +80,22 @@ export function parseOuaBoxScore(html: string): BoxScore {
 /** OUA writes team names as our full name or short code ("Toronto", "TMU", "Queen's"): exact match only. */
 export function ouaTeamMatches(team: string, university: { name: string; short_name: string | null }): boolean {
   const t = nameKey(team);
-  return t === nameKey(university.name) || (!!university.short_name && t === nameKey(university.short_name));
+  // Men's teams for guest players are stored as "Windsor (Men)" / "WIN-M".
+  const name = university.name.replace(/ \(Men\)$/, "");
+  const short = university.short_name?.replace(/-M$/, "") ?? null;
+  return t === nameKey(name) || (!!short && t === nameKey(short));
 }
 
 /**
  * Today's games on the OUA composite page (oua.ca/composite?sport=wvball). Each game links to its
  * box score page ("Live stats" while it's on, "Box Score" after).
  */
-export function parseOuaComposite(html: string): OuaScheduleEntry[] {
+export function parseOuaComposite(html: string, sport: "wvball" | "mvball" = "wvball"): OuaScheduleEntry[] {
   const out: OuaScheduleEntry[] = [];
   const seen = new Set<string>();
-  for (const m of html.matchAll(/<a[^>]*aria-label="Women(?:&#39;|')s Volleyball event: [^:"]*:[^:"]*: ([^"]*?) at ([^":]*?): [^"]*"[^>]*href="([^"]*\/wvball\/[^"]*\/boxscores\/(\d{4})(\d{2})(\d{2})_[0-9a-z]+\.xml)"/gi)) {
+  const who = sport === "mvball" ? "Men" : "Women";
+  const re = new RegExp(`<a[^>]*aria-label="${who}(?:&#39;|')s Volleyball event: [^:"]*:[^:"]*: ([^"]*?) at ([^":]*?): [^"]*"[^>]*href="([^"]*\\/${sport}\\/[^"]*\\/boxscores\\/(\\d{4})(\\d{2})(\\d{2})_[0-9a-z]+\\.xml)"`, "gi");
+  for (const m of html.matchAll(re)) {
     const url = new URL(m[3]!, OUA_BASE).toString();
     if (seen.has(url)) continue;
     seen.add(url);

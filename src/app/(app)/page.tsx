@@ -246,6 +246,14 @@ export default async function Dashboard() {
             </a>
           )}
         </section>
+        <Link href="/help" className="mx-3 flex items-center gap-3 rounded-2xl bg-surface p-3 shadow-lg shadow-black/20 transition active:scale-[0.98] sm:mx-0">
+          <span className="tile-gold grid h-12 w-12 shrink-0 place-items-center rounded-full text-2xl font-black text-charcoal shadow-md" aria-hidden>?</span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-extrabold">How does this all work?</span>
+            <span className="block text-xs text-gray-500">Fantasy basics, lineups, scoring, waivers, trades and playoffs</span>
+          </span>
+          <span className="text-gray-400" aria-hidden>›</span>
+        </Link>
       </div>
     </>
   );

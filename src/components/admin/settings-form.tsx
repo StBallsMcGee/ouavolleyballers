@@ -10,7 +10,8 @@ export function SettingsForm({ name, status, settings }: { name: string; status:
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const num = (v: string) => (v === "" ? 0 : Math.max(0, Math.floor(Number(v))));
-  const starters = s.roster.S + s.roster.OH + s.roster.M + s.roster.L + s.roster.UTIL;
+  const flex = s.roster.FLEX ?? 0;
+  const starters = s.roster.S + s.roster.OH + s.roster.M + s.roster.L + s.roster.UTIL + flex;
 
   return (
     <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); start(async () => { const r = await updateLeague({ name: n, status: st, settings: s }); setMsg({ ok: r.ok, text: r.ok ? r.message ?? "Saved" : r.error }); }); }}>
@@ -21,12 +22,12 @@ export function SettingsForm({ name, status, settings }: { name: string; status:
 
       <section className="card p-4">
         <h3 className="mb-3 font-bold">Roster</h3>
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-          {(["S", "OH", "M", "L", "UTIL", "TOTAL"] as const).map((k) => (
-            <div key={k}><label className="label">{k === "TOTAL" ? "Total size" : `${k} slots`}</label><input type="number" min={0} max={k === "TOTAL" ? 30 : 10} className="input" value={s.roster[k]} onChange={(e) => setS({ ...s, roster: { ...s.roster, [k]: num(e.target.value) } })} /></div>
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-7">
+          {(["S", "OH", "M", "FLEX", "L", "UTIL", "TOTAL"] as const).map((k) => (
+            <div key={k}><label className="label">{k === "TOTAL" ? "Total size" : k === "FLEX" ? "Flex (OH/M)" : `${k} slots`}</label><input type="number" min={0} max={k === "TOTAL" ? 30 : 10} className="input" value={s.roster[k] ?? 0} onChange={(e) => setS({ ...s, roster: { ...s.roster, [k]: num(e.target.value) } })} /></div>
           ))}
         </div>
-        <p className="mt-2 text-xs text-gray-500">{starters} starting slots + {Math.max(0, s.roster.TOTAL - starters)} bench spots. The total can&apos;t be set below the largest current roster. Removing a slot (e.g. setting UTIL to 0) moves whoever is in it to the bench, in current and saved future lineups; points already scored don&apos;t change.</p>
+        <p className="mt-2 text-xs text-gray-500">{starters} starting slots + {Math.max(0, s.roster.TOTAL - starters)} bench spots. The total can&apos;t be set below the largest current roster. Flex slots take an outside hitter or a middle. Removing a slot (e.g. setting UTIL to 0) moves whoever is in it to the bench, in current and saved future lineups; points already scored don&apos;t change.</p>
       </section>
 
       <section className="card grid gap-4 p-4 sm:grid-cols-2">

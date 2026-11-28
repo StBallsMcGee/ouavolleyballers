@@ -1,10 +1,8 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { updateMyPassword } from "@/app/auth-actions";
 
 export default function UpdatePasswordPage() {
-  const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -15,11 +13,10 @@ export default function UpdatePasswordPage() {
     if (password.length < 8) return setError("Use at least 8 characters.");
     if (password !== confirm) return setError("The passwords do not match.");
     setBusy(true);
-    const { error } = await supabaseBrowser().auth.updateUser({ password });
+    const r = await updateMyPassword(password).catch(() => ({ ok: false as const, error: "Couldn't reach the app. Check your connection and try again." }));
     setBusy(false);
-    if (error) return setError(error.message);
-    router.replace("/");
-    router.refresh();
+    if (!r.ok) return setError(r.error);
+    window.location.assign("/");
   }
 
   return (
@@ -35,7 +32,7 @@ export default function UpdatePasswordPage() {
           <label className="label" htmlFor="pw2">Confirm password</label>
           <input id="pw2" type="password" autoComplete="new-password" className="input" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         </div>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="text-sm text-red-600" role="alert">{error}</p> : null}
         <button className="btn-primary w-full" disabled={busy}>{busy ? "Saving…" : "Save password"}</button>
       </form>
     </main>

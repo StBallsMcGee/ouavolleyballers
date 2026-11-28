@@ -355,3 +355,23 @@ export async function getLastPlayDayPoints(sb: Sb, leagueId: string, today: stri
   for (const r of rows ?? []) points.set(r.player_id as string, Math.round(((points.get(r.player_id as string) ?? 0) + Number(r.points)) * 100) / 100);
   return { date, points };
 }
+
+/**
+ * Players on waivers (dropped recently): player id -> when the waiver period ends. Claims on them
+ * are decided then; they can't be added right away. Empty on a database without waiver periods.
+ */
+export async function getWaivers(sb: Sb, leagueId: string): Promise<Map<string, string>> {
+  const { data, error } = await sb.from("player_waivers").select("player_id, until").eq("league_id", leagueId).gt("until", new Date().toISOString());
+  if (error) return new Map();
+  return new Map((data ?? []).map((r) => [r.player_id as string, String(r.until)]));
+}
+
+/** "Thu 12:00 a.m." style label for when a waiver period ends. */
+export function waiverLabel(until: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", weekday: "short", hour: "numeric", minute: "2-digit" }).format(new Date(until));
+}
+
+/** Short day label for the badge: "Sun" (claims decided at the start of that day). */
+export function waiverDay(until: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", weekday: "short" }).format(new Date(until));
+}
