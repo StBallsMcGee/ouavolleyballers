@@ -26,41 +26,38 @@ afterAll(async () => drop());
 const q = (user: string, sql: string, params: unknown[] = []) => asUser(client, user, () => client.query(sql, params));
 const newPlayer = async (k: string) =>
   (await client.query(`insert into players (first_name, last_name, display_name, university_id, conference, gender, positions, source_system, source_id) values ($1,'T',$1||' T',$2,'OUA','womens','{OH}','test',$1) returning id`, [k, f.uniZ])).rows[0].id as string;
-const order = async () => (await client.query(`select t.name from waiver_priority w join fantasy_teams t on t.id = w.fantasy_team_id where w.league_id = $1 order by position`, [f.leagueId])).rows.map((r) => r.name);
 const run = async () => {
   await client.query(`update waiver_claims set process_after = now() - interval '1 second' where status = 'pending'`);
   return (await client.query(`select process_waivers($1) n`, [f.leagueId])).rows[0].n as number;
 };
 const winner = async (player: string) => (await client.query(`select t.name from waiver_claims w join fantasy_teams t on t.id = w.fantasy_team_id where w.player_id = $1 and w.status = 'won'`, [player])).rows[0]?.name;
 
-describe("rolling waiver priority", () => {
-  it("starts as the standings reversed; the winner moves to the back", async () => {
+describe("waiver order: reverse standings", () => {
+  // Standings: Alpha 2-0, Bravo 0-1 (50 points), Charlie 0-1 (40 points) -> order Charlie, Bravo, Alpha.
+  it("the team lowest in the standings wins a contested claim", async () => {
     const p1 = await newPlayer("w1");
     await q(f.alice, `select submit_waiver_claim($1, $2, null)`, [f.teamA, p1]);
     await q(f.bob, `select submit_waiver_claim($1, $2, null)`, [f.teamB, p1]);
     await q(f.carol, `select submit_waiver_claim($1, $2, null)`, [carolTeam, p1]);
     await run();
-    expect(await winner(p1)).toBe("Charlie"); // last place picks first
-    expect(await order()).toEqual(["Bravo", "Alpha", "Charlie"]);
+    expect(await winner(p1)).toBe("Charlie");
   });
-  it("next night, the new top of the order wins, and also goes to the back", async () => {
+  it("winning doesn't cost a team its place: the next night the same order applies", async () => {
     const p2 = await newPlayer("w2");
     await q(f.alice, `select submit_waiver_claim($1, $2, null)`, [f.teamA, p2]);
     await q(f.bob, `select submit_waiver_claim($1, $2, null)`, [f.teamB, p2]);
     await q(f.carol, `select submit_waiver_claim($1, $2, null)`, [carolTeam, p2]);
     await run();
-    expect(await winner(p2)).toBe("Bravo");
-    expect(await order()).toEqual(["Alpha", "Charlie", "Bravo"]);
+    expect(await winner(p2)).toBe("Charlie");
   });
-  it("within one night the order updates after each win", async () => {
+  it("the next team up wins when the lowest team has no claim; one team can win several claims in a night", async () => {
     const p3 = await newPlayer("w3");
     const p4 = await newPlayer("w4");
-    // Alpha (top) claims both; Charlie claims p4. Alpha gets p3 first, drops to the back, so Charlie gets p4.
-    await q(f.alice, `select submit_waiver_claim($1, $2, null)`, [f.teamA, p3]);
-    await q(f.alice, `select submit_waiver_claim($1, $2, $3)`, [f.teamA, p4, f.players.ohB]);
-    await q(f.carol, `select submit_waiver_claim($1, $2, null)`, [carolTeam, p4]);
+    // Bravo (0-1, 50 points) is ahead of Alpha in the order; Charlie has no claims tonight.
+    await q(f.alice, `select submit_waiver_claim($1, $2, $3)`, [f.teamA, p3, f.players.ohB]);
+    await q(f.bob, `select submit_waiver_claim($1, $2, null)`, [f.teamB, p3]);
+    await q(f.bob, `select submit_waiver_claim($1, $2, null)`, [f.teamB, p4]);
     await run();
-    expect([await winner(p3), await winner(p4)]).toEqual(["Alpha", "Charlie"]);
-    expect(await order()).toEqual(["Bravo", "Alpha", "Charlie"]);
+    expect([await winner(p3), await winner(p4)]).toEqual(["Bravo", "Bravo"]);
   });
 });
