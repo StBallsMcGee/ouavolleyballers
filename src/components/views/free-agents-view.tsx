@@ -44,11 +44,15 @@ export async function FreeAgentsView({ sp, basePath = "/free-agents", keep = {},
     myTeam
       ? sb.from("waiver_claims").select("id, player_id, drop_player_id, status, detail, processed_at").eq("fantasy_team_id", myTeam.id).order("created_at", { ascending: false }).limit(20)
       : Promise.resolve({ data: [] as Array<{ id: string; player_id: string; drop_player_id: string | null; status: string; detail: string | null; processed_at: string | null }> }),
-    sb.from("waiver_priority").select("fantasy_team_id, position").eq("league_id", league.id).order("position"),
+    // Waiver order = reverse standings (last place first; ties: fewer points first).
+    sb.from("v_standings").select("fantasy_team_id, rank, points_for").eq("league_id", league.id),
     getWaivers(sb, league.id),
   ]);
-  // Rolling waiver order: 1 = picks first.
-  const waiverOrder = (priority ?? []).map((w) => w.fantasy_team_id as string).filter((id) => ctx.teams.some((t) => t.id === id));
+  // Waiver order: 1 = picks first (last place in the standings).
+  const waiverOrder = [...(priority ?? [])]
+    .sort((a, b) => Number(b.rank) - Number(a.rank) || Number(a.points_for) - Number(b.points_for))
+    .map((w) => w.fantasy_team_id as string)
+    .filter((id) => ctx.teams.some((t) => t.id === id));
   const myPriority = myTeam ? waiverOrder.indexOf(myTeam.id) + 1 : 0;
   // Pending claims, plus results from the last three days.
   const recent = (claimRows ?? []).filter((c) => c.status === "pending" || (c.processed_at && Date.now() - new Date(c.processed_at).getTime() < 3 * 86400_000));
@@ -83,7 +87,7 @@ export async function FreeAgentsView({ sp, basePath = "/free-agents", keep = {},
         myTeam ? <p className="mb-2 px-4 text-sm font-semibold text-gray-500 sm:px-0">Your roster <b className="text-gold-300">{roster.length}/{limit}</b></p> : null
       ) : <PageHeader tone="green" title="Free agents" subtitle={myTeam ? `Your roster ${roster.length}/${limit}` : undefined} />}
       {!enabled ? <div className="mb-3"><Notice tone="amber">Free agency is currently closed by the league administrator.</Notice></div> : (
-        <div className="mb-3"><Notice tone="slate"><b>Add</b> a free agent whose game today hasn&apos;t started and she joins your bench right away. Once her game has started she can only be <b>claimed</b>: claims are decided at midnight, in waiver order. The team highest in the order gets her, and winning a claim moves that team to the back. A player who was just dropped is on <b>waivers</b> until the second midnight after the drop (so everyone gets a chance to see her): claims on her are decided then.</Notice></div>
+        <div className="mb-3"><Notice tone="slate"><b>Add</b> a free agent whose game today hasn&apos;t started and she joins your bench right away. Once her game has started she can only be <b>claimed</b>: claims are decided at midnight, in waiver order. The team lowest in the standings gets her (ties: the team with fewer points). A player who was just dropped is on <b>waivers</b> until the second midnight after the drop (so everyone gets a chance to see her): claims on her are decided then.</Notice></div>
       )}
       {waiverOrder.length ? (
         <details className="mx-3 mb-3 rounded-2xl bg-surface shadow-lg shadow-black/20 sm:mx-0">

@@ -90,7 +90,7 @@ export default async function HelpPage() {
             <li><b>Add</b>: if her game today hasn&apos;t started, she joins your bench right away.</li>
             <li><b>Claim</b>: once her game has started that day, you put in a claim instead, decided at <b>midnight</b>.</li>
             <li><b>Waivers</b>: a player who was just dropped is on waivers until the <b>second midnight</b> after the drop, so everyone gets a day or two to see her. You can claim her any time; claims are decided when her waiver period ends. She shows a <b>Waivers</b> badge.</li>
-            <li><b>Waiver order</b>: when several teams claim the same player, the team highest in the waiver order gets her, and then moves to the <b>back</b> of the order. The order started as the standings reversed (last place first).</li>
+            <li><b>Waiver order is reverse standings</b>: when several teams claim the same player, the team <b>lowest in the standings</b> gets her (if two teams are level, the one with fewer points scored). Winning a claim doesn&apos;t change your place; the order just follows the standings.</li>
             <li>If your roster is full, you choose who to drop when you add or claim.</li>
           </ul>
           {!s.freeAgency.enabled ? <p className="font-bold text-amber-600">Free agency is currently closed by the commissioner.</p> : null}
